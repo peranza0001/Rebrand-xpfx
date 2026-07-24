@@ -8,7 +8,7 @@ export type PostgresConnectionConfig = {
 export function getRawDatabaseUrl(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  return env.DATABASE_PUBLIC_URL?.trim() || env.DATABASE_URL?.trim();
+  return env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();
 }
 
 export function buildPostgresConfig(
