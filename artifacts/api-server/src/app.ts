@@ -17,6 +17,20 @@ import { getDb } from './lib/db-client';
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const forwardedProto = req.get('x-forwarded-proto');
+  const isHttpsRequest = req.secure || (forwardedProto && forwardedProto.split(',')[0].trim() === 'https');
+
+  if (process.env.NODE_ENV === 'production' && !isHttpsRequest) {
+    const host = req.get('host');
+    const redirectTarget = host ? `https://${host}${req.originalUrl}` : `https://${req.hostname}${req.originalUrl}`;
+    return res.redirect(301, redirectTarget);
+  }
+
+  next();
+});
 
 function buildHealthPayload(extra: Record<string, unknown> = {}) {
   return {
@@ -304,9 +318,6 @@ const liveChatLimiter = rateLimit({
 app.use('/api/', globalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/live-chat/', liveChatLimiter);
-
-// ─── TRUST PROXY ──────────────────────────────────────────────────────────────
-app.set('trust proxy', 1);
 
 // ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
 const candidateRoots = [
