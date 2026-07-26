@@ -64,7 +64,6 @@ router.post("/trades/:tradeId/release", requireAuth, requireLiveTrading, (req, r
       remaining: limitCheck.remaining,
     });
   }
-  const data = getUserData(req.userId!);
   const trade = data.trades.find((t) => t.id === req.params["tradeId"]);
   if (!trade) {
     return res.status(404).json({ success: false, message: "Trade not found" });

@@ -9,6 +9,7 @@ import { hydrateFromDb } from './lib/hydrate';
 import { validateStartupEnvironment } from './lib/startup-env';
 import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
 import { setPrismaClient } from './lib/db-persist';
+import { logger } from './lib/logger';
 
 type PrismaClientType = {
   $connect: () => Promise<void>;
@@ -37,7 +38,7 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
     } catch (err) {
       lastError = err;
       if (attempt < attempts) {
-        console.warn(`[DB] Connection attempt ${attempt} failed, retrying in ${delayMs}ms`, err);
+        logger.warn({ attempt, delayMs, err }, '[DB] Connection attempt failed, retrying');
         await delay(delayMs);
       }
     }
@@ -48,7 +49,7 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
 async function initDatabase() {
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    console.warn('[DB] DATABASE_URL and DATABASE_PUBLIC_URL not set — continuing without Prisma persistence');
+    logger.warn('[DB] DATABASE_URL and DATABASE_PUBLIC_URL not set — continuing without Prisma persistence');
     return null;
   }
 
@@ -70,10 +71,10 @@ async function initDatabase() {
     }
 
     const client = await retryAsync(createClient, 5, 3000);
-    console.log('[DB] PostgreSQL connected via Prisma');
+    logger.info('[DB] PostgreSQL connected via Prisma');
     return client;
   } catch (error) {
-    console.warn('[DB] Prisma unavailable — continuing without persistence', error);
+    logger.warn({ err: error }, '[DB] Prisma unavailable — continuing without persistence');
     return null;
   }
 }
@@ -82,12 +83,12 @@ async function bootstrap() {
   try {
     const startupValidation = validateStartupEnvironment(process.env);
     if (!startupValidation.ok) {
-      console.error('[SERVER] Missing required environment variables:', startupValidation.missing.join(', '));
+      logger.error({ missing: startupValidation.missing }, '[SERVER] Missing required environment variables');
       process.exit(1);
     }
 
     if (startupValidation.warnings.length > 0) {
-      console.warn('[SERVER] Optional environment variables missing:', startupValidation.warnings.join(', '));
+      logger.warn({ missing: startupValidation.warnings }, '[SERVER] Optional environment variables missing');
     }
 
     process.env.NODE_ENV = startupValidation.resolved.NODE_ENV;
@@ -107,28 +108,26 @@ async function bootstrap() {
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 
     server.listen(resolvedPort, '0.0.0.0', () => {
-      console.log(`[SERVER] XpressPro FX API running on port ${resolvedPort}`);
-      console.log(`[SERVER] Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`[SERVER] Health: http://0.0.0.0:${resolvedPort}/healthz`);
+      logger.info({ port: resolvedPort, environment: process.env.NODE_ENV || 'development' }, '[SERVER] XpressPro FX API running');
     });
   } catch (error) {
-    console.error('[SERVER] Failed to start:', error);
+    logger.error({ err: error }, '[SERVER] Failed to start');
     await prisma?.$disconnect();
     process.exit(1);
   }
 }
 
 process.on('SIGTERM', async () => {
-  console.log('[SERVER] SIGTERM received — shutting down gracefully');
+  logger.info('[SERVER] SIGTERM received — shutting down gracefully');
   server.close(async () => {
     await prisma?.$disconnect();
-    console.log('[SERVER] Shutdown complete');
+    logger.info('[SERVER] Shutdown complete');
     process.exit(0);
   });
 });
 
 process.on('SIGINT', async () => {
-  console.log('[SERVER] SIGINT received — shutting down gracefully');
+  logger.info('[SERVER] SIGINT received — shutting down gracefully');
   server.close(async () => {
     await prisma?.$disconnect();
     process.exit(0);
@@ -137,10 +136,10 @@ process.on('SIGINT', async () => {
 
 server.on('error', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`[SERVER] Port ${process.env.PORT || DEFAULT_PORT} is already in use. Please stop the existing process or change PORT.`);
-    console.error('[SERVER] If this is a local or VPS restart, wait a few seconds and try again.');
+    logger.error({ port: process.env.PORT || DEFAULT_PORT }, '[SERVER] Port is already in use');
+    logger.error('[SERVER] If this is a local or VPS restart, wait a few seconds and try again.');
   } else {
-    console.error('[SERVER] Failed to bind:', error);
+    logger.error({ err: error }, '[SERVER] Failed to bind');
   }
   process.exit(1);
 });

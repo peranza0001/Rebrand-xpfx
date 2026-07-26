@@ -63,8 +63,8 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   if (!normalizeString(env.SENDGRID_API_KEY)) {
     warnings.push('SENDGRID_API_KEY');
   }
-  if (!normalizeString(env.OPENAI_API_KEY)) {
-    warnings.push('OPENAI_API_KEY');
+  if (!normalizeString(env.AI_INTEGRATIONS_OPENAI_API_KEY)) {
+    warnings.push('AI_INTEGRATIONS_OPENAI_API_KEY');
   }
   if (!normalizeString(env.ALCHEMY_API_KEY)) {
     warnings.push('ALCHEMY_API_KEY');
