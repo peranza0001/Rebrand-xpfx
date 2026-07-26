@@ -8,6 +8,7 @@ import {
 } from "../lib/blockchain";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { determineAccountTier, canPerformAction } from "../lib/account-tiers";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,23 @@ router.post("/deposits", requireAuth, async (req, res) => {
     });
   }
   if (!enforceGasFee(req, res, "deposit")) return;
+  
+  // Check tier permissions for fiat deposits
+  const userTier = determineAccountTier({
+    emailVerified: req.storedUser!.user.emailVerified,
+    kycVerified: req.storedUser!.user.kycVerified,
+    bankAccountsCount: 0,
+    role: req.storedUser!.role,
+  });
+  
+  if (parsed.data.method === "fiat" && !canPerformAction(userTier, 'fiatDepositsEnabled')) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account tier does not support fiat deposits",
+      hint: "Verify your email to enable fiat deposits",
+    });
+  }
+  
   const u = req.storedUser!.user;
   const data = getUserData(req.userId!);
   const mainWallet = data.wallets.find((w) => w.type === "main");
