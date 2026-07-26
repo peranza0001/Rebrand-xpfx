@@ -41,14 +41,22 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
-    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "prisma": "5.14.0",
     "@prisma/client": "5.14.0",
     "tsx": "^4.23.1",
     "typescript": "^5.4.5",
     "husky": "^9.0.0"
+  },
+  "overrides": {
+    "brace-expansion": "2.1.2",
+    "minimatch": "7.4.9",
+    "esbuild": "0.28.1",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.28.1"
+    }
   }
 }
