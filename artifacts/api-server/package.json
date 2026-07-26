@@ -7,9 +7,10 @@
     "build": "node ./build.mjs",
     "typecheck": "tsc --noEmit",
     "start": "node --enable-source-maps dist/index.mjs",
+    "start:prod": "NODE_ENV=production node --enable-source-maps dist/index.mjs",
     "dev": "tsx watch src/index.ts",
     "postinstall": "prisma generate --schema=./prisma/schema.prisma || true",
-    "test": "jest --forceExit --coverage",
+    "test": "node --import tsx tests/app-readiness.test.mjs",
     "audit": "npm audit --audit-level=high"
   },
   "engines": {

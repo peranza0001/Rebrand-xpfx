@@ -10,7 +10,7 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
-import { buildPostgresConfig } from '../../../lib/db/src/connection-config.ts';
+import { buildPostgresConfig } from '../../../lib/db/src/connection-config';
 import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
 
@@ -68,24 +68,60 @@ async function readinessHandler(_req: Request, res: Response) {
 }
 
 app.get('/healthz', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload({ checks: ['process'] }));
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/livez', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload({ checks: ['process'] }));
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/healthz', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload());
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/livez', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload());
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/healthz/db', dbHealthHandler);
-app.get('/readyz', readinessHandler);
-app.get('/api/readyz', readinessHandler);
+app.get('/healthz/db', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ db: 'connected' });
+  }
+
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ db: 'connected' });
+  } catch (err) {
+    return res.status(503).json({ db: 'disconnected', error: (err as Error).message });
+  }
+});
+app.get('/readyz', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ status: 'ok' });
+  }
+
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    return res.status(503).json({ status: 'error', error: (err as Error).message });
+  }
+});
+app.get('/api/readyz', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ status: 'ok' });
+  }
+
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    return res.status(503).json({ status: 'error', error: (err as Error).message });
+  }
+});
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');

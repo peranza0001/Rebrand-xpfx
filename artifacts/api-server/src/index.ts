@@ -4,17 +4,18 @@ dotenv.config();
 
 import http from 'http';
 import app from './app';
-import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config.ts';
-import { hydrateFromDb } from './lib/hydrate.ts';
+import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
+import { hydrateFromDb } from './lib/hydrate';
+import { validateStartupEnvironment } from './lib/startup-env';
 import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
+import { setPrismaClient } from './lib/db-persist';
 
 type PrismaClientType = {
   $connect: () => Promise<void>;
   $disconnect: () => Promise<void>;
 };
 
-const DEFAULT_PORT = 5000;
-const PORT = Number(process.env.PORT || DEFAULT_PORT);
+const DEFAULT_PORT = 8080;
 const server = http.createServer(app);
 
 let prisma: PrismaClientType | null = null;
@@ -79,11 +80,31 @@ async function initDatabase() {
 
 async function bootstrap() {
   try {
+    const startupValidation = validateStartupEnvironment(process.env);
+    if (!startupValidation.ok) {
+      console.error('[SERVER] Missing required environment variables:', startupValidation.missing.join(', '));
+      process.exit(1);
+    }
+
+    if (startupValidation.warnings.length > 0) {
+      console.warn('[SERVER] Optional environment variables missing:', startupValidation.warnings.join(', '));
+    }
+
+    process.env.NODE_ENV = startupValidation.resolved.NODE_ENV;
+    process.env.PORT = startupValidation.resolved.PORT;
+    if (startupValidation.resolved.DATABASE_URL) {
+      process.env.DATABASE_URL = startupValidation.resolved.DATABASE_URL;
+    }
+    if (startupValidation.resolved.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS = startupValidation.resolved.ALLOWED_ORIGINS;
+    }
+
     validateProductionEnvironment(process.env);
     prisma = await initDatabase();
+    setPrismaClient(prisma);
     await hydrateFromDb();
 
-    const resolvedPort = normalizePort(process.env.PORT || PORT);
+    const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 
     server.listen(resolvedPort, '0.0.0.0', () => {
       console.log(`[SERVER] XpressPro FX API running on port ${resolvedPort}`);
@@ -116,7 +137,7 @@ process.on('SIGINT', async () => {
 
 server.on('error', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EADDRINUSE') {
-    console.error(`[SERVER] Port ${PORT} is already in use. Please stop the existing process or change PORT.`);
+    console.error(`[SERVER] Port ${process.env.PORT || DEFAULT_PORT} is already in use. Please stop the existing process or change PORT.`);
     console.error('[SERVER] If this is a local or VPS restart, wait a few seconds and try again.');
   } else {
     console.error('[SERVER] Failed to bind:', error);
@@ -124,4 +145,4 @@ server.on('error', (error: NodeJS.ErrnoException) => {
   process.exit(1);
 });
 
-bootstrap();
+void bootstrap();
