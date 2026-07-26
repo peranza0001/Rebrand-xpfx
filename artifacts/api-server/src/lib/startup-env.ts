@@ -18,8 +18,10 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   resolved.PORT = normalizeString(env.PORT) || '8080';
 
   const databaseUrl = normalizeString(env.DATABASE_URL) || normalizeString(env.DATABASE_PUBLIC_URL);
-  if (!databaseUrl) {
+  if (!databaseUrl && resolved.NODE_ENV === 'production') {
     missing.push('DATABASE_URL');
+  } else if (!databaseUrl) {
+    warnings.push('DATABASE_URL');
   }
   resolved.DATABASE_URL = databaseUrl;
 

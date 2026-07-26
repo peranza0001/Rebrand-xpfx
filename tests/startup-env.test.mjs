@@ -36,5 +36,21 @@ test('startup validation resolves defaults and warns for optional secrets', () =
   assert.equal(result.resolved.NODE_ENV, 'development');
   assert.ok(result.warnings.includes('MOONPAY_API_KEY'));
   assert.ok(result.warnings.includes('COINBASE_WEBHOOK_SECRET'));
-  assert.ok(result.warnings.includes('OPENAI_API_KEY'));
+  assert.ok(result.warnings.includes('AI_INTEGRATIONS_OPENAI_API_KEY'));
+});
+
+test('startup validation allows development without a database URL', () => {
+  const result = validateStartupEnvironment({
+    NODE_ENV: 'development',
+    PORT: '8080',
+    DATABASE_URL: '',
+    SESSION_SECRET: '0123456789abcdef0123456789abcdef',
+    JWT_SECRET: 'fedcba9876543210fedcba9876543210',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    ALLOWED_ORIGINS: 'http://localhost',
+  });
+
+  assert.equal(result.ok, true);
+  assert.ok(result.warnings.includes('DATABASE_URL'));
+  assert.equal(result.resolved.DATABASE_URL, '');
 });
