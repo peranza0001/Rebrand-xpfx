@@ -5,6 +5,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
+import { doubleCsrf } from 'csrf-csrf';
 import fs from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
@@ -148,12 +149,14 @@ app.use(helmet({
       fontSrc: ["'self'", 'https:'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
+      baseSrc: ["'self'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'same-site' },
   strictTransportSecurity: process.env.NODE_ENV === 'production'
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false
@@ -256,6 +259,20 @@ app.use(cookieParser(sessionSecret));
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
 app.use(attachSession);
+
+const { doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.SESSION_SECRET || 'dev-csrf-secret',
+  cookieName: 'xcsrf',
+  cookieOptions: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
+  size: 32,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/')) {
+    return next();
+  }
+  return doubleCsrfProtection(req, res, next);
+});
 
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
