@@ -13,7 +13,9 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(path.dirname(__dirname), '.env');
+const repoRoot = path.dirname(__dirname);
+const envPath = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : path.join(repoRoot, '.env');
+const envExamplePath = process.env.ENV_EXAMPLE_FILE ? path.resolve(process.env.ENV_EXAMPLE_FILE) : path.join(repoRoot, '.env.example');
 
 const secrets = {
   SESSION_SECRET: () => crypto.randomBytes(64).toString('hex'),
@@ -22,32 +24,56 @@ const secrets = {
   ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('hex'),
 };
 
-// Read existing .env file
+// Read existing .env file, or bootstrap from .env.example when missing
 let envContent = '';
 let existingKeys = {};
 
 if (fs.existsSync(envPath)) {
   envContent = fs.readFileSync(envPath, 'utf-8');
-  // Parse existing keys
-  envContent.split('\n').forEach(line => {
-    const [key] = line.split('=');
-    if (key && key.trim()) {
-      existingKeys[key.trim()] = true;
-    }
-  });
+} else if (fs.existsSync(envExamplePath)) {
+  envContent = fs.readFileSync(envExamplePath, 'utf-8');
 }
+
+// Parse existing keys, but treat blank values as missing so placeholders in .env.example can be filled.
+envContent.split('\n').forEach(line => {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) {
+    return;
+  }
+
+  const separatorIndex = line.indexOf('=');
+  if (separatorIndex === -1) {
+    return;
+  }
+
+  const key = line.slice(0, separatorIndex).trim();
+  const value = line.slice(separatorIndex + 1).trim();
+
+  if (key && value !== '') {
+    existingKeys[key] = true;
+  }
+});
 
 // Generate missing secrets
 const generated = [];
 const existing = [];
 let newContent = envContent;
 
+if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
+  newContent = envContent;
+}
+
 Object.entries(secrets).forEach(([key, generator]) => {
   if (existingKeys[key]) {
     existing.push(key);
   } else {
     const value = generator();
-    newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
+    const linePattern = new RegExp(`^${key}=.*$`, 'm');
+    if (linePattern.test(newContent)) {
+      newContent = newContent.replace(linePattern, `${key}=${value}`);
+    } else {
+      newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
+    }
     generated.push(key);
   }
 });

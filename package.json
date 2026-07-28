@@ -19,7 +19,8 @@
   "scripts": {
     "generate:secrets": "node scripts/generate-secrets.mjs",
     "generate:pitch-deck": "node scripts/generate-pitch-deck.mjs",
-    "postinstall": "node scripts/generate-secrets.mjs && node scripts/fix-date-fns.mjs && prisma generate",
+    "bootstrap": "node scripts/generate-secrets.mjs && node scripts/fix-date-fns.mjs && prisma generate && npm run build",
+    "postinstall": "npm run bootstrap",
     "predeploy": "node scripts/predeploy.mjs --skip-env-check",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
     "build:all": "npm run build",
