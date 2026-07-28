@@ -39,6 +39,24 @@ test('startup validation resolves defaults and warns for optional secrets', () =
   assert.ok(result.warnings.includes('AI_INTEGRATIONS_OPENAI_API_KEY'));
 });
 
+test('startup validation requires admin provisioning secrets in production', () => {
+  const result = validateStartupEnvironment({
+    NODE_ENV: 'production',
+    PORT: '8080',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app',
+    SESSION_SECRET: '0123456789abcdef0123456789abcdef',
+    JWT_SECRET: 'fedcba9876543210fedcba9876543210',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    ALLOWED_ORIGINS: 'https://example.com',
+    ADMIN_EMAIL: '',
+    ADMIN_PASSWORD: '',
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.missing.includes('ADMIN_EMAIL'));
+  assert.ok(result.missing.includes('ADMIN_PASSWORD'));
+});
+
 test('startup validation allows development without a database URL', () => {
   const result = validateStartupEnvironment({
     NODE_ENV: 'development',

@@ -21,3 +21,13 @@ test('overrides a disabled sslmode with Railway-compatible SSL', () => {
   assert.equal(config.connectionString.includes('sslmode=disable'), false);
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
+
+test('prefers the public DATABASE_PUBLIC_URL over the private DATABASE_URL', () => {
+  const config = buildPostgresConfig(undefined, {
+    DATABASE_URL: 'postgresql://user:pass@postgres.railway.internal:5432/app',
+    DATABASE_PUBLIC_URL: 'postgresql://user:pass@public.railway.app:5432/app',
+  });
+
+  assert.equal(config.connectionString.includes('public.railway.app'), true);
+  assert.equal(config.connectionString.includes('postgres.railway.internal'), false);
+});

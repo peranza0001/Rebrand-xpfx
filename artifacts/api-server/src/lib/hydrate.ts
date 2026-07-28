@@ -41,8 +41,8 @@ export async function hydrateFromDb(): Promise<void> {
       [],
     );
 
-  let usersLoaded = 0;
-  for (const row of dbUsers) {
+    let usersLoaded = 0;
+    for (const row of dbUsers) {
     // Skip if already in memory (seeded demo/admin user takes precedence)
     if (usersByEmail.has(row.email.toLowerCase())) continue;
 
@@ -85,25 +85,25 @@ export async function hydrateFromDb(): Promise<void> {
     usersLoaded++;
   }
 
-  // 2. Load active sessions from DB
-  const dbSessions = await dbGet(
-    "hydrate.sessions",
-    (db) =>
-      db
-        .select()
-        .from(userSessionsTable)
-        .where(gt(userSessionsTable.expiresAt, new Date())),
-    [],
-  );
+    // 2. Load active sessions from DB
+    const dbSessions = await dbGet(
+      "hydrate.sessions",
+      (db) =>
+        db
+          .select()
+          .from(userSessionsTable)
+          .where(gt(userSessionsTable.expiresAt, new Date())),
+      [],
+    );
 
-  let sessionsLoaded = 0;
-  for (const s of dbSessions) {
-    // Only restore sessions for users we have in memory
-    if (users.has(s.userId)) {
-      sessions.set(s.id, s.userId);
-      sessionsLoaded++;
+    let sessionsLoaded = 0;
+    for (const s of dbSessions) {
+      // Only restore sessions for users we have in memory
+      if (users.has(s.userId)) {
+        sessions.set(s.id, s.userId);
+        sessionsLoaded++;
+      }
     }
-  }
 
     const elapsed = Date.now() - start;
     logger.info(

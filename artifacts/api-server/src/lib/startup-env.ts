@@ -49,6 +49,18 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   }
   resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
+  const adminEmail = normalizeString(env.ADMIN_EMAIL);
+  if (resolved.NODE_ENV === 'production' && !adminEmail) {
+    missing.push('ADMIN_EMAIL');
+  }
+  resolved.ADMIN_EMAIL = adminEmail;
+
+  const adminPassword = normalizeString(env.ADMIN_PASSWORD);
+  if (resolved.NODE_ENV === 'production' && !adminPassword) {
+    missing.push('ADMIN_PASSWORD');
+  }
+  resolved.ADMIN_PASSWORD = adminPassword;
+
   if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_SECRET_KEY)) {
     missing.push('MOONPAY_SECRET_KEY');
   }
