@@ -313,7 +313,7 @@ router.get("/auth/session", (req, res) => {
 
 router.post("/auth/demo", (req, res) => {
   if (!isDemoAuthEnabled) {
-    return res.status(404).json({ error: "Not found" });
+    return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
   // Spin up an ephemeral demo user with seeded balances.
   const id = newId("udemo");

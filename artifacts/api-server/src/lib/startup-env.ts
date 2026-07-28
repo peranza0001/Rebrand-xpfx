@@ -49,9 +49,6 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   }
   resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
-  if (!normalizeString(env.MOONPAY_API_KEY)) {
-    warnings.push('MOONPAY_API_KEY');
-  }
   if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_SECRET_KEY)) {
     missing.push('MOONPAY_SECRET_KEY');
   }
@@ -59,17 +56,14 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
     missing.push('MOONPAY_WEBHOOK_SECRET');
   }
 
-  if (!normalizeString(env.COINBASE_WEBHOOK_SECRET)) {
-    warnings.push('COINBASE_WEBHOOK_SECRET');
-  }
-  if (!normalizeString(env.SENDGRID_API_KEY)) {
-    warnings.push('SENDGRID_API_KEY');
-  }
-  if (!normalizeString(env.AI_INTEGRATIONS_OPENAI_API_KEY)) {
-    warnings.push('AI_INTEGRATIONS_OPENAI_API_KEY');
-  }
-  if (!normalizeString(env.ALCHEMY_API_KEY)) {
-    warnings.push('ALCHEMY_API_KEY');
+  const optionalWarnings = [
+    ['SENDGRID_API_KEY', env.SENDGRID_API_KEY],
+    ['AI_INTEGRATIONS_OPENAI_API_KEY', env.AI_INTEGRATIONS_OPENAI_API_KEY],
+    ['ALCHEMY_API_KEY', env.ALCHEMY_API_KEY],
+  ].filter(([, value]) => !normalizeString(value));
+
+  if (resolved.NODE_ENV === 'development') {
+    warnings.push(...optionalWarnings.map(([key]) => key));
   }
 
   return {

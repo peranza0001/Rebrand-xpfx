@@ -1464,6 +1464,27 @@ if (adminEmails.length > 0 && adminPassword) {
     const adminId = index === 0 ? "u_admin" : `u_admin_${index + 1}`;
     const username = index === 0 ? "admin" : `admin${index + 1}`;
     const fullName = index === 0 ? "Platform Admin" : `Platform Admin ${index + 1}`;
+    const existing = usersByEmail.get(email);
+    if (existing) {
+      const stored = users.get(existing);
+      if (stored) {
+        stored.role = "admin";
+        stored.passwordHash = createUser({
+          id: existing,
+          email,
+          password: adminPassword,
+          fullName,
+          username,
+          country: "US",
+          role: "admin",
+          kycVerified: true,
+          avatarSeed: username,
+        }).passwordHash;
+      }
+      logActivity({ actorId: existing, actorName: fullName, action: "system.seed", detail: `Admin credentials refreshed from environment for ${email}.` });
+      return;
+    }
+
     const user = createUser({
       id: adminId,
       email,
@@ -1475,6 +1496,10 @@ if (adminEmails.length > 0 && adminPassword) {
       kycVerified: true,
       avatarSeed: username,
     });
+    users.set(user.user.id, user);
+    usersByEmail.set(email, user.user.id);
+    referralCodeIndex.set(user.referralCode, user.user.id);
+    if (!referrals.has(user.user.id)) referrals.set(user.user.id, []);
     userData.set(user.user.id, freshUserData(user.user.id));
     logActivity({ actorId: user.user.id, actorName: user.user.fullName, action: "system.seed", detail: adminSeedStatus.reason });
   });

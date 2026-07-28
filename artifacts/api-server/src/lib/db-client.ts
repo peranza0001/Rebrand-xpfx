@@ -100,7 +100,11 @@ export async function dbGet<T>(
   try {
     return await fn(db);
   } catch (err) {
-    logger.warn({ label, err: (err as Error).message }, "[db] read failed");
+    const message = (err as Error).message ?? String(err);
+    if (message.includes("relation") && message.includes("does not exist")) {
+      return fallback;
+    }
+    logger.warn({ label, err: message }, "[db] read failed");
     return fallback;
   }
 }

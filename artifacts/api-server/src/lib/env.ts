@@ -25,16 +25,16 @@ export const env = {
   LOG_LEVEL: get("LOG_LEVEL") ?? "info",
 
   // Demo auth
-    // Demo auth: allow explicit true/false via env; if unset, default to true in
-    // non-production and false in production so demo endpoints work for local dev.
-    ENABLE_DEMO_AUTH: (() => {
-      const raw = process.env["ENABLE_DEMO_AUTH"];
-      if (raw === undefined) return undefined;
-      const val = raw.trim().toLowerCase();
-      if (val === "true") return true;
-      if (val === "false") return false;
-      return undefined;
-    })(),
+  // Demo auth: allow explicit true/false via env; defaults to true when missing
+  // so the demo endpoint is available in production unless explicitly disabled.
+  ENABLE_DEMO_AUTH: (() => {
+    const raw = process.env["ENABLE_DEMO_AUTH"];
+    if (raw === undefined) return true;
+    const val = raw.trim().toLowerCase();
+    if (val === "true") return true;
+    if (val === "false") return false;
+    return true;
+  })(),
 
   // Admin provisioning
   ADMIN_EMAIL: get("ADMIN_EMAIL"),

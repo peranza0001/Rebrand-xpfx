@@ -88,7 +88,7 @@ async function bootstrap() {
     }
 
     if (startupValidation.warnings.length > 0) {
-      logger.warn({ missing: startupValidation.warnings }, '[SERVER] Optional environment variables missing');
+      logger.info({ missing: startupValidation.warnings }, '[SERVER] Optional environment variables not configured');
     }
 
     process.env.NODE_ENV = startupValidation.resolved.NODE_ENV;

@@ -22,11 +22,14 @@ export function buildPostgresConfig(
 
   const url = new URL(urlString);
   const params = url.searchParams;
-  params.set('sslmode', 'require');
+  const existingSslmode = params.get('sslmode')?.trim().toLowerCase();
+  if (!existingSslmode || existingSslmode === 'disable') {
+    params.set('sslmode', 'require');
+  }
 
-  const ssl = {
-    rejectUnauthorized: false,
-  };
+  const ssl = url.protocol === 'postgresql:' || url.protocol === 'postgres:'
+    ? { rejectUnauthorized: false }
+    : undefined;
 
   return {
     connectionString: url.toString(),
