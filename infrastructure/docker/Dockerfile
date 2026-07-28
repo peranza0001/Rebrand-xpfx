@@ -25,7 +25,7 @@ RUN node scripts/predeploy.mjs --skip-env-check \
 
 FROM base AS runtime
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=3000
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/artifacts ./artifacts
 COPY --from=build --chown=node:node /app/lib ./lib

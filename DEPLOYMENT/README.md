@@ -10,3 +10,4 @@ Important:
 - Use GitHub Secrets for CI and Railway variables for runtime.
 - For local development, copy DEPLOYMENT/LOCAL_ENV_TEMPLATE.env to .env and fill in the values.
 - For deployment, populate the required secrets in GitHub Actions and the target hosting platform.
+- Docker Compose expects the app to listen on port 3000; the reverse proxy uses /healthz for health checks.
