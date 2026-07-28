@@ -36,6 +36,7 @@
     "lint": "eslint . --config eslint.config.cjs --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
     "test": "npm run build --workspace=artifacts/api-server && node --import tsx tests/app-readiness.test.mjs && node --import tsx tests/production-env.test.mjs && node --import tsx tests/demo-auth.test.mjs && node --import tsx tests/generate-secrets.test.mjs",
+    "test:db-connection": "node scripts/test-db-connection.mjs",
     "pm2:install": "npm install -g pm2 || true",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:save": "pm2 save"
