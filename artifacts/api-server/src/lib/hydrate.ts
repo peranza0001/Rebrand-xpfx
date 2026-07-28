@@ -33,12 +33,13 @@ import { logger } from "./logger";
 export async function hydrateFromDb(): Promise<void> {
   const start = Date.now();
 
-  // 1. Load users from DB
-  const dbUsers = await dbGet(
-    "hydrate.users",
-    (db) => db.select().from(usersTable),
-    [],
-  );
+  try {
+    // 1. Load users from DB
+    const dbUsers = await dbGet(
+      "hydrate.users",
+      (db) => db.select().from(usersTable),
+      [],
+    );
 
   let usersLoaded = 0;
   for (const row of dbUsers) {
@@ -104,9 +105,12 @@ export async function hydrateFromDb(): Promise<void> {
     }
   }
 
-  const elapsed = Date.now() - start;
-  logger.info(
-    { usersLoaded, sessionsLoaded, elapsedMs: elapsed },
-    "[hydrate] Startup hydration complete",
-  );
+    const elapsed = Date.now() - start;
+    logger.info(
+      { usersLoaded, sessionsLoaded, elapsedMs: elapsed },
+      "[hydrate] Startup hydration complete",
+    );
+  } catch (error) {
+    logger.warn({ err: error }, "[hydrate] Startup hydration skipped due to an unexpected database error");
+  }
 }

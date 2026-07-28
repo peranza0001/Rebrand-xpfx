@@ -1433,33 +1433,48 @@ referrals.set(alex.user.id, [
 logActivity({ actorId: alex.user.id, actorName: alex.user.fullName, action: "system.seed", detail: "Demo user Alex Morgan seeded with sample portfolio." });
 } // end non-production seed block
 
-// --- Seed Admin user (credentials must be set via environment variables) ---
-const rawAdminEmail = env.ADMIN_EMAIL;
-const adminPassword = env.ADMIN_PASSWORD;
-const adminEmails = rawAdminEmail
-  ? [...new Set(rawAdminEmail.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))]
-  : [];
 export const adminSeedStatus: {
   provisioned: boolean;
   emails: string[];
   reason: string;
-} = adminEmails.length > 0 && adminPassword
-  ? {
-      provisioned: true,
-      emails: adminEmails,
-      reason: `Admin account(s) provisioned from environment for ${adminEmails.length} address(es).`,
-    }
-  : {
-      provisioned: false,
-      emails: adminEmails,
-      reason: !adminEmails.length && !adminPassword
-        ? "Both ADMIN_EMAIL and ADMIN_PASSWORD env vars are missing."
-        : !adminEmails.length
-          ? "ADMIN_EMAIL env var is missing."
-          : "ADMIN_PASSWORD env var is missing.",
-    };
+} = {
+  provisioned: false,
+  emails: [],
+  reason: "",
+};
 
-if (adminEmails.length > 0 && adminPassword) {
+// --- Seed Admin user (credentials must be set via environment variables) ---
+export function seedAdminAccountsFromEnv(): void {
+  const rawAdminEmail = env.ADMIN_EMAIL;
+  const adminPassword = env.ADMIN_PASSWORD;
+  const adminEmails = rawAdminEmail
+    ? [...new Set(rawAdminEmail.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))]
+    : [];
+
+  const nextStatus = adminEmails.length > 0 && adminPassword
+    ? {
+        provisioned: true,
+        emails: adminEmails,
+        reason: `Admin account(s) provisioned from environment for ${adminEmails.length} address(es).`,
+      }
+    : {
+        provisioned: false,
+        emails: adminEmails,
+        reason: !adminEmails.length && !adminPassword
+          ? "Both ADMIN_EMAIL and ADMIN_PASSWORD env vars are missing."
+          : !adminEmails.length
+            ? "ADMIN_EMAIL env var is missing."
+            : "ADMIN_PASSWORD env var is missing.",
+      };
+
+  adminSeedStatus.provisioned = nextStatus.provisioned;
+  adminSeedStatus.emails = nextStatus.emails;
+  adminSeedStatus.reason = nextStatus.reason;
+
+  if (adminEmails.length === 0 || !adminPassword) {
+    return;
+  }
+
   adminEmails.forEach((email, index) => {
     const adminId = index === 0 ? "u_admin" : `u_admin_${index + 1}`;
     const username = index === 0 ? "admin" : `admin${index + 1}`;
@@ -1504,6 +1519,8 @@ if (adminEmails.length > 0 && adminPassword) {
     logActivity({ actorId: user.user.id, actorName: user.user.fullName, action: "system.seed", detail: adminSeedStatus.reason });
   });
 }
+
+seedAdminAccountsFromEnv();
 
 // --- Seed sample P2P merchant applications (development-only) ---
 if (isDemoAuthEnabled) {

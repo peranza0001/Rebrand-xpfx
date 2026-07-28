@@ -7,7 +7,7 @@ import {
   UpdateOwnProfileBody,
   VerifyOtpBody,
 } from "@workspace/api-zod";
-import { isDemoAuthEnabled } from "../lib/env";
+import { isDemoAuthEnabled, isDemoRouteAvailable } from "../lib/env";
 import {
   freshUserData,
   getUserData,
@@ -311,7 +311,10 @@ router.get("/auth/session", (req, res) => {
   return res.json(sessionFor(req.storedUser));
 });
 
-router.post("/auth/demo", (req, res) => {
+router.post("/auth/demo", (_req, res) => {
+  if (!isDemoRouteAvailable()) {
+    return res.status(403).json({ error: "Demo accounts are currently disabled." });
+  }
   if (!isDemoAuthEnabled) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }

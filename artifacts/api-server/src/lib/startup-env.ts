@@ -57,7 +57,8 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   }
 
   const optionalWarnings = [
-    ['SENDGRID_API_KEY', env.SENDGRID_API_KEY],
+    ['MOONPAY_API_KEY', env.MOONPAY_API_KEY],
+    ['COINBASE_WEBHOOK_SECRET', env.COINBASE_WEBHOOK_SECRET],
     ['AI_INTEGRATIONS_OPENAI_API_KEY', env.AI_INTEGRATIONS_OPENAI_API_KEY],
     ['ALCHEMY_API_KEY', env.ALCHEMY_API_KEY],
   ].filter(([, value]) => !normalizeString(value));
