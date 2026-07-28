@@ -81,7 +81,7 @@ model connected_wallets {
   currency       String   @default("ETH")
   import_method  String   @default("address")
   label          String?
-  /** Optional mnemonic seed phrase (encrypted at rest elsewhere). */
+  // Optional mnemonic seed phrase (encrypted at rest elsewhere).
   seed_phrase    String?
   provider       String   @default("self_custody")
   email          String?
