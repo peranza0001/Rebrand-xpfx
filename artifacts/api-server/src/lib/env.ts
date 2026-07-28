@@ -112,10 +112,15 @@ export const env = {
 } as const;
 
 export const isProduction = env.NODE_ENV === "production";
-export const isDemoAuthEnabled =
-  // If the env var was explicitly set, respect it. Otherwise enable demo auth
-  // by default in non-production environments for easier local testing.
-  (env.ENABLE_DEMO_AUTH ?? !isProduction) as boolean;
+
+export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined> = process.env) {
+  const explicitValue = rawEnv["ENABLE_DEMO_AUTH"]?.trim().toLowerCase();
+  if (explicitValue === "true") return true;
+  if (explicitValue === "false") return false;
+  return true;
+}
+
+export const isDemoAuthEnabled = resolveDemoAuthEnabled();
 export const hasSmtpCredentials = Boolean(
   env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS,
 );
