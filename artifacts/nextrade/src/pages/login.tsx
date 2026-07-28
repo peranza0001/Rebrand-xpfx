@@ -63,6 +63,8 @@ export function Login() {
     }
   };
 
+  const showDemoButton = import.meta.env.MODE !== "production";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 dark">
       <div className="w-full max-w-md space-y-4">
@@ -111,25 +113,33 @@ export function Login() {
               </Button>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or</span>
-              </div>
-            </div>
+            {showDemoButton ? (
+              <>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
 
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              onClick={handleDemo}
-              disabled={demoMutation.isPending}
-            >
-              {demoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Try Demo Account
-            </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  onClick={handleDemo}
+                  disabled={demoMutation.isPending}
+                >
+                  {demoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Try Demo Account
+                </Button>
+              </>
+            ) : (
+              <p className="text-center text-sm text-muted-foreground">
+                Demo accounts are unavailable in production.
+              </p>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-3">
             <div className="text-sm text-center text-muted-foreground w-full">
