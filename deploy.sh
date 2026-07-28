@@ -8,12 +8,12 @@ echo "==> Running deployment validation"
 node scripts/predeploy.mjs --skip-env-check
 
 echo "==> Installing dependencies"
-pnpm install --frozen-lockfile --no-audit --no-fund
+npm install --no-audit --no-fund
 
 echo "==> Building all workspaces"
-pnpm run build --workspace artifacts/api-server
-pnpm run build --workspace artifacts/nextrade
-pnpm run build --workspace artifacts/admin-portal
+npm run build --workspace=artifacts/api-server
+npm run build --workspace=artifacts/nextrade
+npm run build --workspace=artifacts/admin-portal
 
 echo "==> Running database migrations"
 cd artifacts/api-server && npx prisma migrate deploy && cd ../.. || true
