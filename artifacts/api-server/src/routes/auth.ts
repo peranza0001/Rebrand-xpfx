@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { isDemoAuthEnabled, isDemoRouteAvailable } from "../lib/env";
 import {
+  ensureDemoUser,
   freshUserData,
   getUserData,
   hashPassword,
@@ -318,50 +319,21 @@ router.post("/auth/demo", (_req, res) => {
   if (!isDemoAuthEnabled) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
-  // Spin up an ephemeral demo user with seeded balances.
-  const id = newId("udemo");
-  const referralCode = newReferralCode();
-  const stored: StoredUser = {
-    user: {
-      id,
-      username: `demo_${id.slice(-4)}`,
-      email: `${id}@demo.xpressprofx.com`,
-      fullName: "Demo Trader",
-      country: "US",
-      kycVerified: true,
-      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}&backgroundColor=ffd5dc`,
-      createdAt: NOW(),
-      buyVerified: false,
-      selectedManagerId: null,
-    },
-    passwordHash: "",
-    role: "demo",
-    referralCode,
-    referredBy: null,
-    merchant: false,
-    tradingLocked: false,
-    demoMode: true,
-    phone: null,
-    accountFlag: null,
-    suspended: false,
-    disabled: false,
-  };
-  users.set(id, stored);
-  referralCodeIndex.set(referralCode, id);
-  referrals.set(id, []);
-  userData.set(id, freshUserData(id, { withDemoBalances: true, country: stored.user.country }));
-  // Ensure they get a usable user data object via getUserData too
-  getUserData(id);
 
+  const stored = ensureDemoUser();
+  const userId = stored.user.id;
+  getUserData(userId);
   const sid = newSessionId();
-  sessions.set(sid, id);
+  sessions.set(sid, userId);
   setSessionCookie(res, sid);
+
   logActivity({
-    actorId: id,
-    actorName: "Demo Trader",
+    actorId: userId,
+    actorName: stored.user.fullName,
     action: "auth.demo",
-    detail: "Started demo session",
+    detail: "Started reusable demo session",
   });
+
   return res.json(sessionFor(stored, true));
 });
 

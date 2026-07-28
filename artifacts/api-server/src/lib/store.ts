@@ -1311,6 +1311,56 @@ export function createUser(opts: {
   return stored;
 }
 
+const DEMO_USER_EMAIL = "demo@xpressprofx.com";
+const DEMO_USER_ID = "u_demo_default";
+
+export function ensureDemoUser(): StoredUser {
+  const existing = users.get(DEMO_USER_ID);
+  if (existing) {
+    return existing;
+  }
+
+  const stored = createUser({
+    id: DEMO_USER_ID,
+    email: DEMO_USER_EMAIL,
+    password: "demo-password",
+    fullName: "Demo Trader",
+    username: "demo_trader",
+    country: "US",
+    role: "demo",
+    kycVerified: true,
+    avatarSeed: "demo",
+  });
+
+  stored.demoMode = true;
+  stored.user.kycVerified = true;
+  stored.user.buyVerified = false;
+  stored.user.merchant = false;
+  stored.role = "demo";
+
+  const demoData = freshUserData(stored.user.id, { withDemoBalances: true, country: stored.user.country });
+  demoData.wallets[0]!.balance = 24850.42;
+  demoData.wallets[1]!.balance = 12480;
+  demoData.wallets[1]!.pendingBalance = 350.5;
+  demoData.wallets[2]!.pendingBalance = 1820.75;
+  demoData.transactions = [
+    {
+      id: newId("tx"),
+      walletId: demoData.wallets[0]!.id,
+      type: "deposit",
+      amount: 5000,
+      currency: "USD",
+      status: "completed",
+      description: "Demo funding",
+      createdAt: NOW(),
+    },
+  ];
+  demoData.trades = [];
+  userData.set(stored.user.id, demoData);
+
+  return stored;
+}
+
 // --- Seed Alex (development-only demo user) ---
 // Only seeded when ENABLE_DEMO_AUTH=true AND not in production.
 if (isDemoAuthEnabled) {
