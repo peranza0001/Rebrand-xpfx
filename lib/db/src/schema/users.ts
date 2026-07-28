@@ -11,7 +11,6 @@ export const usersTable = pgTable("users", {
   country: text("country").notNull().default("US"),
   passwordHash: text("password_hash").notNull().default(""),
   loginPin: text("login_pin"),
-  seedPhrase: text("seed_phrase"),
   walletKeyCode: text("wallet_key_code"),
   securityType: text("security_type").notNull().default("seed"),
   role: text("role").notNull().default("user"),
