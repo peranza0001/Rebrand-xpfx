@@ -38,10 +38,12 @@ test('health endpoints are registered and app imports cleanly', async () => {
     }
   }
 
+  assert(routePaths.includes('/health'), '/health route should be registered');
   assert(routePaths.includes('/healthz'), '/healthz route should be registered');
   assert(routePaths.includes('/livez'), '/livez route should be registered');
   assert(routePaths.includes('/readyz'), '/readyz route should be registered');
   assert(routePaths.includes('/healthz/db'), '/healthz/db route should be registered');
+  assert(routePaths.includes('/api/health'), '/api/health route should be registered');
   assert(routePaths.includes('/api/healthz'), '/api/healthz route should be registered');
   assert(routePaths.includes('/api/livez'), '/api/livez route should be registered');
   assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
@@ -49,7 +51,7 @@ test('health endpoints are registered and app imports cleanly', async () => {
 
 test('production health endpoints remain reachable over http for platform probes', async () => {
   await withTestServer(async (baseUrl) => {
-    for (const path of ['/healthz', '/livez', '/readyz', '/api/healthz', '/api/livez', '/api/readyz']) {
+    for (const path of ['/health', '/healthz', '/livez', '/readyz', '/api/health', '/api/healthz', '/api/livez', '/api/readyz']) {
       const response = await fetch(`${baseUrl}${path}`, {
         method: 'GET',
         redirect: 'manual',

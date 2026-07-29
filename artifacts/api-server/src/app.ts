@@ -21,10 +21,12 @@ app.set('trust proxy', 1);
 function shouldBypassHttpsRedirect(req: Request) {
   const pathname = req.path || '/';
   return [
+    '/health',
     '/healthz',
     '/livez',
     '/readyz',
     '/healthz/db',
+    '/api/health',
     '/api/healthz',
     '/api/livez',
     '/api/readyz',
@@ -96,11 +98,19 @@ async function _readinessHandler(_req: Request, res: Response) {
   }
 }
 
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/healthz', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/livez', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
