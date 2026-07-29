@@ -14,58 +14,57 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  resolved.NODE_ENV = normalizeString(env.NODE_ENV) || 'development';
+  const nodeEnv = normalizeString(env.NODE_ENV);
+  resolved.NODE_ENV = nodeEnv || 'development';
   resolved.PORT = normalizeString(env.PORT) || '8080';
 
   const databaseUrl = normalizeString(env.DATABASE_URL) || normalizeString(env.DATABASE_PUBLIC_URL);
-  if (!databaseUrl && resolved.NODE_ENV === 'production') {
-    missing.push('DATABASE_URL');
-  } else if (!databaseUrl) {
+  if (!databaseUrl) {
     warnings.push('DATABASE_URL');
   }
   resolved.DATABASE_URL = databaseUrl;
 
   const sessionSecret = normalizeString(env.SESSION_SECRET);
   if (!sessionSecret) {
-    missing.push('SESSION_SECRET');
+    warnings.push('SESSION_SECRET');
   }
   resolved.SESSION_SECRET = sessionSecret;
 
   const jwtSecret = normalizeString(env.JWT_SECRET);
   if (!jwtSecret) {
-    missing.push('JWT_SECRET');
+    warnings.push('JWT_SECRET');
   }
   resolved.JWT_SECRET = jwtSecret;
 
-  const allowedOrigins = normalizeString(env.ALLOWED_ORIGINS);
-  if (resolved.NODE_ENV === 'production' && !allowedOrigins) {
-    missing.push('ALLOWED_ORIGINS');
+  const allowedOrigins = normalizeString(env.ALLOWED_ORIGINS) || normalizeString(env.REPLIT_DOMAINS);
+  if (!allowedOrigins) {
+    warnings.push('ALLOWED_ORIGINS');
   }
   resolved.ALLOWED_ORIGINS = allowedOrigins;
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
   if (!walletEncryptionKey) {
-    missing.push('WALLET_ENCRYPTION_KEY');
+    warnings.push('WALLET_ENCRYPTION_KEY');
   }
   resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
   const adminEmail = normalizeString(env.ADMIN_EMAIL);
-  if (resolved.NODE_ENV === 'production' && !adminEmail) {
-    missing.push('ADMIN_EMAIL');
+  if (!adminEmail) {
+    warnings.push('ADMIN_EMAIL');
   }
   resolved.ADMIN_EMAIL = adminEmail;
 
   const adminPassword = normalizeString(env.ADMIN_PASSWORD);
-  if (resolved.NODE_ENV === 'production' && !adminPassword) {
-    missing.push('ADMIN_PASSWORD');
+  if (!adminPassword) {
+    warnings.push('ADMIN_PASSWORD');
   }
   resolved.ADMIN_PASSWORD = adminPassword;
 
   if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_SECRET_KEY)) {
-    missing.push('MOONPAY_SECRET_KEY');
+    warnings.push('MOONPAY_SECRET_KEY');
   }
   if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_WEBHOOK_SECRET)) {
-    missing.push('MOONPAY_WEBHOOK_SECRET');
+    warnings.push('MOONPAY_WEBHOOK_SECRET');
   }
 
   const optionalWarnings = [

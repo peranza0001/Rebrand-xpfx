@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Generate missing environment secrets
- * - SESSION_SECRET, COOKIE_SECRET, ADMIN_SECRET, ENCRYPTION_KEY
- * - Only writes keys that are missing or empty
- * - Never overwrites existing values
- * - Appends to .env file
+ * Generate missing deployment secrets for production-safe bootstrap.
+ *
+ * This script is intentionally idempotent and safe for forks, clones,
+ * collaborators, and platform deployments. It only writes values for keys
+ * that are missing or blank, never overwriting existing secrets.
  */
 
 import fs from 'fs';
@@ -17,16 +17,28 @@ const repoRoot = path.dirname(__dirname);
 const envPath = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : path.join(repoRoot, '.env');
 const envExamplePath = process.env.ENV_EXAMPLE_FILE ? path.resolve(process.env.ENV_EXAMPLE_FILE) : path.join(repoRoot, '.env.example');
 
+function randomHex(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function randomBase64(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('base64');
+}
+
 const secrets = {
-  SESSION_SECRET: () => crypto.randomBytes(64).toString('hex'),
-  COOKIE_SECRET: () => crypto.randomBytes(64).toString('hex'),
-  ADMIN_SECRET: () => crypto.randomBytes(32).toString('hex'),
-  ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('hex'),
+  SESSION_SECRET: () => randomBase64(48),
+  JWT_SECRET: () => randomBase64(48),
+  COOKIE_SIGNING_KEY: () => randomHex(32),
+  CSRF_SECRET: () => randomHex(32),
+  WALLET_ENCRYPTION_KEY: () => randomHex(32),
+  JWT_REFRESH_SECRET: () => randomBase64(48),
+  WEBHOOK_SECRET_GLOBAL: () => randomHex(32),
+  ADMIN_EMAIL: () => 'admin@example.com',
+  ADMIN_PASSWORD: () => `ChangeMe-${randomHex(8)}`,
 };
 
-// Read existing .env file, or bootstrap from .env.example when missing
 let envContent = '';
-let existingKeys = {};
+const existingKeys = new Map();
 
 if (fs.existsSync(envPath)) {
   envContent = fs.readFileSync(envPath, 'utf-8');
@@ -34,60 +46,49 @@ if (fs.existsSync(envPath)) {
   envContent = fs.readFileSync(envExamplePath, 'utf-8');
 }
 
-// Parse existing keys, but treat blank values as missing so placeholders in .env.example can be filled.
-envContent.split('\n').forEach(line => {
+envContent.split('\n').forEach((line) => {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('#')) {
-    return;
-  }
+  if (!trimmed || trimmed.startsWith('#')) return;
 
   const separatorIndex = line.indexOf('=');
-  if (separatorIndex === -1) {
-    return;
-  }
+  if (separatorIndex === -1) return;
 
   const key = line.slice(0, separatorIndex).trim();
   const value = line.slice(separatorIndex + 1).trim();
-
   if (key && value !== '') {
-    existingKeys[key] = true;
+    existingKeys.set(key, true);
   }
 });
 
-// Generate missing secrets
 const generated = [];
 const existing = [];
 let newContent = envContent;
 
-if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
-  newContent = envContent;
-}
-
 Object.entries(secrets).forEach(([key, generator]) => {
-  if (existingKeys[key]) {
+  if (existingKeys.has(key)) {
     existing.push(key);
-  } else {
-    const value = generator();
-    const linePattern = new RegExp(`^${key}=.*$`, 'm');
-    if (linePattern.test(newContent)) {
-      newContent = newContent.replace(linePattern, `${key}=${value}`);
-    } else {
-      newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
-    }
-    generated.push(key);
+    return;
   }
+
+  const value = generator();
+  const linePattern = new RegExp(`^${key}=.*$`, 'm');
+  if (linePattern.test(newContent)) {
+    newContent = newContent.replace(linePattern, `${key}=${value}`);
+  } else {
+    newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
+  }
+  generated.push(key);
 });
 
-// Write back to .env
 if (generated.length > 0) {
   fs.writeFileSync(envPath, newContent, 'utf-8');
   console.log('✓ Generated secrets:');
-  generated.forEach(k => console.log(`  - ${k}`));
+  generated.forEach((k) => console.log(`  - ${k}`));
 }
 
 if (existing.length > 0) {
   console.log('✓ Already exists:');
-  existing.forEach(k => console.log(`  - ${k}`));
+  existing.forEach((k) => console.log(`  - ${k}`));
 }
 
 if (generated.length === 0 && existing.length === 0) {

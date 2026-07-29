@@ -42,6 +42,7 @@ services:
 
     buildCommand: >-
       npm ci --legacy-peer-deps --no-audit --no-fund &&
+      npm run prepare:runtime-secrets &&
       npm run predeploy &&
       npm run build --workspace=artifacts/api-server &&
       if [ "${BUILD_ALL:-false}" = "true" ]; then
@@ -49,7 +50,7 @@ services:
         npm run build --workspace=artifacts/admin-portal;
       fi
 
-    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    startCommand: npm run prepare:runtime-secrets && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs
 
     healthCheckPath: /healthz
 

@@ -19,11 +19,26 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
+function shouldBypassHttpsRedirect(req: Request) {
+  const pathname = req.path || '/';
+  return [
+    '/healthz',
+    '/livez',
+    '/readyz',
+    '/healthz/db',
+    '/api/healthz',
+    '/api/livez',
+    '/api/readyz',
+    '/api/healthz/db',
+    '/metrics',
+  ].includes(pathname);
+}
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   const forwardedProto = req.get('x-forwarded-proto');
   const isHttpsRequest = req.secure || (forwardedProto && forwardedProto.split(',')[0].trim() === 'https');
 
-  if (process.env.NODE_ENV === 'production' && !isHttpsRequest) {
+  if (process.env.NODE_ENV === 'production' && !shouldBypassHttpsRedirect(req) && !isHttpsRequest) {
     const host = req.get('host');
     const redirectTarget = host ? `https://${host}${req.originalUrl}` : `https://${req.hostname}${req.originalUrl}`;
     return res.redirect(301, redirectTarget);

@@ -22,6 +22,7 @@
     "bootstrap": "node scripts/generate-secrets.mjs && node scripts/fix-date-fns.mjs && prisma generate && npm run build",
     "postinstall": "npm run bootstrap",
     "predeploy": "node scripts/predeploy.mjs --skip-env-check",
+    "prepare:runtime-secrets": "node scripts/generate-secrets.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
     "build:all": "npm run build",
     "start": "npm run build && node artifacts/api-server/dist/index.mjs",

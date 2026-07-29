@@ -47,15 +47,17 @@ test('health endpoints are registered and app imports cleanly', async () => {
   assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
 });
 
-test('production requests over http are redirected to https', async () => {
+test('production health endpoints remain reachable over http for platform probes', async () => {
   await withTestServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/healthz`, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: { 'x-forwarded-proto': 'http' },
-    });
+    for (const path of ['/healthz', '/livez', '/readyz', '/api/healthz', '/api/livez', '/api/readyz']) {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { 'x-forwarded-proto': 'http' },
+      });
 
-    assert.equal(response.status, 301);
-    assert.match(response.headers.get('location') ?? '', /^https:\/\//);
+      assert.equal(response.status, 200, `${path} should remain available to platform health checks`);
+      assert.equal(response.headers.get('location'), null, `${path} should not redirect`);
+    }
   });
 });

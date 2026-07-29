@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import http from 'http';
+import { randomBytes } from 'crypto';
+import { execSync } from 'child_process';
+import path from 'path';
 import app from './app';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { hydrateFromDb } from './lib/hydrate';
@@ -79,8 +82,18 @@ async function initDatabase() {
   }
 }
 
+function ensureRuntimeSecrets() {
+  try {
+    const scriptPath = path.resolve(process.cwd(), 'scripts/generate-secrets.mjs');
+    execSync(`node "${scriptPath}"`, { stdio: 'inherit', env: process.env });
+  } catch (error) {
+    logger.warn({ err: error }, '[SERVER] Runtime secret bootstrap skipped');
+  }
+}
+
 async function bootstrap() {
   try {
+    ensureRuntimeSecrets();
     const startupValidation = validateStartupEnvironment(process.env);
     if (!startupValidation.ok) {
       logger.error({ missing: startupValidation.missing }, '[SERVER] Missing required environment variables');
@@ -88,16 +101,29 @@ async function bootstrap() {
     }
 
     if (startupValidation.warnings.length > 0) {
-      logger.info({ missing: startupValidation.warnings }, '[SERVER] Optional environment variables not configured');
+      logger.warn({ warnings: startupValidation.warnings }, '[SERVER] Optional environment variables not configured; using resilient defaults');
     }
 
-    process.env.NODE_ENV = startupValidation.resolved.NODE_ENV;
+    process.env.NODE_ENV = startupValidation.resolved.NODE_ENV || 'production';
     process.env.PORT = startupValidation.resolved.PORT;
     if (startupValidation.resolved.DATABASE_URL) {
       process.env.DATABASE_URL = startupValidation.resolved.DATABASE_URL;
     }
     if (startupValidation.resolved.ALLOWED_ORIGINS) {
       process.env.ALLOWED_ORIGINS = startupValidation.resolved.ALLOWED_ORIGINS;
+    }
+
+    if (!process.env.SESSION_SECRET?.trim()) {
+      process.env.SESSION_SECRET = randomBytes(32).toString('hex');
+    }
+    if (!process.env.JWT_SECRET?.trim()) {
+      process.env.JWT_SECRET = randomBytes(32).toString('hex');
+    }
+    if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
+      process.env.WALLET_ENCRYPTION_KEY = randomBytes(32).toString('hex');
+    }
+    if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {
+      process.env.ALLOWED_ORIGINS = 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173';
     }
 
     validateProductionEnvironment(process.env);
