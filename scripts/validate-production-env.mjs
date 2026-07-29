@@ -1,3 +1,23 @@
+function isRealSendGridKey(value) {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.toLowerCase().startsWith('sg_generated') || trimmed.toLowerCase().startsWith('sendgrid_generated') || trimmed.toLowerCase().startsWith('placeholder')) {
+    return false;
+  }
+  return trimmed.startsWith('SG.') || trimmed.length >= 20;
+}
+
+function isRealAlchemyKey(value) {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.toLowerCase().startsWith('alchemy_generated') || trimmed.toLowerCase().startsWith('alchemy_placeholder') || trimmed.toLowerCase().startsWith('placeholder')) {
+    return false;
+  }
+  return trimmed.length >= 16;
+}
+
 function validateProductionEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
@@ -42,6 +62,14 @@ function validateProductionEnvironment(env = process.env) {
 
     if (env.COINBASE_API_KEY && !env.COINBASE_API_SECRET) {
       errors.push('COINBASE_API_SECRET must be set when COINBASE_API_KEY is configured in production.');
+    }
+
+    if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
+      warnings.push('SENDGRID_API_KEY is not configured with a real production credential; email delivery will remain disabled until a real key is supplied.');
+    }
+
+    if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
+      warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; on-chain lookups will use safe fallbacks until a real key is supplied.');
     }
   }
 
