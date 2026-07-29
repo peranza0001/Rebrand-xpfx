@@ -100,21 +100,26 @@ router.post("/auth/login", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid login" });
   }
-  const userId = usersByEmail.get(parsed.data.email.toLowerCase());
+  const emailLower = parsed.data.email.toLowerCase();
+  const userId = usersByEmail.get(emailLower);
+  logger.info({ email: emailLower, userId: userId ?? null }, "[auth] login.attempt");
   const stored = userId ? users.get(userId) : undefined;
   if (!stored) {
+    logger.warn({ email: emailLower }, "[auth] login.no_user");
     return res.status(401).json({
       error: "Invalid email or password.",
       code: "invalid_credentials",
     });
   }
   if (stored.disabled) {
+    logger.warn({ email: emailLower, userId: stored.user.id }, "[auth] login.disabled");
     return res.status(401).json({
       error: "Invalid email or password.",
       code: "invalid_credentials",
     });
   }
   if (!verifyPassword(parsed.data.password, stored.passwordHash)) {
+    logger.warn({ email: emailLower, userId: stored.user.id }, "[auth] login.invalid_password");
     return res.status(401).json({
       error: "Invalid email or password.",
       code: "invalid_credentials",
