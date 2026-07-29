@@ -45,6 +45,34 @@ test('secret generation bootstraps .env from .env.example for fresh clones', () 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
+test('secret generation populates integration defaults for sendgrid and alchemy', () => {
+  const tempDir = mkdtempSync(path.join(tmpdir(), 'rebrand-integration-'));
+  const tempEnvPath = path.join(tempDir, '.env');
+  const tempExamplePath = path.join(tempDir, '.env.example');
+  writeFileSync(tempExamplePath, 'SESSION_SECRET=\nENABLE_DEMO_AUTH=true\n');
+
+  const result = execFileSync(process.execPath, [scriptPath], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      ENV_FILE: tempEnvPath,
+      ENV_EXAMPLE_FILE: tempExamplePath,
+    },
+    encoding: 'utf8',
+  });
+
+  const envContent = readFileSync(tempEnvPath, 'utf8');
+  assert.match(envContent, /SENDGRID_API_KEY=/);
+  assert.match(envContent, /ALCHEMY_API_KEY=/);
+  assert.doesNotMatch(envContent, /SENDGRID_API_KEY=\s*$/m);
+  assert.doesNotMatch(envContent, /ALCHEMY_API_KEY=\s*$/m);
+  assert.match(envContent, /SENDGRID_API_KEY=sg_generated_/);
+  assert.match(envContent, /ALCHEMY_API_KEY=alchemy_generated_/);
+  assert.ok(result.includes('Generated secrets'));
+
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
 test('secret generation script exists and is runnable', () => {
   const result = execFileSync(process.execPath, [scriptPath], { cwd: repoRoot, encoding: 'utf8' });
   assert.ok(result.includes('Environment file updated') || result.includes('No secrets to generate'));

@@ -2,8 +2,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 
+function findNearestEnvFile(startDir: string): string | undefined {
+  let currentDir = path.resolve(startDir);
+  while (true) {
+    const candidate = path.join(currentDir, '.env');
+    if (fs.existsSync(candidate)) return candidate;
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) break;
+    currentDir = parentDir;
+  }
+  return undefined;
+}
+
 export function loadRuntimeEnv(envFile = process.env.ENV_FILE) {
-  const resolvedEnvFile = envFile ? path.resolve(envFile) : path.resolve(process.cwd(), '.env');
+  const resolvedEnvFile = envFile
+    ? path.resolve(envFile)
+    : findNearestEnvFile(process.cwd()) ?? path.resolve(process.cwd(), '.env');
+
   if (fs.existsSync(resolvedEnvFile)) {
     dotenv.config({ path: resolvedEnvFile, override: false });
   } else {

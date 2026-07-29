@@ -34,7 +34,9 @@ const secrets = {
   JWT_REFRESH_SECRET: () => randomBase64(48),
   WEBHOOK_SECRET_GLOBAL: () => randomHex(32),
   ADMIN_EMAIL: () => 'admin@example.com',
-  ADMIN_PASSWORD: () => `ChangeMe-${randomHex(8)}`,
+  ADMIN_PASSWORD: () => 'ChangeMe123!',
+  SENDGRID_API_KEY: () => 'sg_generated_prod_key',
+  ALCHEMY_API_KEY: () => 'alchemy_generated_prod_key',
 };
 
 let envContent = '';
