@@ -11,7 +11,7 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
-import { attachSession } from './lib/session';
+import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
 
 const app = express();
@@ -290,6 +290,8 @@ app.use(attachSession);
 
 const { doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.SESSION_SECRET || 'dev-csrf-secret',
+  getSessionIdentifier: (req) =>
+    req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
   cookieName: 'xcsrf',
   cookieOptions: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
   size: 32,

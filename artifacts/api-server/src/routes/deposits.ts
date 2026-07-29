@@ -29,17 +29,17 @@ router.post("/deposits", requireAuth, async (req, res) => {
   
   // Check tier permissions for fiat deposits
   const userTier = determineAccountTier({
-    emailVerified: req.storedUser!.user.emailVerified,
+    buyVerified: req.storedUser!.user.buyVerified,
     kycVerified: req.storedUser!.user.kycVerified,
     bankAccountsCount: 0,
     role: req.storedUser!.role,
   });
   
-  if (parsed.data.method === "fiat" && !canPerformAction(userTier, 'fiatDepositsEnabled')) {
+  if (parsed.data.method !== 'crypto_wallet' && !canPerformAction(userTier, 'fiatDepositsEnabled')) {
     return res.status(403).json({
       success: false,
       message: "Your account tier does not support fiat deposits",
-      hint: "Verify your email to enable fiat deposits",
+      hint: "Verify your account to enable fiat-capable deposits",
     });
   }
   

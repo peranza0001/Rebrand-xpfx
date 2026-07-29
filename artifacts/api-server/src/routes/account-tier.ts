@@ -28,7 +28,7 @@ router.get('/tier', requireAuth, (req: Request, res: Response) => {
   const bankAccountsCount = data?.bankAccounts?.length ?? 0;
 
   const currentTier = determineAccountTier({
-    emailVerified: user.emailVerified,
+    buyVerified: user.buyVerified,
     kycVerified: user.kycVerified,
     bankAccountsCount,
     role: req.storedUser.role,
@@ -55,10 +55,10 @@ router.get('/tier', requireAuth, (req: Request, res: Response) => {
     nextSpec,
     mandatoryChecklist: nextChecklist,
     progress: {
-      emailVerified: user.emailVerified,
+      emailVerified: user.buyVerified,
       kycVerified: user.kycVerified,
       bankAccountOnFile: bankAccountsCount > 0,
-      phoneVerified: user.phoneVerified,
+      phoneVerified: Boolean(user.phone),
     },
   });
 });
@@ -93,7 +93,7 @@ router.get('/tier/limits', requireAuth, (req: Request, res: Response) => {
   const data = userData.get(req.userId);
 
   const currentTier = determineAccountTier({
-    emailVerified: user.emailVerified,
+    buyVerified: user.buyVerified,
     kycVerified: user.kycVerified,
     bankAccountsCount: data?.bankAccounts?.length ?? 0,
     role: req.storedUser.role,

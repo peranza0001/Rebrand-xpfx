@@ -72,10 +72,17 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
     ['COINBASE_WEBHOOK_SECRET', env.COINBASE_WEBHOOK_SECRET],
     ['AI_INTEGRATIONS_OPENAI_API_KEY', env.AI_INTEGRATIONS_OPENAI_API_KEY],
     ['ALCHEMY_API_KEY', env.ALCHEMY_API_KEY],
-  ].filter(([, value]) => !normalizeString(value));
+  ] as Array<[string, string | undefined]>;
+
+  const missingOptionalWarnings = optionalWarnings.filter(
+    (entry): entry is [string, string | undefined] => {
+      const value = entry[1];
+      return !normalizeString(value);
+    }
+  );
 
   if (resolved.NODE_ENV === 'development') {
-    warnings.push(...optionalWarnings.map(([key]) => key));
+    warnings.push(...missingOptionalWarnings.map(([key]) => key));
   }
 
   return {

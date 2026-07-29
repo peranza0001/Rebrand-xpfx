@@ -41,7 +41,7 @@ router.post("/trades/:tradeId/release", requireAuth, requireLiveTrading, (req, r
   
   // Check daily trading limit
   const userTier = determineAccountTier({
-    emailVerified: req.storedUser!.user.emailVerified,
+    buyVerified: req.storedUser!.user.buyVerified,
     kycVerified: req.storedUser!.user.kycVerified,
     bankAccountsCount: 0,
     role: req.storedUser!.role,
