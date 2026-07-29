@@ -31,9 +31,7 @@ export function LoginPage() {
       const result = await loginMutation.mutateAsync({
         data: { email, password },
       });
-      // Server returns { status: "authenticated", ... } for admins, or
-      // { status: "otp_required", ... } for regular users (which means the
-      // submitted credentials are valid but this is not an admin account).
+      // Successful credential checks return an authenticated session.
       if ("status" in result && result.status === "authenticated") {
         if (result.role !== "admin") {
           setFormError("This account does not have admin access.");
@@ -64,7 +62,10 @@ export function LoginPage() {
       } else if (anyErr?.message) {
         message = anyErr.message;
       }
-      if (code === "email_not_found" || field === "email") {
+
+      if (message.includes("Invalid email or password") || code === "invalid_credentials") {
+        setFormError("We could not sign you in. Please verify your email and password, or create a new account if needed.");
+      } else if (code === "email_not_found" || field === "email") {
         setEmailError(message || "No account found for that email.");
       } else if (code === "wrong_password" || field === "password") {
         setPasswordError(message || "Incorrect password.");

@@ -111,18 +111,10 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
       body: { email, password: signupPayload.password },
     });
     assert.equal(loginResult.response.status, 200);
-    assert.equal(loginResult.data.status, 'otp_required');
-    assert.equal(loginResult.data.intent, 'login');
-
-    const loginOtpRecord = _getOtpRecord(email);
-    assert.ok(loginOtpRecord, 'OTP record should be created after login');
-
-    const loginVerifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
-      method: 'POST',
-      body: { email, code: loginOtpRecord.code },
-    });
-    assert.equal(loginVerifyResult.response.status, 200);
-    const loginSessionCookie = parseCookie(loginVerifyResult.response.headers.get('set-cookie'));
+    assert.equal(loginResult.data.status, 'authenticated');
+    assert.equal(loginResult.data.role, 'user');
+    assert.equal(loginResult.data.user.email, email);
+    const loginSessionCookie = parseCookie(loginResult.response.headers.get('set-cookie'));
     assert.ok(loginSessionCookie.includes('xpfx_sid='));
 
     const demoResponse = await jsonRequest(baseUrl, '/api/auth/demo', {

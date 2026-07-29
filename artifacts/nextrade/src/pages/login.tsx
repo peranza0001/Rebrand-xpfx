@@ -25,8 +25,7 @@ export function Login() {
       const result = await loginMutation.mutateAsync({
         data: { email, password },
       });
-      // Admins are authenticated immediately; everyone else gets an OTP
-      // challenge they must verify before a session is created.
+      // Successful credential checks now create a session immediately.
       if (result.status === "authenticated") {
         queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
         toast({ title: "Welcome back" });
@@ -40,10 +39,16 @@ export function Login() {
       setLocation(
         `/verify-otp?email=${encodeURIComponent(result.email)}&intent=login`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const anyErr = error as {
+        message?: string;
+        response?: { data?: { error?: string; code?: string; field?: string } };
+      };
+      const data = anyErr?.response?.data;
+      const description = data?.error || anyErr?.message || "Please check your credentials and try again.";
       toast({
         title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        description,
         variant: "destructive",
       });
     }

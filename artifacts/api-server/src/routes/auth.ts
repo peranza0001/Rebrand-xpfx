@@ -125,19 +125,20 @@ router.post("/auth/login", async (req, res) => {
       code: "invalid_credentials",
     });
   }
-  // Admins authenticate directly with their seeded credentials — they do not
-  // receive an OTP because their email isn't necessarily a real inbox we
-  // control. Regular users still go through the OTP flow.
+
+  const sid = newSessionId();
+  sessions.set(sid, stored.user.id);
+  setSessionCookie(res, sid);
+  logActivity({
+    actorId: stored.user.id,
+    actorName: stored.user.fullName,
+    action: "auth.login",
+    detail: stored.role === "admin"
+      ? `Admin login (${stored.user.email})`
+      : `User login (${stored.user.email})`,
+  });
+
   if (stored.role === "admin") {
-    const sid = newSessionId();
-    sessions.set(sid, stored.user.id);
-    setSessionCookie(res, sid);
-    logActivity({
-      actorId: stored.user.id,
-      actorName: stored.user.fullName,
-      action: "auth.login",
-      detail: `Admin login (${stored.user.email})`,
-    });
     pushAdminAlert({
       kind: "auth.admin_login",
       title: "Admin signed in",
@@ -148,15 +149,9 @@ router.post("/auth/login", async (req, res) => {
       linkUrl: `/users/${stored.user.id}`,
       email: true,
     });
-    return res.json({ ...sessionFor(stored), status: "authenticated" as const });
   }
-  try {
-    await issueOtp({ email: stored.user.email, intent: "login", userId: stored.user.id });
-  } catch (err) {
-    logger.error({ err, email: stored.user.email, userId: stored.user.id }, "[auth] Failed to issue OTP for login");
-    return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
-  }
-  return res.json(otpChallenge(stored.user.email, "login"));
+
+  return res.json({ ...sessionFor(stored), status: "authenticated" as const });
 });
 
 router.post("/auth/verify-otp", (req, res) => {
