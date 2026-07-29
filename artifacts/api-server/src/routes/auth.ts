@@ -28,6 +28,7 @@ import {
   verifyPassword,
   type StoredUser,
 } from "../lib/store";
+import { logger } from "../lib/logger";
 import {
   clearSessionCookie,
   requireAuth,
@@ -71,7 +72,7 @@ function otpChallenge(email: string, intent: "signup" | "login") {
   };
 }
 
-router.post("/auth/signup", (req, res) => {
+router.post("/auth/signup", async (req, res) => {
   const parsed = SignupBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid signup", details: parsed.error.issues });
@@ -84,12 +85,17 @@ router.post("/auth/signup", (req, res) => {
   if (!usersByEmail.has(email)) {
     // Account is NOT created yet — we hold the payload in the OTP record and
     // only commit once the email has been verified.
-    issueOtp({ email, intent: "signup", signupPayload: parsed.data });
+    try {
+      await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
+    } catch (err) {
+      logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
+      return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
+    }
   }
   return res.json(otpChallenge(parsed.data.email, "signup"));
 });
 
-router.post("/auth/login", (req, res) => {
+router.post("/auth/login", async (req, res) => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid login" });
@@ -139,7 +145,12 @@ router.post("/auth/login", (req, res) => {
     });
     return res.json({ ...sessionFor(stored), status: "authenticated" as const });
   }
-  issueOtp({ email: stored.user.email, intent: "login", userId: stored.user.id });
+  try {
+    await issueOtp({ email: stored.user.email, intent: "login", userId: stored.user.id });
+  } catch (err) {
+    logger.error({ err, email: stored.user.email, userId: stored.user.id }, "[auth] Failed to issue OTP for login");
+    return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
+  }
   return res.json(otpChallenge(stored.user.email, "login"));
 });
 
@@ -270,7 +281,7 @@ router.post("/auth/verify-otp", (req, res) => {
   return res.json(sessionFor(stored));
 });
 
-router.post("/auth/resend-otp", (req, res) => {
+router.post("/auth/resend-otp", async (req, res) => {
   const parsed = ResendOtpBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid resend request" });
@@ -279,7 +290,13 @@ router.post("/auth/resend-otp", (req, res) => {
   // resend outcome. Returning 400 only when a pending record exists would let
   // callers distinguish registered emails from unregistered ones by response code
   // or by throttle vs. "no pending verification" messages.
-  const result = resendOtpFn(parsed.data.email);
+  let result;
+  try {
+    result = await resendOtpFn(parsed.data.email);
+  } catch (err) {
+    logger.error({ err, email: parsed.data.email }, "[auth] Failed to resend OTP");
+    return res.status(500).json({ error: "Unable to resend verification email. Please try again later." });
+  }
   const intent = result.record?.intent ?? "signup";
   return res.json(otpChallenge(parsed.data.email, intent));
 });

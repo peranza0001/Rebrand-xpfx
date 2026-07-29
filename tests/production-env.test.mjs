@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
-import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
+import envModule from '../artifacts/api-server/src/lib/env.ts';
+
+const { resolveEnvValue } = envModule.default ?? envModule;
 
 test('production validation fails when no email provider is configured', () => {
   const env = {

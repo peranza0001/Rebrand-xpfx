@@ -8,8 +8,8 @@ process.env.ALLOWED_ORIGINS = 'https://example.com';
 
 import appModule from '../artifacts/api-server/src/app.ts';
 
-// Handle both direct export and ES module wrapper
-const app = appModule.default ?? appModule;
+// Handle both direct export and ESM wrapper
+const app = appModule.default?.default ?? appModule.default ?? appModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');

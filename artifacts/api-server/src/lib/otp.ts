@@ -49,7 +49,7 @@ function maskEmail(email: string): string {
   return `${visible}***@${domain}`;
 }
 
-function sendOtpEmail(email: string, code: string, intent: OtpIntent): void {
+async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Promise<void> {
   const subject =
     intent === "signup"
       ? "Your XpressPro FX signup verification code"
@@ -61,17 +61,24 @@ function sendOtpEmail(email: string, code: string, intent: OtpIntent): void {
     intent === "signup" ? "signup" : "login"
   } process. The code expires in 10 minutes.</div>`;
 
-  void sendEmail({
-    to: email,
-    subject,
-    body,
-    html,
-    kind: `otp.${intent}`,
-  }).catch((err) => {
-    logger.error({ err, email, intent }, "[otp] Failed to send OTP email");
-  });
-
   const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
+
+  try {
+    await sendEmail(
+      {
+        to: email,
+        subject,
+        body,
+        html,
+        kind: `otp.${intent}`,
+      },
+      { requireProvider: isProduction },
+    );
+  } catch (err) {
+    logger.error({ err, email, intent }, "[otp] Failed to send OTP email");
+    throw err;
+  }
+
   if (!hasEmailProvider && !isProduction) {
     logger.info(
       { to: maskEmail(email), subject, smtpConfigured: false },
@@ -84,12 +91,12 @@ function sendOtpEmail(email: string, code: string, intent: OtpIntent): void {
   }
 }
 
-export function issueOtp(args: {
+export async function issueOtp(args: {
   email: string;
   intent: OtpIntent;
   signupPayload?: SignupPayload;
   userId?: string;
-}): OtpRecord {
+}): Promise<OtpRecord> {
   const email = args.email.toLowerCase();
   const code = generateCode();
   const record: OtpRecord = {
@@ -103,7 +110,15 @@ export function issueOtp(args: {
   };
   otpCodes.set(email, record);
   lastSentAt.set(email, Date.now());
-  sendOtpEmail(email, code, args.intent);
+
+  try {
+    await sendOtpEmail(email, code, args.intent);
+  } catch (err) {
+    otpCodes.delete(email);
+    lastSentAt.delete(email);
+    throw err;
+  }
+
   return record;
 }
 
@@ -113,7 +128,7 @@ export interface ResendResult {
   record?: OtpRecord;
 }
 
-export function resendOtp(emailRaw: string): ResendResult {
+export async function resendOtp(emailRaw: string): Promise<ResendResult> {
   const email = emailRaw.toLowerCase();
   const existing = otpCodes.get(email);
   if (!existing) {
@@ -126,13 +141,19 @@ export function resendOtp(emailRaw: string): ResendResult {
       reason: "Please wait a few seconds before requesting another code.",
     };
   }
-  const record = issueOtp({
-    email,
-    intent: existing.intent,
-    signupPayload: existing.signupPayload,
-    userId: existing.userId,
-  });
-  return { ok: true, record };
+
+  try {
+    const record = await issueOtp({
+      email,
+      intent: existing.intent,
+      signupPayload: existing.signupPayload,
+      userId: existing.userId,
+    });
+    return { ok: true, record };
+  } catch (err) {
+    logger.error({ err, email }, "[otp] Failed to resend OTP");
+    return { ok: false, reason: "Unable to resend verification email. Please try again later." };
+  }
 }
 
 export interface VerifyResult {
@@ -171,4 +192,8 @@ export function verifyOtp(emailRaw: string, code: string): VerifyResult {
 
 export function _otpStoreSize(): number {
   return otpCodes.size;
+}
+
+export function _getOtpRecord(email: string): OtpRecord | undefined {
+  return otpCodes.get(email.toLowerCase());
 }

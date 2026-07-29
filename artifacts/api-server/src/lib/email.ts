@@ -41,6 +41,10 @@ export interface SendEmailInput {
   from?: string;
 }
 
+export interface SendEmailOptions {
+  requireProvider?: boolean;
+}
+
 interface ProviderResult {
   ok: boolean;
   provider: "sendgrid" | "smtp" | "stub";
@@ -136,7 +140,10 @@ async function deliverViaSmtp(input: SendEmailInput, from: string): Promise<Prov
   }
 }
 
-export async function sendEmail(input: SendEmailInput): Promise<SentEmailData> {
+export async function sendEmail(
+  input: SendEmailInput,
+  options: SendEmailOptions = {},
+): Promise<SentEmailData> {
   const from = input.from ?? env.SMTP_FROM ?? NO_REPLY;
   const body = input.body ?? input.text ?? "";
   const record: SentEmailData = {
@@ -164,6 +171,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SentEmailData> {
       result = { ok: true, provider: "stub" };
     }
   }
+
+  if (result.provider === "stub" && options.requireProvider) {
+    const errorMessage = `Email delivery failed for ${record.kind}; no configured provider available.`;
+    logger.error({ to: record.to, kind: record.kind }, errorMessage);
+    throw new Error(errorMessage);
+  }
+
   logger.info(
     { to: record.to, kind: record.kind, subject: record.subject, provider: result.provider },
     "email.send",

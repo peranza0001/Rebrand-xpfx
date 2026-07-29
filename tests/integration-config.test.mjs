@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isSendGridConfigured, isAlchemyConfigured } from '../artifacts/api-server/src/lib/integration-config.ts';
+import integrationConfigModule from '../artifacts/api-server/src/lib/integration-config.ts';
+
+const { isSendGridConfigured, isAlchemyConfigured } = integrationConfigModule.default ?? integrationConfigModule;
 
 test('placeholder sendgrid and alchemy credentials are treated as unconfigured', () => {
   assert.equal(isSendGridConfigured('sg_generated_prod_key'), false);

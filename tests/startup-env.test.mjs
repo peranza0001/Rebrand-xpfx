@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateStartupEnvironment } from '../artifacts/api-server/src/lib/startup-env.ts';
+import startupEnvModule from '../artifacts/api-server/src/lib/startup-env.ts';
+
+const { validateStartupEnvironment } = startupEnvModule.default ?? startupEnvModule;
 
 test('startup validation reports missing required variables', () => {
   const result = validateStartupEnvironment({
