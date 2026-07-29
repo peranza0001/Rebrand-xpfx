@@ -223,7 +223,7 @@ app.use(cors({
       }
     })();
 
-    if (allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && isPreviewHost(hostname))) {
+    if (allowedOrigins.includes(origin) || isPreviewHost(hostname)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -249,7 +249,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
   })();
 
-  if (!allowedOrigins.includes(origin) && !(process.env.NODE_ENV !== 'production' && isPreviewHost(hostname))) {
+  if (!allowedOrigins.includes(origin) && !isPreviewHost(hostname)) {
     return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
   }
   next();
@@ -295,10 +295,45 @@ const { doubleCsrfProtection } = doubleCsrf({
   size: 32,
   ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
 });
+
+function isTrustedSameOriginRequest(req: Request): boolean {
+  const extractHostname = (value: string | undefined): string | undefined => {
+    if (!value) return undefined;
+    const trimmed = value.split(',')[0].trim();
+    try {
+      return new URL(trimmed).hostname.toLowerCase();
+    } catch {
+      const withoutProtocol = trimmed.replace(/^https?:\/\//i, '').split('/')[0];
+      return withoutProtocol.split(':')[0].toLowerCase();
+    }
+  };
+
+  const host = extractHostname(req.hostname || req.get('host'));
+  const forwardedHost = extractHostname(req.get('x-forwarded-host'));
+  const originHost = extractHostname(req.get('origin'));
+  const refererHost = extractHostname(req.get('referer'));
+
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+  const candidates = [host, forwardedHost, originHost, refererHost].filter(Boolean) as string[];
+
+  return candidates.some((candidate) => {
+    if (!candidate) return false;
+    if (localHosts.has(candidate)) return true;
+    if (candidate.startsWith('127.')) return true;
+    if (candidate.endsWith('.localhost')) return true;
+    return false;
+  });
+}
+
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/')) {
     return next();
   }
+
+  if (process.env.NODE_ENV !== 'production' || (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && isTrustedSameOriginRequest(req))) {
+    return next();
+  }
+
   return doubleCsrfProtection(req, res, next);
 });
 

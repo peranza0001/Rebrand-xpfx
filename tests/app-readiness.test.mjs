@@ -61,3 +61,23 @@ test('production health endpoints remain reachable over http for platform probes
     }
   });
 });
+
+test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/live-chat`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ content: 'hello' }),
+    });
+
+    assert.equal(response.status, 401, 'same-origin authenticated requests should reach auth middleware instead of failing CSRF');
+    const body = await response.json();
+    assert.equal(body.error, 'Not authenticated');
+  });
+});
