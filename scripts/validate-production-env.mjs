@@ -71,6 +71,11 @@ function validateProductionEnvironment(env = process.env) {
       warnings.push('SENDGRID_API_KEY is not configured with a real production credential; SendGrid email delivery will remain disabled until a real key is supplied. SMTP may still work if configured.');
     }
 
+    const emailFrom = (env.EMAIL_FROM || env.SMTP_FROM || "").trim();
+    if (isRealSendGridKey(env.SENDGRID_API_KEY) && !emailFrom) {
+      warnings.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set EMAIL_FROM (or SMTP_FROM) to a verified SendGrid sender email.');
+    }
+
     if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
       warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; on-chain lookups will use safe fallbacks until a real key is supplied.');
     }

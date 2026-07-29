@@ -59,6 +59,7 @@ export const env = {
   SMTP_USER: get("SMTP_USER"),
   SMTP_PASS: get("SMTP_PASS"),
   SMTP_FROM: get("SMTP_FROM"),
+  EMAIL_FROM: resolveEnvValue(process.env, "EMAIL_FROM", ["SMTP_FROM"]),
 
   // Additional deployment aliases for production platforms
   COOKIE_SIGNING_KEY: resolveEnvValue(process.env, "COOKIE_SIGNING_KEY"),

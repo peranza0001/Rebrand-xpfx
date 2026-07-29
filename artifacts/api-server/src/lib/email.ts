@@ -137,7 +137,7 @@ async function deliverViaSmtp(input: SendEmailInput, from: string): Promise<Prov
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SentEmailData> {
-  const from = input.from ?? NO_REPLY;
+  const from = input.from ?? env.EMAIL_FROM ?? NO_REPLY;
   const body = input.body ?? input.text ?? "";
   const record: SentEmailData = {
     id: newId("email"),

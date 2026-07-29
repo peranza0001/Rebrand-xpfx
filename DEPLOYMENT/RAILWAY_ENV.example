@@ -11,6 +11,7 @@ ADMIN_PASSWORD=ChangeMe123!
 ENABLE_DEMO_AUTH=true
 ALLOWED_ORIGINS=https://your-domain.com,https://www.your-domain.com
 SENDGRID_API_KEY=replace-with-sendgrid-key
+EMAIL_FROM=replace-with-verified-sendgrid-from-email
 ALCHEMY_API_KEY=replace-with-alchemy-key
 MOONPAY_API_KEY=
 MOONPAY_SECRET_KEY=
