@@ -11,7 +11,6 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
-import { buildPostgresConfig } from '../../../lib/db/src/connection-config';
 import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
 
@@ -60,7 +59,7 @@ function buildHealthPayload(extra: Record<string, unknown> = {}) {
   };
 }
 
-async function dbHealthHandler(_req: Request, res: Response) {
+async function _dbHealthHandler(_req: Request, res: Response) {
   const db = getDb();
   if (!db) {
     return res.status(200).json({ status: 'ok', database: 'disabled' });
@@ -78,7 +77,7 @@ async function dbHealthHandler(_req: Request, res: Response) {
   }
 }
 
-async function readinessHandler(_req: Request, res: Response) {
+async function _readinessHandler(_req: Request, res: Response) {
   const rawDatabaseUrl = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
   if (!rawDatabaseUrl) {
     return res.status(200).json({ ready: true, reason: 'no-db-config' });

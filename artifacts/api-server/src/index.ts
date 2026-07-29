@@ -6,7 +6,6 @@ import http from 'http';
 import { randomBytes } from 'crypto';
 import { execSync } from 'child_process';
 import path from 'path';
-import app from './app';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { hydrateFromDb } from './lib/hydrate';
 import { validateStartupEnvironment } from './lib/startup-env';
@@ -20,8 +19,7 @@ type PrismaClientType = {
 };
 
 const DEFAULT_PORT = 8080;
-const server = http.createServer(app);
-
+let server: http.Server | null = null;
 let prisma: PrismaClientType | null = null;
 
 function normalizePort(value: string | number | undefined) {
@@ -86,14 +84,35 @@ function ensureRuntimeSecrets() {
   try {
     const scriptPath = path.resolve(process.cwd(), 'scripts/generate-secrets.mjs');
     execSync(`node "${scriptPath}"`, { stdio: 'inherit', env: process.env });
+    dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
   } catch (error) {
     logger.warn({ err: error }, '[SERVER] Runtime secret bootstrap skipped');
   }
 }
 
+function attachServerHandlers() {
+  if (!server) {
+    return;
+  }
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error({ port: process.env.PORT || DEFAULT_PORT }, '[SERVER] Port is already in use');
+      logger.error('[SERVER] If this is a local or VPS restart, wait a few seconds and try again.');
+    } else {
+      logger.error({ err: error }, '[SERVER] Failed to bind');
+    }
+    process.exit(1);
+  });
+}
+
 async function bootstrap() {
   try {
     ensureRuntimeSecrets();
+    const { default: app } = await import('./app');
+    server = http.createServer(app);
+    attachServerHandlers();
+
     const startupValidation = validateStartupEnvironment(process.env);
     if (!startupValidation.ok) {
       logger.error({ missing: startupValidation.missing }, '[SERVER] Missing required environment variables');
@@ -145,6 +164,10 @@ async function bootstrap() {
 
 process.on('SIGTERM', async () => {
   logger.info('[SERVER] SIGTERM received — shutting down gracefully');
+  if (!server) {
+    process.exit(0);
+    return;
+  }
   server.close(async () => {
     await prisma?.$disconnect();
     logger.info('[SERVER] Shutdown complete');
@@ -154,20 +177,14 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('[SERVER] SIGINT received — shutting down gracefully');
+  if (!server) {
+    process.exit(0);
+    return;
+  }
   server.close(async () => {
     await prisma?.$disconnect();
     process.exit(0);
   });
-});
-
-server.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EADDRINUSE') {
-    logger.error({ port: process.env.PORT || DEFAULT_PORT }, '[SERVER] Port is already in use');
-    logger.error('[SERVER] If this is a local or VPS restart, wait a few seconds and try again.');
-  } else {
-    logger.error({ err: error }, '[SERVER] Failed to bind');
-  }
-  process.exit(1);
 });
 
 void bootstrap();
