@@ -13,6 +13,7 @@ test('production validation warns and stays resilient when secrets are missing',
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
+  assert.equal(validateProductionEnvironment(env), true);
 });
 
 test('production validation accepts a complete configuration', () => {

@@ -1,16 +1,13 @@
 import 'express-async-errors';
-import dotenv from 'dotenv';
-dotenv.config();
-
 import http from 'http';
+import dotenv from 'dotenv';
 import { randomBytes } from 'crypto';
 import { execSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-import { hydrateFromDb } from './lib/hydrate';
-import { validateStartupEnvironment } from './lib/startup-env';
 import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
-import { setPrismaClient } from './lib/db-persist';
 import { logger } from './lib/logger';
 
 type PrismaClientType = {
@@ -21,6 +18,23 @@ type PrismaClientType = {
 const DEFAULT_PORT = 8080;
 let server: http.Server | null = null;
 let prisma: PrismaClientType | null = null;
+let hydrateFromDb: typeof import('./lib/hydrate').hydrateFromDb | null = null;
+let validateStartupEnvironment: typeof import('./lib/startup-env').validateStartupEnvironment | null = null;
+let setPrismaClient: typeof import('./lib/db-persist').setPrismaClient | null = null;
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+async function loadRuntimeDependencies() {
+  const [{ hydrateFromDb: hydrateModule }, { validateStartupEnvironment: startupEnvValidator }, { setPrismaClient: setClient }] = await Promise.all([
+    import('./lib/hydrate'),
+    import('./lib/startup-env'),
+    import('./lib/db-persist'),
+  ]);
+
+  hydrateFromDb = hydrateModule;
+  validateStartupEnvironment = startupEnvValidator;
+  setPrismaClient = setClient;
+}
 
 function normalizePort(value: string | number | undefined) {
   const parsed = Number(value);
@@ -81,10 +95,21 @@ async function initDatabase() {
 }
 
 function ensureRuntimeSecrets() {
+  const possibleScriptPaths = [
+    path.resolve(process.cwd(), 'scripts/generate-secrets.mjs'),
+    path.resolve(process.cwd(), '../../scripts/generate-secrets.mjs'),
+    path.resolve(repoRoot, 'scripts/generate-secrets.mjs'),
+  ];
+
+  const scriptPath = possibleScriptPaths.find((candidate) => candidate && fs.existsSync(candidate));
+
   try {
-    const scriptPath = path.resolve(process.cwd(), 'scripts/generate-secrets.mjs');
+    if (!scriptPath) {
+      throw new Error('Unable to locate generate-secrets.mjs');
+    }
+
     execSync(`node "${scriptPath}"`, { stdio: 'inherit', env: process.env });
-    dotenv.config({ path: path.resolve(process.cwd(), '.env'), override: true });
+    dotenv.config({ path: path.resolve(repoRoot, '.env'), override: false });
   } catch (error) {
     logger.warn({ err: error }, '[SERVER] Runtime secret bootstrap skipped');
   }
@@ -109,11 +134,15 @@ function attachServerHandlers() {
 async function bootstrap() {
   try {
     ensureRuntimeSecrets();
+    await loadRuntimeDependencies();
     const { default: app } = await import('./app');
     server = http.createServer(app);
     attachServerHandlers();
 
-    const startupValidation = validateStartupEnvironment(process.env);
+    const startupValidation = validateStartupEnvironment?.(process.env);
+    if (!startupValidation) {
+      throw new Error('[SERVER] Startup validation module failed to initialize');
+    }
     if (!startupValidation.ok) {
       logger.error({ missing: startupValidation.missing }, '[SERVER] Missing required environment variables');
       process.exit(1);
@@ -123,8 +152,12 @@ async function bootstrap() {
       logger.warn({ warnings: startupValidation.warnings }, '[SERVER] Optional environment variables not configured; using resilient defaults');
     }
 
-    process.env.NODE_ENV = startupValidation.resolved.NODE_ENV || 'production';
-    process.env.PORT = startupValidation.resolved.PORT;
+    if (!process.env.NODE_ENV?.trim()) {
+      process.env.NODE_ENV = startupValidation.resolved.NODE_ENV || 'production';
+    }
+    if (!process.env.PORT?.trim()) {
+      process.env.PORT = startupValidation.resolved.PORT;
+    }
     if (startupValidation.resolved.DATABASE_URL) {
       process.env.DATABASE_URL = startupValidation.resolved.DATABASE_URL;
     }
@@ -147,8 +180,8 @@ async function bootstrap() {
 
     validateProductionEnvironment(process.env);
     prisma = await initDatabase();
-    setPrismaClient(prisma);
-    await hydrateFromDb();
+    setPrismaClient?.(prisma);
+    await hydrateFromDb?.();
 
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 

@@ -9,6 +9,10 @@
  * directly — that way missing optional secrets never crash startup.
  */
 
+import { loadRuntimeEnv } from './runtime-env';
+
+loadRuntimeEnv();
+
 export function resolveEnvValue(rawEnv: Record<string, string | undefined>, key: string, aliases: string[] = []): string | undefined {
   const candidates = [key, ...aliases];
   for (const candidate of candidates) {

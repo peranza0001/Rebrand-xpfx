@@ -49,7 +49,7 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: process.env.API_PROXY_TARGET || "http://localhost:8082",
+        target: process.env.API_PROXY_TARGET || process.env.API_PORT || "http://localhost:3000",
         changeOrigin: true,
       },
     },
