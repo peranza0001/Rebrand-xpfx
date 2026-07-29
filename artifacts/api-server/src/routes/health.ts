@@ -3,6 +3,7 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 import { adminSeedStatus } from "../lib/store";
 import { getDb } from "../lib/db-client";
 import { sql } from "drizzle-orm";
+import { getIntegrationStatus } from "../lib/integration-config";
 
 const router: IRouter = Router();
 
@@ -40,7 +41,10 @@ router.get("/healthz/db", async (_req, res) => {
 // instead of failing silently when ADMIN_EMAIL/ADMIN_PASSWORD secrets
 // haven't been set yet. Does not leak the actual email.
 router.get("/admin/provisioning-status", (_req, res) => {
-  res.json({ provisioned: adminSeedStatus.provisioned });
+  res.json({
+    provisioned: adminSeedStatus.provisioned,
+    integrations: getIntegrationStatus(),
+  });
 });
 
 export default router;

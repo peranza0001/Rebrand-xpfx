@@ -25,6 +25,7 @@
 import { newId, NOW, sentEmails, type SentEmailData } from "./store";
 import { logger } from "./logger";
 import { env } from "./env";
+import { isSendGridConfigured } from "./integration-config";
 
 const NO_REPLY = "no_reply@xpressprofx.com";
 const MAX_LOG = 500;
@@ -48,7 +49,9 @@ interface ProviderResult {
 
 async function deliverViaSendGrid(input: SendEmailInput, from: string): Promise<ProviderResult> {
   const apiKey = env.SENDGRID_API_KEY;
-  if (!apiKey) return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY not set" };
+  if (!isSendGridConfigured(apiKey)) {
+    return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY is not configured for production delivery" };
+  }
   try {
     const textBody = input.text ?? input.body ?? "";
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {

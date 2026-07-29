@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { env, isProduction } from "./env";
+import { isAlchemyConfigured } from "./integration-config";
 
 export interface TokenSpec {
   symbol: string;
@@ -28,7 +29,7 @@ export interface ProviderInfo {
 export function getProvider(): ProviderInfo {
   const alchemy = env.ALCHEMY_API_KEY;
   const infura = env.INFURA_API_KEY;
-  if (alchemy) {
+  if (isAlchemyConfigured(alchemy)) {
     return { provider: new ethers.AlchemyProvider("mainnet", alchemy), source: "alchemy" };
   }
   if (infura) {
