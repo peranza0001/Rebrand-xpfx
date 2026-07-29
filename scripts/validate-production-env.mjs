@@ -66,14 +66,14 @@ function validateProductionEnvironment(env = process.env) {
 
     const hasSmtpHost = Boolean(env.SMTP_HOST && env.SMTP_HOST.trim().length > 0);
     if (!isRealSendGridKey(env.SENDGRID_API_KEY) && !hasSmtpHost) {
-      warnings.push('No email provider is configured; OTPs and transactional messages will be logged only until SENDGRID_API_KEY or SMTP_HOST is supplied.');
+      errors.push('No email provider is configured; OTPs and transactional messages require SENDGRID_API_KEY or SMTP_HOST in production.');
     } else if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
       warnings.push('SENDGRID_API_KEY is not configured with a real production credential; SendGrid email delivery will remain disabled until a real key is supplied. SMTP may still work if configured.');
     }
 
     const senderFrom = (env.SMTP_FROM || "").trim();
     if (isRealSendGridKey(env.SENDGRID_API_KEY) && !senderFrom) {
-      warnings.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set SMTP_FROM to a verified SendGrid sender email.');
+      errors.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set SMTP_FROM to a verified SendGrid sender email in production.');
     }
 
     if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {

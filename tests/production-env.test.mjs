@@ -3,20 +3,22 @@ import assert from 'node:assert/strict';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
 
-test('production validation warns and stays resilient when secrets are missing', () => {
+test('production validation fails when no email provider is configured', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
     SESSION_SECRET: '',
+    JWT_SECRET: '',
     WALLET_ENCRYPTION_KEY: '',
     DATABASE_URL: '',
   };
 
-  assert.doesNotThrow(() => validateProductionEnvironment(env));
-  assert.equal(validateProductionEnvironment(env), true);
+  assert.throws(() => validateProductionEnvironment(env), {
+    message: /No email provider is configured/,
+  });
 });
 
-test('production validation accepts a complete configuration', () => {
+test('production validation accepts a complete SMTP configuration', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
@@ -25,12 +27,17 @@ test('production validation accepts a complete configuration', () => {
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@example.com',
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
-test('production validation accepts DATABASE_PUBLIC_URL as an alternate database connection', () => {
+test('production validation accepts DATABASE_PUBLIC_URL as an alternate database connection with SMTP configured', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
@@ -39,12 +46,17 @@ test('production validation accepts DATABASE_PUBLIC_URL as an alternate database
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_PUBLIC_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@example.com',
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
-test('production validation warns when no SendGrid or SMTP email provider is configured', () => {
+test('production validation fails when no SendGrid or SMTP email provider is configured', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
@@ -55,7 +67,26 @@ test('production validation warns when no SendGrid or SMTP email provider is con
     ALLOWED_ORIGINS: 'https://app.example.com',
   };
 
-  assert.doesNotThrow(() => validateProductionEnvironment(env));
+  assert.throws(() => validateProductionEnvironment(env), {
+    message: /No email provider is configured/,
+  });
+});
+
+test('production validation fails when SendGrid is configured without SMTP_FROM', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    SENDGRID_API_KEY: 'SG.1234567890abcdef0123456789abcdef',
+  };
+
+  assert.throws(() => validateProductionEnvironment(env), {
+    message: /SENDGRID_API_KEY is configured but no verified sender address is set/,
+  });
 });
 
 test('environment aliases resolve the production secret names used by deployment platforms', () => {
