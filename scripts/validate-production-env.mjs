@@ -76,8 +76,11 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set SMTP_FROM to a verified SendGrid sender email in production.');
     }
 
-    if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
-      warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; on-chain lookups will use safe fallbacks until a real key is supplied.');
+    const hasBlockchainProvider = isRealAlchemyKey(env.ALCHEMY_API_KEY) || Boolean(env.INFURA_API_KEY?.trim());
+    if (!hasBlockchainProvider) {
+      errors.push('ALCHEMY_API_KEY or INFURA_API_KEY is not configured with a real production credential; on-chain lookups require a blockchain provider in production.');
+    } else if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
+      warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; Infura will be used instead. Alchemy is recommended for optimal production performance.');
     }
   }
 

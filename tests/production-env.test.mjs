@@ -34,6 +34,7 @@ test('production validation accepts a complete SMTP configuration', () => {
     SMTP_USER: 'user',
     SMTP_PASS: 'pass',
     SMTP_FROM: 'no_reply@example.com',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
@@ -53,6 +54,7 @@ test('production validation accepts DATABASE_PUBLIC_URL as an alternate database
     SMTP_USER: 'user',
     SMTP_PASS: 'pass',
     SMTP_FROM: 'no_reply@example.com',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
@@ -88,6 +90,27 @@ test('production validation fails when SendGrid is configured without SMTP_FROM'
 
   assert.throws(() => validateProductionEnvironment(env), {
     message: /SENDGRID_API_KEY is configured but no verified sender address is set/,
+  });
+});
+
+test('production validation fails when no blockchain provider is configured', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@example.com',
+  };
+
+  assert.throws(() => validateProductionEnvironment(env), {
+    message: /ALCHEMY_API_KEY or INFURA_API_KEY is not configured with a real production credential/,
   });
 });
 

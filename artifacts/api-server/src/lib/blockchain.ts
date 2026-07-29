@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import { env, isProduction } from "./env";
 import { isAlchemyConfigured } from "./integration-config";
+import { logger } from "./logger";
 
 export interface TokenSpec {
   symbol: string;
@@ -29,15 +30,14 @@ export interface ProviderInfo {
 export function getProvider(): ProviderInfo {
   const alchemy = env.ALCHEMY_API_KEY;
   const infura = env.INFURA_API_KEY;
-  if (isAlchemyConfigured(alchemy)) {
-    return { provider: new ethers.AlchemyProvider("mainnet", alchemy), source: "alchemy" };
-  }
-  if (infura) {
-    return { provider: new ethers.InfuraProvider("mainnet", infura), source: "infura" };
-  }
-  // Public fallback. Rate-limited and best-effort, but sufficient for demo
-  // / read-only balance lookups when no API key is configured.
-  return { provider: ethers.getDefaultProvider("mainnet"), source: "public" };
+  const providerInfo: ProviderInfo = isAlchemyConfigured(alchemy)
+    ? { provider: new ethers.AlchemyProvider("mainnet", alchemy), source: "alchemy" }
+    : infura
+    ? { provider: new ethers.InfuraProvider("mainnet", infura), source: "infura" }
+    : { provider: ethers.getDefaultProvider("mainnet"), source: "public" };
+
+  logger.debug({ source: providerInfo.source }, "blockchain.provider.selected");
+  return providerInfo;
 }
 
 export interface TokenBalanceResult {
