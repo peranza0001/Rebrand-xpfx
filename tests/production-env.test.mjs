@@ -44,6 +44,20 @@ test('production validation accepts DATABASE_PUBLIC_URL as an alternate database
   assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
+test('production validation warns when no SendGrid or SMTP email provider is configured', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+  };
+
+  assert.doesNotThrow(() => validateProductionEnvironment(env));
+});
+
 test('environment aliases resolve the production secret names used by deployment platforms', () => {
   const env = {
     OPENAI_API_KEY: 'sk-test-openai-key',

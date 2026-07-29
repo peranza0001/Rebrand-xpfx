@@ -7,7 +7,9 @@
  */
 import { randomInt } from "node:crypto";
 import { logger } from "./logger";
-import { hasSmtpCredentials, isProduction } from "./env";
+import { env, hasSmtpCredentials, isProduction } from "./env";
+import { isSendGridConfigured } from "./integration-config";
+import { sendEmail } from "./email";
 
 interface SignupPayload {
   email: string;
@@ -48,24 +50,32 @@ function maskEmail(email: string): string {
 }
 
 function sendOtpEmail(email: string, code: string, intent: OtpIntent): void {
-  const smtpConfigured = hasSmtpCredentials;
   const subject =
     intent === "signup"
       ? "Your XpressPro FX signup verification code"
       : "Your XpressPro FX login verification code";
-  if (isProduction) {
-    // In production, never log the OTP code — only log non-sensitive delivery metadata.
-    // Wire a real SMTP/email transport here before going live.
+  const body = `Your verification code is ${code}. Enter this code in the app to complete your ${
+    intent === "signup" ? "signup" : "login"
+  } process. The code expires in 10 minutes.`;
+  const html = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#111">Your verification code is <strong>${code}</strong>.<br/>Enter this code in the app to complete your ${
+    intent === "signup" ? "signup" : "login"
+  } process. The code expires in 10 minutes.</div>`;
+
+  void sendEmail({
+    to: email,
+    subject,
+    body,
+    html,
+    kind: `otp.${intent}`,
+  }).catch((err) => {
+    logger.error({ err, email, intent }, "[otp] Failed to send OTP email");
+  });
+
+  const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
+  if (!hasEmailProvider && !isProduction) {
     logger.info(
-      { to: maskEmail(email), subject, smtpConfigured },
-      "[otp] Verification code issued (production — code omitted from logs)",
-    );
-  } else {
-    // Development only: log the code to stdout so it can be used without a
-    // real email transport wired up.
-    logger.info(
-      { to: maskEmail(email), subject, smtpConfigured },
-      "[otp] Verification code generated (stub send — real SMTP not yet wired)",
+      { to: maskEmail(email), subject, smtpConfigured: false },
+      "[otp] Verification code generated (stub send — no email provider configured)",
     );
     // eslint-disable-next-line no-console
     console.log(

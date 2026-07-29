@@ -64,8 +64,11 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('COINBASE_API_SECRET must be set when COINBASE_API_KEY is configured in production.');
     }
 
-    if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
-      warnings.push('SENDGRID_API_KEY is not configured with a real production credential; email delivery will remain disabled until a real key is supplied.');
+    const hasSmtpHost = Boolean(env.SMTP_HOST && env.SMTP_HOST.trim().length > 0);
+    if (!isRealSendGridKey(env.SENDGRID_API_KEY) && !hasSmtpHost) {
+      warnings.push('No email provider is configured; OTPs and transactional messages will be logged only until SENDGRID_API_KEY or SMTP_HOST is supplied.');
+    } else if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
+      warnings.push('SENDGRID_API_KEY is not configured with a real production credential; SendGrid email delivery will remain disabled until a real key is supplied. SMTP may still work if configured.');
     }
 
     if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {

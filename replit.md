@@ -77,7 +77,8 @@ All process-env access is centralized in `artifacts/api-server/src/lib/env.ts`. 
   - `ADMIN_EMAIL`, `ADMIN_PASSWORD` — when both present, the admin user is provisioned at boot. Otherwise startup logs a warning and `adminSeedStatus.provisioned=false`.
   - `ADMIN_NOTIFY_EMAIL` — destination for admin-alert email mirrors.
   - `SENDGRID_API_KEY` — preferred email provider. When set, `lib/email.ts` sends via SendGrid HTTP API.
-  - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — fallback provider used only when SendGrid is not configured (lazy-loads `nodemailer`). When neither provider is wired, emails are logged to `sentEmails` and printed (stub fallback) — admins can still audit them at `/admin/sent-emails`. Note: `lib/otp.ts` always uses the stub log path today (`hasSmtpCredentials` reflects SMTP-only readiness; OTP emails do not currently route through `lib/email.ts`).
+  - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — fallback provider used only when SendGrid is not configured (lazy-loads `nodemailer`). When neither provider is wired, emails are logged to `sentEmails` and printed (stub fallback) — admins can still audit them at `/admin/sent-emails`.
+  - `lib/otp.ts` now routes OTP emails through `lib/email.ts`, so real SendGrid or SMTP credentials will be used for signup/login codes when configured.
   - `SESSION_SECRET` — signs the session cookie; falls back to a dev placeholder if unset (rotate before production).
   - `AI_INTEGRATIONS_OPENAI_API_KEY` / `AI_INTEGRATIONS_OPENAI_BASE_URL` — provisioned by the workspace's Replit AI integration. When missing, `/live-chat` falls back to canned replies and never auto-escalates.
   - `ALCHEMY_API_KEY` / `INFURA_API_KEY` — `lib/blockchain.ts` falls back to ethers' default public provider when missing.
