@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   Wallet,
   LineChart,
+  FileText,
   ArrowLeftRight,
   Users,
   MessageSquare,
@@ -59,6 +60,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /** Type of a single sidebar navigation entry. */
 type NavItem = {
@@ -85,6 +87,7 @@ const navGroups: NavGroup[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Wallets", href: "/wallets", icon: Wallet },
       { name: "Assets", href: "/assets", icon: Package },
+      { name: "Statements", href: "/statements", icon: FileText },
     ],
   },
   {
@@ -289,6 +292,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 ml-auto">
+            <ThemeToggle />
             {isDemo && (
               <Badge
                 variant="secondary"

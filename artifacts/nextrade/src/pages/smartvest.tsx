@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Briefcase, TrendingUp } from "lucide-react";
+import { Briefcase, TrendingUp, Sparkles, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,10 +56,14 @@ export function SmartVest() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader><CardTitle className="text-base">Portfolio value</CardTitle><CardDescription>Derived from your existing simulated wallet balance.</CardDescription></CardHeader>
-            <CardContent><div className="text-3xl font-semibold">${account.portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {account.returnPercent.toFixed(2)}% simulated return</div></CardContent>
+            <CardContent>
+              <div className="text-3xl font-semibold">${account.portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {account.returnPercent.toFixed(2)}% simulated return</div>
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="h-4 w-4" /> Suggested contribution: ${account.suggestedContribution.toLocaleString()}</div>
+            </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="text-base">{account.plan} allocation</CardTitle><CardDescription>Planning mix only; no trades are placed.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-base">{account.planLabel} allocation</CardTitle><CardDescription>{account.description}</CardDescription></CardHeader>
             <CardContent className="space-y-3 text-sm">{Object.entries(account.allocation).map(([name, value]) => <div key={name} className="flex justify-between"><span className="capitalize">{name}</span><span className="font-medium">{value}%</span></div>)}</CardContent>
           </Card>
         </div>

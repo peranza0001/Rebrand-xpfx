@@ -42,6 +42,7 @@ import educationRouter from "./education";
 import mentorshipRouter from "./mentorship";
 import smartVestRouter from "./smartvest";
 import accountTierRouter from "./account-tier";
+import statementsRouter from "./statements";
 
 const router: IRouter = Router();
 
@@ -85,5 +86,6 @@ router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);
 router.use('/account', accountTierRouter);
+router.use(statementsRouter);
 
 export default router;
