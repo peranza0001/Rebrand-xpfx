@@ -232,6 +232,7 @@ export interface SmartVestAccount {
   disclaimerAcknowledged: boolean;
   createdAt: string;
   updatedAt: string;
+  returnPercent?: number;
 }
 
 /**
@@ -320,6 +321,10 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomUUID().split("-")[0]}`;
+}
+
+export function newUuid(): string {
+  return randomUUID();
 }
 
 export function newSessionId(): string {
@@ -1102,7 +1107,7 @@ export function freshUserData(
   const data: UserData = {
     wallets: [
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "main",
         label: "Main Wallet",
         currency: walletCurrency,
@@ -1111,7 +1116,7 @@ export function freshUserData(
         address: `0x${randomBytes(20).toString("hex")}`,
       },
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "trading",
         label: "Trading Wallet",
         currency: walletCurrency,
@@ -1120,7 +1125,7 @@ export function freshUserData(
         address: `0x${randomBytes(20).toString("hex")}`,
       },
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "social",
         label: "Social Trading Wallet",
         currency: walletCurrency,

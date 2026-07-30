@@ -17,6 +17,7 @@ import {
   newId,
   newReferralCode,
   newSessionId,
+  newUuid,
   NOW,
   p2pMerchantApplications,
   referralCodeIndex,
@@ -38,6 +39,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { persistSession, persistUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import {
   issueOtp,
@@ -192,6 +194,8 @@ router.post("/auth/login", async (req, res) => {
   const sid = newSessionId();
   sessions.set(sid, stored.user.id);
   setSessionCookie(res, sid);
+  const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  void persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -241,7 +245,7 @@ router.post("/auth/verify-otp", (req, res) => {
     if (usersByEmail.has(email)) {
       return res.status(409).json({ error: "An account with that email already exists." });
     }
-    const id = newId("u");
+    const id = newUuid();
     const referralCode = newReferralCode();
     let referredBy: string | null = null;
     if (payload.referralCode) {
@@ -292,9 +296,20 @@ router.post("/auth/verify-otp", (req, res) => {
       referrals.set(referredBy, list);
     }
 
+    void persistUser(id, {
+      email: payload.email,
+      username: stored.user.username,
+      passwordHash: stored.passwordHash,
+      fullName: payload.fullName,
+      country: payload.country,
+      phone: null,
+    });
+
     const sid = newSessionId();
     sessions.set(sid, id);
     setSessionCookie(res, sid);
+    const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    void persistSession(sid, id, sessionExpiresAt, false);
     logActivity({
       actorId: id,
       actorName: payload.fullName,

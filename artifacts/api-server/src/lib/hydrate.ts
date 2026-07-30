@@ -15,7 +15,7 @@
  *    will be generated for each restored user.
  */
 import { gt } from "drizzle-orm";
-import { usersTable, userSessionsTable } from "@workspace/db/schema";
+import { connectedWalletsTable, transactionsTable, usersTable, userSessionsTable, walletsTable } from "@workspace/db/schema";
 import { dbGet } from "./db-client";
 import {
   freshUserData,
@@ -28,6 +28,9 @@ import {
   type Role,
   type StoredUser,
 } from "./store";
+import type { WalletType } from "@workspace/api-zod";
+import type { TransactionType } from "@workspace/api-zod";
+import type { ConnectedWalletProvider } from "@workspace/api-zod";
 import { logger } from "./logger";
 
 export async function hydrateFromDb(): Promise<void> {
@@ -86,6 +89,42 @@ export async function hydrateFromDb(): Promise<void> {
   }
 
     // 2. Load active sessions from DB
+    const dbWallets = await dbGet(
+      "hydrate.wallets",
+      (db) => db.select().from(walletsTable),
+      [],
+    );
+    const walletsByUser = new Map<string, typeof dbWallets>();
+    for (const walletRow of dbWallets) {
+      const list = walletsByUser.get(walletRow.userId) ?? [];
+      list.push(walletRow);
+      walletsByUser.set(walletRow.userId, list);
+    }
+
+    const dbTransactions = await dbGet(
+      "hydrate.transactions",
+      (db) => db.select().from(transactionsTable),
+      [],
+    );
+    const transactionsByUser = new Map<string, typeof dbTransactions>();
+    for (const tx of dbTransactions) {
+      const list = transactionsByUser.get(tx.userId) ?? [];
+      list.push(tx);
+      transactionsByUser.set(tx.userId, list);
+    }
+
+    const dbConnectedWallets = await dbGet(
+      "hydrate.connected_wallets",
+      (db) => db.select().from(connectedWalletsTable),
+      [],
+    );
+    const connectedWalletsByUser = new Map<string, typeof dbConnectedWallets>();
+    for (const cw of dbConnectedWallets) {
+      const list = connectedWalletsByUser.get(cw.userId) ?? [];
+      list.push(cw);
+      connectedWalletsByUser.set(cw.userId, list);
+    }
+
     const dbSessions = await dbGet(
       "hydrate.sessions",
       (db) =>
@@ -102,6 +141,67 @@ export async function hydrateFromDb(): Promise<void> {
       if (users.has(s.userId)) {
         sessions.set(s.id, s.userId);
         sessionsLoaded++;
+      }
+    }
+
+    for (const [userId, data] of userData) {
+      const persistedWallets = walletsByUser.get(userId);
+      if (persistedWallets) {
+        data.wallets = persistedWallets.map((walletRow) => {
+          const walletType = ["main", "trading", "social"].includes(walletRow.type)
+            ? (walletRow.type as WalletType)
+            : "main";
+          return {
+            id: walletRow.id,
+            type: walletType,
+            label: walletRow.label,
+            currency: walletRow.currency,
+            balance: Number(walletRow.balance),
+            pendingBalance: Number(walletRow.pendingBalance),
+            address: walletRow.address,
+          };
+        });
+      }
+
+      const persistedTransactions = transactionsByUser.get(userId);
+      if (persistedTransactions) {
+        data.transactions = persistedTransactions.map((txRow) => {
+          const type = txRow.type === "gas_fee" || txRow.type === "maintenance_fee"
+            ? "fee"
+            : txRow.type;
+          return {
+            id: txRow.id,
+            walletId: txRow.walletId,
+            type: type as TransactionType,
+            amount: Number(txRow.amount),
+            currency: txRow.currency,
+            status: txRow.status,
+            description: txRow.description,
+            createdAt: txRow.createdAt.toISOString(),
+          };
+        });
+      }
+
+      const persistedConnectedWallets = connectedWalletsByUser.get(userId);
+      if (persistedConnectedWallets) {
+        data.connectedWallets = persistedConnectedWallets.map((cwRow) => {
+          const provider = ["self_custody", "moonpay", "coinbase"].includes(cwRow.provider)
+            ? (cwRow.provider as ConnectedWalletProvider)
+            : "self_custody";
+          return {
+            id: cwRow.id,
+            address: cwRow.address,
+            walletType: cwRow.walletType,
+            balance: Number(cwRow.balance),
+            currency: cwRow.currency,
+            connectedAt: cwRow.connectedAt.toISOString(),
+            provider,
+            label: cwRow.label ?? null,
+            email: cwRow.email ?? null,
+            syncedProfile: (cwRow.syncedProfile as any) ?? null,
+            connectionStatus: "public_address",
+          };
+        });
       }
     }
 

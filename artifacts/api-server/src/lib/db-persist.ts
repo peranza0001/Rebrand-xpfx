@@ -5,6 +5,12 @@
 
 let prismaClient: any = null;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 export function setPrismaClient(client: any): void {
   prismaClient = client;
 }
@@ -24,17 +30,23 @@ export async function persistUser(userId: string, userData: {
   country: string;
   phone?: string | null;
 }): Promise<void> {
-  if (!prismaClient) return;
+  if (!prismaClient || !isUuid(userId)) return;
   try {
-    await prismaClient.user.upsert({
+    await prismaClient.users.upsert({
       where: { id: userId },
-      update: { email: userData.email, username: userData.username },
+      update: {
+        email: userData.email,
+        username: userData.username,
+        full_name: userData.fullName,
+        country: userData.country,
+        phone: userData.phone,
+      },
       create: {
         id: userId,
         email: userData.email,
         username: userData.username,
-        password_hash: userData.passwordHash,
         full_name: userData.fullName,
+        password_hash: userData.passwordHash,
         country: userData.country,
         phone: userData.phone,
       },
@@ -47,11 +59,21 @@ export async function persistUser(userId: string, userData: {
 /**
  * Persists a new session to the database.
  */
-export async function persistSession(sessionId: string, userId: string, expiresAt: Date): Promise<void> {
+export async function persistSession(
+  sessionId: string,
+  userId: string,
+  expiresAt: Date,
+  isAdmin = false,
+): Promise<void> {
   if (!prismaClient) return;
   try {
     await prismaClient.user_sessions.create({
-      data: { id: sessionId, user_id: userId, expires_at: expiresAt },
+      data: {
+        id: sessionId,
+        user_id: userId,
+        expires_at: expiresAt,
+        is_admin: isAdmin,
+      },
     });
   } catch (_err) {
     // Silent fail
@@ -64,19 +86,78 @@ export async function persistSession(sessionId: string, userId: string, expiresA
 export async function persistWallet(walletId: string, userId: string, walletData: {
   walletType: string;
   balance: number;
+  pendingBalance: number;
   currency: string;
+  label: string;
+  address: string;
 }): Promise<void> {
-  if (!prismaClient) return;
+  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return;
   try {
     await prismaClient.wallets.upsert({
       where: { id: walletId },
-      update: { balance: walletData.balance },
+      update: {
+        balance: walletData.balance,
+        pending_balance: walletData.pendingBalance,
+        label: walletData.label,
+        currency: walletData.currency,
+        address: walletData.address,
+      },
       create: {
         id: walletId,
         user_id: userId,
+        type: walletData.walletType,
+        label: walletData.label,
+        balance: walletData.balance,
+        pending_balance: walletData.pendingBalance,
+        currency: walletData.currency,
+        address: walletData.address,
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistConnectedWallet(
+  walletId: string,
+  userId: string,
+  walletData: {
+    address: string;
+    walletType: string;
+    balance: number;
+    currency: string;
+    provider: string;
+    label?: string | null;
+    email?: string | null;
+    syncedProfile: unknown | null;
+  },
+): Promise<void> {
+  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return;
+  try {
+    await prismaClient.connected_wallets.upsert({
+      where: { id: walletId },
+      update: {
+        address: walletData.address,
         wallet_type: walletData.walletType,
         balance: walletData.balance,
         currency: walletData.currency,
+        provider: walletData.provider,
+        label: walletData.label ?? null,
+        email: walletData.email ?? null,
+        synced_profile: walletData.syncedProfile,
+      },
+      create: {
+        id: walletId,
+        user_id: userId,
+        address: walletData.address,
+        wallet_type: walletData.walletType,
+        balance: walletData.balance,
+        currency: walletData.currency,
+        import_method: 'address',
+        label: walletData.label ?? null,
+        provider: walletData.provider,
+        email: walletData.email ?? null,
+        synced_profile: walletData.syncedProfile,
       },
     });
   } catch (_err) {
@@ -85,54 +166,40 @@ export async function persistWallet(walletId: string, userId: string, walletData
 }
 
 /**
- * Persists a deposit to the database.
+ * Persists a transaction to the database.
  */
-export async function persistDeposit(depositId: string, userId: string, depositData: {
-  amount: number;
-  currency: string;
-  method: string;
-  status: string;
-}): Promise<void> {
-  if (!prismaClient) return;
+export async function persistTransaction(
+  transactionId: string,
+  walletId: string,
+  userId: string,
+  transactionData: {
+    type: string;
+    amount: number;
+    currency: string;
+    status: string;
+    description: string;
+  },
+): Promise<void> {
+  if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
   try {
-    await prismaClient.deposits.upsert({
-      where: { id: depositId },
-      update: { status: depositData.status },
-      create: {
-        id: depositId,
-        user_id: userId,
-        amount: depositData.amount,
-        currency: depositData.currency,
-        method: depositData.method,
-        status: depositData.status,
+    await prismaClient.transactions.upsert({
+      where: { id: transactionId },
+      update: {
+        type: transactionData.type,
+        amount: transactionData.amount,
+        currency: transactionData.currency,
+        status: transactionData.status,
+        description: transactionData.description,
       },
-    });
-  } catch (_err) {
-    // Silent fail
-  }
-}
-
-/**
- * Persists a withdrawal to the database.
- */
-export async function persistWithdrawal(withdrawalId: string, userId: string, withdrawalData: {
-  amount: number;
-  currency: string;
-  destination: string;
-  status: string;
-}): Promise<void> {
-  if (!prismaClient) return;
-  try {
-    await prismaClient.withdrawals.upsert({
-      where: { id: withdrawalId },
-      update: { status: withdrawalData.status },
       create: {
-        id: withdrawalId,
+        id: transactionId,
+        wallet_id: walletId,
         user_id: userId,
-        amount: withdrawalData.amount,
-        currency: withdrawalData.currency,
-        destination: withdrawalData.destination,
-        status: withdrawalData.status,
+        type: transactionData.type,
+        amount: transactionData.amount,
+        currency: transactionData.currency,
+        status: transactionData.status,
+        description: transactionData.description,
       },
     });
   } catch (_err) {
@@ -148,17 +215,20 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
   status: string;
   fileUrl?: string;
 }): Promise<void> {
-  if (!prismaClient) return;
+  if (!prismaClient || !isUuid(kycId) || !isUuid(userId)) return;
   try {
     await prismaClient.kyc_documents.upsert({
       where: { id: kycId },
-      update: { status: kycData.status, file_url: kycData.fileUrl },
+      update: {
+        status: kycData.status,
+        doc_url: kycData.fileUrl,
+      },
       create: {
         id: kycId,
         user_id: userId,
-        document_type: kycData.documentType,
+        doc_type: kycData.documentType,
+        doc_url: kycData.fileUrl,
         status: kycData.status,
-        file_url: kycData.fileUrl,
       },
     });
   } catch (_err) {

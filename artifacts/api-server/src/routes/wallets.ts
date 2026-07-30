@@ -16,6 +16,7 @@ import {
   getUserData,
   logActivity,
   newId,
+  newUuid,
   NOW,
   toPublicConnectedWallet,
   type StoredConnectedWallet,
@@ -23,6 +24,7 @@ import {
 import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { persistConnectedWallet } from "../lib/db-persist";
 import {
   getLiveBalance,
 } from "../lib/blockchain";
@@ -65,7 +67,7 @@ router.post("/wallets/connect", requireAuth, (req, res) => {
   const walletType = parsed.data.walletType.trim().slice(0, 64) || "custom";
 
   const wallet: StoredConnectedWallet = {
-    id: newId("cw"),
+    id: newUuid(),
     address: parsed.data.address.trim(),
     walletType,
     balance: 0,
@@ -79,6 +81,16 @@ router.post("/wallets/connect", requireAuth, (req, res) => {
   };
   data.connectedWallets.push(wallet);
   data.walletSkipped = false;
+  void persistConnectedWallet(wallet.id, req.userId!, {
+    address: wallet.address,
+    walletType: wallet.walletType,
+    balance: wallet.balance,
+    currency: wallet.currency,
+    provider: wallet.provider,
+    label: wallet.label ?? null,
+    email: wallet.email ?? null,
+    syncedProfile: wallet.syncedProfile,
+  });
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,
@@ -175,7 +187,7 @@ router.post("/wallets/exchange/connect", requireAuth, (req, res) => {
     (provider === "moonpay" ? "MoonPay account" : "Coinbase account");
 
   const wallet: StoredConnectedWallet = {
-    id: newId("cw"),
+    id: newUuid(),
     address: parsed.data.address.trim(),
     walletType: provider,
     balance: 0,
@@ -189,6 +201,16 @@ router.post("/wallets/exchange/connect", requireAuth, (req, res) => {
   };
   data.connectedWallets.push(wallet);
   data.walletSkipped = false;
+  void persistConnectedWallet(wallet.id, req.userId!, {
+    address: wallet.address,
+    walletType: wallet.walletType,
+    balance: wallet.balance,
+    currency: wallet.currency,
+    provider: wallet.provider,
+    label: wallet.label ?? null,
+    email: wallet.email ?? null,
+    syncedProfile: wallet.syncedProfile,
+  });
   logActivity({
     actorId: req.userId!,
     actorName: stored.user.fullName,

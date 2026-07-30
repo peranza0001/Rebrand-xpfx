@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { CreateDepositBody, type Deposit } from "@workspace/api-zod";
-import { claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
+import { claimTxHash, getUserData, logActivity, newId, newUuid, NOW } from "../lib/store";
 import { requireAuth } from "../lib/session";
+import { persistTransaction } from "../lib/db-persist";
 import {
   getPlatformReceivingAddress,
   verifyOnChainPayment,
@@ -126,9 +127,10 @@ router.post("/deposits", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.deposits.unshift(deposit);
+  const transactionId = newUuid();
   data.transactions.unshift({
-    id: newId("tx"),
-    walletId: mainWallet?.id ?? "w_main",
+    id: transactionId,
+    walletId: mainWallet?.id ?? "",
     type: "deposit",
     amount: parsed.data.amount,
     currency: parsed.data.currency,
@@ -136,6 +138,15 @@ router.post("/deposits", requireAuth, async (req, res) => {
     description: `Deposit via ${parsed.data.method}${settlement} (pending verification)`,
     createdAt: NOW(),
   });
+  if (mainWallet?.id) {
+    void persistTransaction(transactionId, mainWallet.id, u.id, {
+      type: "deposit",
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
+      status: "pending",
+      description: `Deposit via ${parsed.data.method}${settlement} (pending verification)`,
+    });
+  }
   logActivity({
     actorId: u.id,
     actorName: u.fullName,
