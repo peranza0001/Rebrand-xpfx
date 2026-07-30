@@ -41,6 +41,7 @@ import {
   LogOut,
   Menu,
   Receipt,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -94,6 +95,7 @@ const navGroups: NavGroup[] = [
     label: "Trading",
     items: [
       { name: "Trades", href: "/trades", icon: LineChart },
+      { name: "Demo Trading", href: "/demo-trading", icon: BarChart3 },
       { name: "P2P Market", href: "/p2p", icon: ArrowLeftRight },
       { name: "Trade Manager", href: "/managers", icon: Users },
       { name: "Messages", href: "/messages", icon: MessageSquare },

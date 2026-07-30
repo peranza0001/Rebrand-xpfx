@@ -33,6 +33,7 @@ import { Admin } from "@/pages/admin";
 import { Education } from "@/pages/education";
 import { SmartVest } from "@/pages/smartvest";
 import { Statements } from "@/pages/statements";
+import { DemoTradingPage } from "@/pages/demo-trading";
 
 import { PublicHome } from "@/pages/public/home";
 import { PublicMarkets } from "@/pages/public/markets";
@@ -78,6 +79,7 @@ function ProtectedShell() {
           <Route path="/billing" component={Billing} />
           <Route path="/smartvest" component={SmartVest} />
           <Route path="/statements" component={Statements} />
+          <Route path="/demo-trading" component={DemoTradingPage} />
           <Route path="/education/*" component={Education} />
           <Route path="/admin">
             <RequireAdmin>
@@ -126,6 +128,7 @@ function AppRoutes() {
 
       <Route path="/markets"><PublicPage><PublicMarkets /></PublicPage></Route>
       <Route path="/education"><PublicPage><PublicEducation /></PublicPage></Route>
+      <Route path="/demo-trading" component={DemoTradingPage} />
       <Route path="/calendar"><PublicPage><PublicCalendar /></PublicPage></Route>
       <Route path="/about"><PublicPage><PublicAbout /></PublicPage></Route>
       <Route path="/contact"><PublicPage><PublicContact /></PublicPage></Route>
