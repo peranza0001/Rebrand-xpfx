@@ -12,7 +12,9 @@ import { Loader2 } from "lucide-react";
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const queryParams = new URLSearchParams(location.split("?")[1]);
+  const isDemoLanding = queryParams.get("demo") === "1";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -117,6 +119,25 @@ export function Login() {
                 Sign In
               </Button>
             </form>
+
+            {showDemoButton ? (
+              <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                <div className="font-medium text-primary">
+                  {isDemoLanding ? "Ready for demo trading" : "Need a quick demo account?"}
+                </div>
+                <p className="mt-2">
+                  {isDemoLanding
+                    ? "Click Try Demo Account to launch your seeded demo session instantly."
+                    : "Use the demo credentials below or tap Try Demo Account to start a demo session with pre-funded balances."}
+                </p>
+                {!isDemoLanding && (
+                  <p className="mt-2">
+                    <span className="font-medium">Email:</span> demo@xpressprofx.com<br />
+                    <span className="font-medium">Password:</span> demo-password
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             {showDemoButton ? (
               <>
