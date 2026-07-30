@@ -35,6 +35,9 @@ import {
   setSessionCookie,
   SESSION_COOKIE,
 } from "../lib/session";
+import { getDb } from "../lib/db-client";
+import * as dbSchema from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 import { pushAdminAlert } from "../lib/notify";
 import {
   issueOtp,
@@ -101,9 +104,69 @@ router.post("/auth/login", async (req, res) => {
     return res.status(400).json({ error: "Invalid login" });
   }
   const emailLower = parsed.data.email.toLowerCase();
-  const userId = usersByEmail.get(emailLower);
+  // Ensure demo user is seeded for the direct login flow when demo auth is enabled.
+  if (isDemoAuthEnabled && emailLower === "demo@xpressprofx.com") {
+    ensureDemoUser();
+    logger.info({
+      email: emailLower,
+      isDemoAuthEnabled,
+      usersByEmailHas: usersByEmail.has(emailLower),
+      usersSize: users.size,
+    }, "[auth] login.demo_seed_check");
+  }
+
+  let userId = usersByEmail.get(emailLower);
   logger.info({ email: emailLower, userId: userId ?? null }, "[auth] login.attempt");
-  const stored = userId ? users.get(userId) : undefined;
+  let stored = userId ? users.get(userId) : undefined;
+  // If user is not present in the in-memory store, attempt a DB lookup
+  // and populate the in-memory store so login works when persistence is used.
+  if (!stored) {
+    const db = getDb();
+    if (db) {
+      try {
+        const rows = await db.select().from(dbSchema.usersTable).where(eq(dbSchema.usersTable.email, emailLower));
+        if (rows && rows.length > 0) {
+          const row: any = rows[0];
+          const id = String(row.id);
+          const created: any = {
+            user: {
+              id,
+              username: (row.username as string) ?? emailLower.split("@")[0],
+              email: row.email,
+              fullName: (row.fullName as string) ?? row.email,
+              country: (row.country as string) ?? "US",
+              kycVerified: Boolean(row.kycVerified),
+              avatarUrl: row.avatarUrl ?? undefined,
+              createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+              selectedManagerId: null,
+              phone: null,
+              merchant: false,
+              moonpayEmail: null,
+              buyVerified: false,
+            },
+            passwordHash: row.password ?? row.passwordHash ?? "",
+            role: (row.role as any) ?? "user",
+            referralCode: (row.referralCode as string) ?? "",
+            referredBy: null,
+            merchant: false,
+            tradingLocked: false,
+            demoMode: false,
+            phone: null,
+            accountFlag: null,
+            suspended: false,
+            disabled: false,
+          } as unknown as StoredUser;
+          users.set(id, created);
+          usersByEmail.set(emailLower, id);
+          userId = id;
+          stored = created;
+          logger.info({ email: emailLower, id }, "[auth] login.db_seeded_user");
+        }
+      } catch (err) {
+        logger.warn({ err, email: emailLower }, "[auth] login.db_lookup_failed");
+      }
+    }
+  }
   if (!stored) {
     logger.warn({ email: emailLower }, "[auth] login.no_user");
     return res.status(401).json({

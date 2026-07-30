@@ -53,6 +53,20 @@ async function jsonRequest(baseUrl, path, { method = 'GET', body, cookie } = {})
   return { response, data };
 }
 
+test('seeded demo users can sign in directly without first starting demo auth', async () => {
+  await withTestServer(async (baseUrl) => {
+    const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: { email: 'demo@xpressprofx.com', password: 'demo-password' },
+    });
+
+    assert.equal(loginResult.response.status, 200);
+    assert.equal(loginResult.data.status, 'authenticated');
+    assert.equal(loginResult.data.role, 'demo');
+    assert.equal(loginResult.data.user.email, 'demo@xpressprofx.com');
+  });
+});
+
 test('end-to-end signup, login, demo, and admin flow', async () => {
   await withTestServer(async (baseUrl) => {
     sentEmails.length = 0;
