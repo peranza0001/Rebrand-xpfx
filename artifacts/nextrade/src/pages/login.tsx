@@ -70,7 +70,7 @@ export function Login() {
     }
   };
 
-  const showDemoButton = import.meta.env.MODE !== "production";
+  const showDemoButton = true;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 dark">
@@ -161,11 +161,7 @@ export function Login() {
                   Try Demo Account
                 </Button>
               </>
-            ) : (
-              <p className="text-center text-sm text-muted-foreground">
-                Demo accounts are unavailable in production.
-              </p>
-            )}
+            ) : null}
           </CardContent>
           <CardFooter className="flex flex-col space-y-3">
             <div className="text-sm text-center text-muted-foreground w-full">
