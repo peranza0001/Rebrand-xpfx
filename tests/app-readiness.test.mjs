@@ -83,3 +83,24 @@ test('same-origin POST requests are not blocked by CSRF middleware before auth c
     assert.equal(body.error, 'Not authenticated');
   });
 });
+
+test('preview-host POST requests are not blocked by CSRF middleware before auth checks', async () => {
+  await withTestServer(async (baseUrl) => {
+    const previewOrigin = 'https://rebrand-xpfx-production-1988.up.railway.app';
+    const response = await fetch(`${baseUrl}/api/live-chat`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        'content-type': 'application/json',
+        origin: previewOrigin,
+        'x-forwarded-host': 'rebrand-xpfx-production-1988.up.railway.app',
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ content: 'hello' }),
+    });
+
+    assert.equal(response.status, 401, 'trusted preview-host requests should reach auth middleware instead of failing CSRF');
+    const body = await response.json();
+    assert.equal(body.error, 'Not authenticated');
+  });
+});

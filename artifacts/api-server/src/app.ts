@@ -324,17 +324,26 @@ function isTrustedSameOriginRequest(req: Request): boolean {
   const forwardedHost = extractHostname(req.get('x-forwarded-host'));
   const originHost = extractHostname(req.get('origin'));
   const refererHost = extractHostname(req.get('referer'));
-
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
   const candidates = [host, forwardedHost, originHost, refererHost].filter(Boolean) as string[];
 
-  return candidates.some((candidate) => {
-    if (!candidate) return false;
-    if (localHosts.has(candidate)) return true;
-    if (candidate.startsWith('127.')) return true;
-    if (candidate.endsWith('.localhost')) return true;
+  if (!host) {
     return false;
-  });
+  }
+
+  if ([forwardedHost, originHost, refererHost].some((candidate) => candidate === host)) {
+    return true;
+  }
+
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+  if (candidates.some((candidate) => localHosts.has(candidate) || candidate.startsWith('127.') || candidate.endsWith('.localhost'))) {
+    return true;
+  }
+
+  if (candidates.some(isPreviewHost)) {
+    return true;
+  }
+
+  return false;
 }
 
 app.use((req, res, next) => {
