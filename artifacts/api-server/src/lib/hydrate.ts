@@ -15,7 +15,17 @@
  *    will be generated for each restored user.
  */
 import { gt } from "drizzle-orm";
-import { connectedWalletsTable, transactionsTable, usersTable, userSessionsTable, walletsTable } from "@workspace/db/schema";
+import {
+  bankAccountsTable,
+  connectedWalletsTable,
+  p2pMerchantApplicationsTable,
+  p2pNotificationsTable,
+  supportTicketsTable,
+  transactionsTable,
+  usersTable,
+  userSessionsTable,
+  walletsTable,
+} from "@workspace/db/schema";
 import { dbGet } from "./db-client";
 import {
   freshUserData,
@@ -25,6 +35,7 @@ import {
   userData,
   users,
   usersByEmail,
+  p2pMerchantApplications,
   type Role,
   type StoredUser,
 } from "./store";
@@ -125,6 +136,54 @@ export async function hydrateFromDb(): Promise<void> {
       connectedWalletsByUser.set(cw.userId, list);
     }
 
+    const dbBankAccounts = await dbGet(
+      "hydrate.bank_accounts",
+      (db) => db.select().from(bankAccountsTable),
+      [],
+    );
+    const bankAccountsByUser = new Map<string, typeof dbBankAccounts>();
+    for (const account of dbBankAccounts) {
+      const list = bankAccountsByUser.get(account.userId) ?? [];
+      list.push(account);
+      bankAccountsByUser.set(account.userId, list);
+    }
+
+    const dbSupportTickets = await dbGet(
+      "hydrate.support_tickets",
+      (db) => db.select().from(supportTicketsTable),
+      [],
+    );
+    const supportTicketsByUser = new Map<string, typeof dbSupportTickets>();
+    for (const ticket of dbSupportTickets) {
+      const list = supportTicketsByUser.get(ticket.userId) ?? [];
+      list.push(ticket);
+      supportTicketsByUser.set(ticket.userId, list);
+    }
+
+    const dbP2PMerchantApps = await dbGet(
+      "hydrate.p2p_merchant_applications",
+      (db) => db.select().from(p2pMerchantApplicationsTable),
+      [],
+    );
+    const p2pMerchantApplicationsByUser = new Map<string, typeof dbP2PMerchantApps>();
+    for (const app of dbP2PMerchantApps) {
+      const list = p2pMerchantApplicationsByUser.get(app.userId) ?? [];
+      list.push(app);
+      p2pMerchantApplicationsByUser.set(app.userId, list);
+    }
+
+    const dbP2PNotifications = await dbGet(
+      "hydrate.p2p_notifications",
+      (db) => db.select().from(p2pNotificationsTable),
+      [],
+    );
+    const p2pNotificationsByUser = new Map<string, typeof dbP2PNotifications>();
+    for (const notif of dbP2PNotifications) {
+      const list = p2pNotificationsByUser.get(notif.userId) ?? [];
+      list.push(notif);
+      p2pNotificationsByUser.set(notif.userId, list);
+    }
+
     const dbSessions = await dbGet(
       "hydrate.sessions",
       (db) =>
@@ -202,6 +261,79 @@ export async function hydrateFromDb(): Promise<void> {
             connectionStatus: "public_address",
           };
         });
+      }
+
+      const persistedBankAccounts = bankAccountsByUser.get(userId);
+      if (persistedBankAccounts) {
+        data.bankAccounts = persistedBankAccounts.map((bankRow) => ({
+          id: bankRow.id,
+          userId: bankRow.userId,
+          bankName: bankRow.bankName,
+          accountHolder: bankRow.accountName,
+          last4: bankRow.accountNumber.slice(-4).padStart(4, "0"),
+          currency: bankRow.currency,
+          verified: false,
+          isDefault: bankRow.isDefault,
+          fiatBalance: Number(bankRow.fiatBalance),
+          fiatCurrency: bankRow.fiatCurrency,
+          createdAt: bankRow.createdAt.toISOString(),
+        }));
+      }
+
+      const persistedSupportTickets = supportTicketsByUser.get(userId);
+      if (persistedSupportTickets) {
+        data.supportTickets = persistedSupportTickets.map((ticketRow) => ({
+          id: ticketRow.id,
+          subject: ticketRow.subject,
+          status: ticketRow.status as import("@workspace/api-zod").SupportTicketStatus,
+          priority: ticketRow.priority as import("@workspace/api-zod").SupportTicketPriority,
+          messages: [],
+          createdAt: ticketRow.createdAt.toISOString(),
+          updatedAt: ticketRow.updatedAt.toISOString(),
+        }));
+      }
+
+      const persistedP2PMerchantApplications = p2pMerchantApplicationsByUser.get(userId);
+      if (persistedP2PMerchantApplications) {
+        for (const appRow of persistedP2PMerchantApplications) {
+          p2pMerchantApplications.set(appRow.id, {
+            id: appRow.id,
+            userId: appRow.userId,
+            userName: "",
+            userEmail: "",
+            displayName: appRow.displayName,
+            legalName: appRow.legalName,
+            contactEmail: appRow.contactEmail,
+            country: appRow.country,
+            paymentMethod: appRow.paymentMethod as "etransfer" | "bank",
+            payoutEmail: appRow.payoutEmail ?? "",
+            bankInfo: appRow.bankInfo ?? "",
+            assets: appRow.assets,
+            reason: appRow.reason,
+            status: appRow.status as "pending" | "approved" | "rejected",
+            rejectionReason: appRow.rejectionReason ?? null,
+            submittedAt: appRow.submittedAt.toISOString(),
+            decidedAt: appRow.reviewedAt?.toISOString() ?? null,
+          });
+        }
+      }
+
+      const persistedP2PNotifications = p2pNotificationsByUser.get(userId);
+      if (persistedP2PNotifications) {
+        data.p2pNotifications = persistedP2PNotifications.map((notifRow) => ({
+          id: notifRow.id,
+          type: notifRow.type,
+          title: notifRow.title,
+          message: notifRow.message,
+          orderId: notifRow.orderId,
+          read: notifRow.read,
+          amount: notifRow.amount !== null ? Number(notifRow.amount) : undefined,
+          currency: notifRow.currency ?? undefined,
+          asset: notifRow.asset ?? undefined,
+          reference: notifRow.reference ?? undefined,
+          instructions: notifRow.instructions ?? undefined,
+          createdAt: notifRow.createdAt.toISOString(),
+        }));
       }
     }
 

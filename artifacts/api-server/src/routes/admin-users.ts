@@ -29,6 +29,7 @@ import {
 } from "../lib/store";
 import { requireAdmin } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { deleteBankAccount, persistBankAccount } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -402,6 +403,22 @@ router.patch("/admin/users/:userId/bank-accounts/:bankId", requireAdmin, (req, r
     bank.fiatCurrency = parsed.data.fiatCurrency.toUpperCase();
   }
 
+  void persistBankAccount(bank.id, userId, {
+    accountName: bank.accountHolder,
+    bankName: bank.bankName,
+    accountNumber: undefined,
+    routingNumber: undefined,
+    iban: undefined,
+    swiftCode: undefined,
+    debitCardLast4: bank.last4,
+    debitCardExpiry: undefined,
+    country: bank.currency,
+    currency: bank.currency,
+    isDefault: bank.isDefault ?? false,
+    fiatBalance: bank.fiatBalance,
+    fiatCurrency: bank.fiatCurrency,
+  });
+
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,
@@ -418,6 +435,7 @@ router.delete("/admin/users/:userId/bank-accounts/:bankId", requireAdmin, (req, 
   const idx = data.bankAccounts.findIndex((b) => b.id === bankId);
   if (idx === -1) return res.status(404).json({ error: "Bank account not found" });
   const removed = data.bankAccounts.splice(idx, 1)[0]!;
+  void deleteBankAccount(removed.id);
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,

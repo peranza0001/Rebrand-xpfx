@@ -20,6 +20,10 @@ import {
   p2pMerchantApplications,
   users,
 } from "../lib/store";
+import {
+  persistP2PMerchantApplication,
+  persistP2PNotification,
+} from "../lib/db-persist";
 import { requireAdmin } from "../lib/session";
 import { merchantAdminThread } from "../lib/p2p-chat";
 
@@ -101,7 +105,7 @@ router.post(
       if (stored) stored.merchant = true;
       // Notify the user via P2P notifications
       const data = getUserData(app.userId);
-      data.p2pNotifications.unshift({
+      const notification: import("@workspace/api-zod").P2PNotification = {
         id: newId("n"),
         type: "admin_message",
         title: "Merchant application approved",
@@ -109,6 +113,36 @@ router.post(
         orderId: null,
         read: false,
         createdAt: NOW(),
+      };
+      data.p2pNotifications.unshift(notification);
+      void persistP2PMerchantApplication(app.id, app.userId, {
+        status: app.status,
+        displayName: app.displayName,
+        legalName: app.legalName,
+        contactEmail: app.contactEmail,
+        country: app.country,
+        paymentMethod: app.paymentMethod,
+        payoutEmail: app.payoutEmail ?? null,
+        bankInfo: app.bankInfo ?? null,
+        assets: app.assets,
+        reason: app.reason,
+        rejectionReason: app.rejectionReason ?? null,
+        reviewedBy: req.userId!,
+        reviewedAt: app.decidedAt,
+        submittedAt: app.submittedAt,
+      });
+      void persistP2PNotification(notification.id, app.userId, {
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        orderId: notification.orderId,
+        read: notification.read,
+        amount: null,
+        currency: null,
+        asset: null,
+        reference: null,
+        instructions: null,
+        createdAt: notification.createdAt,
       });
       logActivity({
         actorId: req.userId!,
@@ -120,10 +154,26 @@ router.post(
       app.status = "rejected";
       app.rejectionReason = parsed.data.reason ?? "Application rejected.";
       app.decidedAt = NOW();
+      void persistP2PMerchantApplication(app.id, app.userId, {
+        status: app.status,
+        displayName: app.displayName,
+        legalName: app.legalName,
+        contactEmail: app.contactEmail,
+        country: app.country,
+        paymentMethod: app.paymentMethod,
+        payoutEmail: app.payoutEmail ?? null,
+        bankInfo: app.bankInfo ?? null,
+        assets: app.assets,
+        reason: app.reason,
+        rejectionReason: app.rejectionReason ?? null,
+        reviewedBy: req.userId!,
+        reviewedAt: app.decidedAt,
+        submittedAt: app.submittedAt,
+      });
       // Notify the applicant if they have an account
       if (users.has(app.userId)) {
         const data = getUserData(app.userId);
-        data.p2pNotifications.unshift({
+        const notification: import("@workspace/api-zod").P2PNotification = {
           id: newId("n"),
           type: "admin_message",
           title: "Merchant application rejected",
@@ -131,6 +181,20 @@ router.post(
           orderId: null,
           read: false,
           createdAt: NOW(),
+        };
+        data.p2pNotifications.unshift(notification);
+        void persistP2PNotification(notification.id, app.userId, {
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          orderId: notification.orderId,
+          read: notification.read,
+          amount: null,
+          currency: null,
+          asset: null,
+          reference: null,
+          instructions: null,
+          createdAt: notification.createdAt,
         });
       }
       logActivity({
@@ -157,6 +221,22 @@ router.post("/admin/p2p/merchants/:userId/revoke", requireAdmin, (req, res) => {
       app.status = "rejected";
       app.rejectionReason = "Merchant status revoked by admin.";
       app.decidedAt = NOW();
+      void persistP2PMerchantApplication(app.id, app.userId, {
+        status: app.status,
+        displayName: app.displayName,
+        legalName: app.legalName,
+        contactEmail: app.contactEmail,
+        country: app.country,
+        paymentMethod: app.paymentMethod,
+        payoutEmail: app.payoutEmail ?? null,
+        bankInfo: app.bankInfo ?? null,
+        assets: app.assets,
+        reason: app.reason,
+        rejectionReason: app.rejectionReason ?? null,
+        reviewedBy: req.userId!,
+        reviewedAt: app.decidedAt,
+        submittedAt: app.submittedAt,
+      });
     }
   }
   // Deactivate all of the merchant's listings
@@ -164,14 +244,28 @@ router.post("/admin/p2p/merchants/:userId/revoke", requireAdmin, (req, res) => {
     if (listing.userId === userId) listing.status = "inactive";
   }
   const data = getUserData(userId);
-  data.p2pNotifications.unshift({
+  const revokedNotification = {
     id: newId("n"),
-    type: "admin_message",
+    type: "admin_message" as const,
     title: "Merchant status revoked",
     message: "Your P2P merchant access has been revoked. Active listings have been deactivated.",
     orderId: null,
     read: false,
     createdAt: NOW(),
+  };
+  data.p2pNotifications.unshift(revokedNotification);
+  void persistP2PNotification(revokedNotification.id, userId, {
+    type: revokedNotification.type,
+    title: revokedNotification.title,
+    message: revokedNotification.message,
+    orderId: revokedNotification.orderId,
+    read: revokedNotification.read,
+    amount: null,
+    currency: null,
+    asset: null,
+    reference: null,
+    instructions: null,
+    createdAt: revokedNotification.createdAt,
   });
   logActivity({
     actorId: req.userId!,
@@ -210,7 +304,7 @@ router.post("/admin/p2p/merchants/:userId/notify", requireAdmin, (req, res) => {
   // Deposit notifications carry structured fields (amount/currency/asset/
   // reference/instructions) so the nextrade UI can render them as a
   // dedicated card rather than concatenating them into the message body.
-  data.p2pNotifications.unshift({
+  const notification: import("@workspace/api-zod").P2PNotification = {
     id: newId("n"),
     type: notifType,
     title: parsed.data.title,
@@ -223,6 +317,20 @@ router.post("/admin/p2p/merchants/:userId/notify", requireAdmin, (req, res) => {
     asset: parsed.data.asset ?? null,
     reference: parsed.data.reference ?? null,
     instructions: parsed.data.instructions ?? null,
+  };
+  data.p2pNotifications.unshift(notification);
+  void persistP2PNotification(notification.id, userId, {
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    orderId: notification.orderId,
+    read: notification.read,
+    amount: notification.amount,
+    currency: notification.currency,
+    asset: notification.asset,
+    reference: notification.reference,
+    instructions: notification.instructions,
+    createdAt: notification.createdAt,
   });
   logActivity({
     actorId: req.userId!,
@@ -266,7 +374,7 @@ router.post("/admin/p2p/merchants/:userId/chat", requireAdmin, (req, res) => {
 
   // Mirror as a P2P notification so the merchant sees it in-app
   const data = getUserData(userId);
-  data.p2pNotifications.unshift({
+  const notification: import("@workspace/api-zod").P2PNotification = {
     id: newId("n"),
     type: "admin_message",
     title: "Message from platform",
@@ -274,6 +382,20 @@ router.post("/admin/p2p/merchants/:userId/chat", requireAdmin, (req, res) => {
     orderId: null,
     read: false,
     createdAt: NOW(),
+  };
+  data.p2pNotifications.unshift(notification);
+  void persistP2PNotification(notification.id, userId, {
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    orderId: notification.orderId,
+    read: notification.read,
+    amount: null,
+    currency: null,
+    asset: null,
+    reference: null,
+    instructions: null,
+    createdAt: notification.createdAt,
   });
   return res.json(msg);
 });

@@ -221,14 +221,294 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
       where: { id: kycId },
       update: {
         status: kycData.status,
-        doc_url: kycData.fileUrl,
+        doc_url: kycData.fileUrl ?? "",
       },
       create: {
         id: kycId,
         user_id: userId,
         doc_type: kycData.documentType,
-        doc_url: kycData.fileUrl,
+        doc_url: kycData.fileUrl ?? "",
         status: kycData.status,
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistBankAccount(
+  bankAccountId: string,
+  userId: string,
+  bankData: {
+    accountName: string;
+    bankName: string;
+    accountNumber?: string | null;
+    routingNumber?: string | null;
+    iban?: string | null;
+    swiftCode?: string | null;
+    debitCardLast4?: string | null;
+    debitCardExpiry?: string | null;
+    country: string;
+    currency: string;
+    isDefault: boolean;
+    fiatBalance: number;
+    fiatCurrency: string;
+  },
+): Promise<void> {
+  if (!prismaClient || !isUuid(bankAccountId) || !isUuid(userId)) return;
+  try {
+    const updateData: Record<string, unknown> = {
+      account_name: bankData.accountName,
+      bank_name: bankData.bankName,
+      country: bankData.country,
+      currency: bankData.currency,
+      is_default: bankData.isDefault,
+      fiat_balance: bankData.fiatBalance,
+      fiat_currency: bankData.fiatCurrency,
+    };
+
+    if (bankData.accountNumber !== undefined) {
+      updateData.account_number = bankData.accountNumber;
+    }
+    if (bankData.routingNumber !== undefined) {
+      updateData.routing_number = bankData.routingNumber ?? "";
+    }
+    if (bankData.iban !== undefined) {
+      updateData.iban = bankData.iban ?? null;
+    }
+    if (bankData.swiftCode !== undefined) {
+      updateData.swift_code = bankData.swiftCode ?? null;
+    }
+    if (bankData.debitCardLast4 !== undefined) {
+      updateData.debit_card_last4 = bankData.debitCardLast4 ?? "";
+    }
+    if (bankData.debitCardExpiry !== undefined) {
+      updateData.debit_card_expiry = bankData.debitCardExpiry ?? "";
+    }
+
+    await prismaClient.bank_accounts.upsert({
+      where: { id: bankAccountId },
+      update: updateData,
+      create: {
+        id: bankAccountId,
+        user_id: userId,
+        account_name: bankData.accountName,
+        bank_name: bankData.bankName,
+        account_number: bankData.accountNumber ?? "",
+        routing_number: bankData.routingNumber ?? "",
+        iban: bankData.iban ?? null,
+        swift_code: bankData.swiftCode ?? null,
+        debit_card_last4: bankData.debitCardLast4 ?? "",
+        debit_card_expiry: bankData.debitCardExpiry ?? "",
+        country: bankData.country,
+        currency: bankData.currency,
+        is_default: bankData.isDefault,
+        fiat_balance: bankData.fiatBalance,
+        fiat_currency: bankData.fiatCurrency,
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function deleteBankAccount(bankAccountId: string): Promise<void> {
+  if (!prismaClient || !isUuid(bankAccountId)) return;
+  try {
+    await prismaClient.bank_accounts.delete({
+      where: { id: bankAccountId },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistNotification(
+  notificationId: string,
+  userId: string,
+  notificationData: {
+    type: string;
+    title: string;
+    message: string;
+    read: boolean;
+    link?: string | null;
+    createdAt: string;
+  },
+): Promise<void> {
+  if (!prismaClient) return;
+  try {
+    await prismaClient.notifications.upsert({
+      where: { id: notificationId },
+      update: {
+        type: notificationData.type,
+        title: notificationData.title,
+        message: notificationData.message,
+        read: notificationData.read,
+        link: notificationData.link ?? null,
+        created_at: new Date(notificationData.createdAt),
+      },
+      create: {
+        id: notificationId,
+        user_id: userId,
+        type: notificationData.type,
+        title: notificationData.title,
+        message: notificationData.message,
+        read: notificationData.read,
+        link: notificationData.link ?? null,
+        created_at: new Date(notificationData.createdAt),
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistSupportTicket(
+  ticketId: string,
+  userId: string,
+  ticketData: {
+    subject: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+    updatedAt: string;
+  },
+): Promise<void> {
+  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return;
+  try {
+    await prismaClient.support_tickets.upsert({
+      where: { id: ticketId },
+      update: {
+        status: ticketData.status,
+        priority: ticketData.priority,
+        updated_at: new Date(ticketData.updatedAt),
+      },
+      create: {
+        id: ticketId,
+        user_id: userId,
+        subject: ticketData.subject,
+        status: ticketData.status,
+        priority: ticketData.priority,
+        created_at: new Date(ticketData.createdAt),
+        updated_at: new Date(ticketData.updatedAt),
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistP2PMerchantApplication(
+  applicationId: string,
+  userId: string,
+  applicationData: {
+    status: string;
+    displayName: string;
+    legalName: string;
+    contactEmail: string;
+    country: string;
+    paymentMethod: string;
+    payoutEmail?: string | null;
+    bankInfo?: string | null;
+    assets: string;
+    reason: string;
+    rejectionReason?: string | null;
+    reviewedBy?: string | null;
+    reviewedAt?: string | null;
+    submittedAt: string;
+  },
+): Promise<void> {
+  if (!prismaClient || !isUuid(applicationId) || !isUuid(userId)) return;
+  try {
+    await prismaClient.p2p_merchant_applications.upsert({
+      where: { id: applicationId },
+      update: {
+        status: applicationData.status,
+        display_name: applicationData.displayName,
+        legal_name: applicationData.legalName,
+        contact_email: applicationData.contactEmail,
+        country: applicationData.country,
+        payment_method: applicationData.paymentMethod,
+        payout_email: applicationData.payoutEmail ?? null,
+        bank_info: applicationData.bankInfo ?? null,
+        assets: applicationData.assets,
+        reason: applicationData.reason,
+        rejection_reason: applicationData.rejectionReason ?? null,
+        reviewed_by: applicationData.reviewedBy ?? null,
+        reviewed_at: applicationData.reviewedAt ? new Date(applicationData.reviewedAt) : null,
+      },
+      create: {
+        id: applicationId,
+        user_id: userId,
+        status: applicationData.status,
+        display_name: applicationData.displayName,
+        legal_name: applicationData.legalName,
+        contact_email: applicationData.contactEmail,
+        country: applicationData.country,
+        payment_method: applicationData.paymentMethod,
+        payout_email: applicationData.payoutEmail ?? null,
+        bank_info: applicationData.bankInfo ?? null,
+        assets: applicationData.assets,
+        reason: applicationData.reason,
+        rejection_reason: applicationData.rejectionReason ?? null,
+        reviewed_by: applicationData.reviewedBy ?? null,
+        reviewed_at: applicationData.reviewedAt ? new Date(applicationData.reviewedAt) : null,
+        submitted_at: new Date(applicationData.submittedAt),
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistP2PNotification(
+  notificationId: string,
+  userId: string,
+  notificationData: {
+    type: string;
+    title: string;
+    message: string;
+    orderId?: string | null;
+    read: boolean;
+    amount?: number | null;
+    currency?: string | null;
+    asset?: string | null;
+    reference?: string | null;
+    instructions?: string | null;
+    createdAt: string;
+  },
+): Promise<void> {
+  if (!prismaClient) return;
+  try {
+    await prismaClient.p2p_notifications.upsert({
+      where: { id: notificationId },
+      update: {
+        type: notificationData.type,
+        title: notificationData.title,
+        message: notificationData.message,
+        order_id: notificationData.orderId ?? null,
+        read: notificationData.read,
+        amount: notificationData.amount ?? null,
+        currency: notificationData.currency ?? null,
+        asset: notificationData.asset ?? null,
+        reference: notificationData.reference ?? null,
+        instructions: notificationData.instructions ?? null,
+        created_at: new Date(notificationData.createdAt),
+      },
+      create: {
+        id: notificationId,
+        user_id: userId,
+        type: notificationData.type,
+        title: notificationData.title,
+        message: notificationData.message,
+        order_id: notificationData.orderId ?? null,
+        read: notificationData.read,
+        amount: notificationData.amount ?? null,
+        currency: notificationData.currency ?? null,
+        asset: notificationData.asset ?? null,
+        reference: notificationData.reference ?? null,
+        instructions: notificationData.instructions ?? null,
+        created_at: new Date(notificationData.createdAt),
       },
     });
   } catch (_err) {

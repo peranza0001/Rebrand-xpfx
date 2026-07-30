@@ -8,6 +8,7 @@ import {
   type BankAccount,
 } from "@workspace/api-zod";
 import { getUserData, logActivity, newId, NOW } from "../lib/store";
+import { persistBankAccount } from "../lib/db-persist";
 import { requireAuth } from "../lib/session";
 
 const router: IRouter = Router();
@@ -32,11 +33,27 @@ router.post("/banks", requireAuth, (req, res) => {
     last4,
     currency: parsed.data.currency,
     verified: false,
+    isDefault: false,
     fiatBalance: 0,
     fiatCurrency: parsed.data.currency,
     createdAt: NOW(),
   };
   data.bankAccounts.unshift(bank);
+  void persistBankAccount(bank.id, u.id, {
+    accountName: bank.accountHolder,
+    bankName: bank.bankName,
+    accountNumber: parsed.data.accountNumber,
+    routingNumber: null,
+    iban: null,
+    swiftCode: null,
+    debitCardLast4: null,
+    debitCardExpiry: null,
+    country: u.country,
+    currency: bank.currency,
+    isDefault: bank.isDefault ?? false,
+    fiatBalance: bank.fiatBalance,
+    fiatCurrency: bank.fiatCurrency,
+  });
   logActivity({
     actorId: u.id,
     actorName: u.fullName,
@@ -67,6 +84,21 @@ router.patch("/banks/:bankId", requireAuth, (req, res) => {
   }
 
   const u = req.storedUser!.user;
+  void persistBankAccount(bank.id, u.id, {
+    accountName: bank.accountHolder,
+    bankName: bank.bankName,
+    accountNumber: undefined,
+    routingNumber: undefined,
+    iban: undefined,
+    swiftCode: undefined,
+    debitCardLast4: undefined,
+    debitCardExpiry: undefined,
+    country: u.country,
+    currency: bank.currency,
+    isDefault: bank.isDefault ?? false,
+    fiatBalance: bank.fiatBalance,
+    fiatCurrency: bank.fiatCurrency,
+  });
   logActivity({
     actorId: u.id,
     actorName: u.fullName,
