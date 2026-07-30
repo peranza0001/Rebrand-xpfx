@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _csrfToken: string | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -86,6 +87,29 @@ function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
   }
 
   return headers;
+}
+
+async function fetchCsrfToken(): Promise<string | null> {
+  if (_csrfToken) {
+    return _csrfToken;
+  }
+
+  const url = applyBaseUrl('/api/csrf-token');
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      accept: DEFAULT_JSON_ACCEPT,
+    },
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = await response.json();
+  _csrfToken = typeof data?.csrfToken === 'string' ? data.csrfToken : null;
+  return _csrfToken;
 }
 
 function getMediaType(headers: Headers): string | null {
@@ -366,6 +390,25 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    const message = getStringField(errorData, 'message') || getStringField(errorData, 'error') || '';
+    if (response.status === 403 && message.toLowerCase().includes('invalid csrf token')) {
+      _csrfToken = null;
+      const refreshedToken = await fetchCsrfToken();
+      if (refreshedToken) {
+        headers.set('x-csrf-token', refreshedToken);
+        const retryResponse = await fetch(input, {
+          credentials: "include",
+          ...init,
+          method,
+          headers,
+        });
+        if (retryResponse.ok) {
+          return (await parseSuccessBody(retryResponse, responseType, requestInfo)) as T;
+        }
+        const retryErrorData = await parseErrorBody(retryResponse, method);
+        throw new ApiError(retryResponse, retryErrorData, requestInfo);
+      }
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 

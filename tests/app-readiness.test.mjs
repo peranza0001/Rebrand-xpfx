@@ -104,3 +104,22 @@ test('preview-host POST requests are not blocked by CSRF middleware before auth 
     assert.equal(body.error, 'Not authenticated');
   });
 });
+
+test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, '/api/csrf-token should return successfully');
+    const body = await response.json();
+    assert.equal(typeof body.csrfToken, 'string', 'response should include csrfToken');
+    assert.ok(body.csrfToken.length > 0, 'csrfToken should not be empty');
+  });
+});

@@ -303,7 +303,11 @@ const { doubleCsrfProtection } = doubleCsrf({
   getSessionIdentifier: (req) =>
     req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
   cookieName: 'xcsrf',
-  cookieOptions: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  },
   size: 32,
   ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
 });
@@ -458,6 +462,15 @@ function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
     })
     .catch((err) => next(err));
 }
+
+app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
+  const csrfToken = (req as any).csrfToken?.();
+  if (!csrfToken) {
+    return res.status(500).json({ success: false, message: 'CSRF token unavailable' });
+  }
+
+  return res.json({ csrfToken });
+});
 
 app.use('/api', mountApiRoutes);
 
