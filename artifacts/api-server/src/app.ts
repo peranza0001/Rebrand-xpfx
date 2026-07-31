@@ -8,6 +8,7 @@ import pinoHttp from 'pino-http';
 import { doubleCsrf } from 'csrf-csrf';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
@@ -15,6 +16,9 @@ import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
 import apiRoutes from './routes/index';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.disable('x-powered-by');

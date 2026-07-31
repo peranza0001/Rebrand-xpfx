@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import envModule from '../artifacts/api-server/src/lib/env.ts';
-import storeModule from '../artifacts/api-server/src/lib/store.ts';
-
-const { resolveDemoAuthEnabled } = envModule.default ?? envModule;
-const { ensureDemoUser } = storeModule.default ?? storeModule;
+import { resolveDemoAuthEnabled } from '../artifacts/api-server/src/lib/env.ts';
+import { ensureDemoUser } from '../artifacts/api-server/src/lib/store.ts';
 
 test('demo auth is enabled by default in production unless explicitly disabled', () => {
   const enabled = resolveDemoAuthEnabled({ NODE_ENV: 'production', ENABLE_DEMO_AUTH: undefined });
