@@ -2,7 +2,7 @@
   "provider": "node",
   "install": "NPM_CONFIG_PRODUCTION=false npm install --no-audit --no-fund && NPM_CONFIG_PRODUCTION=false npm run predeploy && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/api-server && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/nextrade && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/admin-portal",
   "build": "NPM_CONFIG_PRODUCTION=false npm run predeploy && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/api-server && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/nextrade && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/admin-portal",
-  "start": "NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
+  "start": "NPM_CONFIG_PRODUCTION=false npm run prepare:runtime-secrets && npm run build --workspace=artifacts/api-server && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
   "env": {
     "PORT": "3000"
   }
