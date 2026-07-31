@@ -22,6 +22,16 @@ test('overrides a disabled sslmode with Railway-compatible SSL', () => {
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
 
+test('normalizes verify-full sslmode to Railway-compatible SSL settings', () => {
+  const config = buildPostgresConfig('postgresql://user:pass@db.internal:5432/app?sslmode=verify-full', {
+    RAILWAY_ENVIRONMENT_NAME: 'production',
+  });
+
+  assert.equal(config.connectionString.includes('sslmode=require'), true);
+  assert.equal(config.connectionString.includes('sslmode=verify-full'), false);
+  assert.deepEqual(config.ssl, { rejectUnauthorized: false });
+});
+
 test('prefers the public DATABASE_PUBLIC_URL over the private DATABASE_URL', () => {
   const config = buildPostgresConfig(undefined, {
     DATABASE_URL: 'postgresql://user:pass@postgres.railway.internal:5432/app',

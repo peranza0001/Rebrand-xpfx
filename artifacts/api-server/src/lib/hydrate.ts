@@ -186,6 +186,8 @@ export async function hydrateFromDb(): Promise<void> {
     }
 
     // 2. Load active sessions from DB
+    logger.info({ label: "hydrate.users", rowsLoaded: usersLoaded }, "[hydrate] loaded users from database");
+
     const dbWallets = await loadRowsFromDb<Record<string, unknown>>(
       "hydrate.wallets",
       (db) => db.select().from(walletsTable),
@@ -499,7 +501,18 @@ export async function hydrateFromDb(): Promise<void> {
 
     const elapsed = Date.now() - start;
     logger.info(
-      { usersLoaded, sessionsLoaded, elapsedMs: elapsed },
+      {
+        usersLoaded,
+        sessionsLoaded,
+        walletRowsLoaded: dbWallets.length,
+        transactionRowsLoaded: dbTransactions.length,
+        connectedWalletRowsLoaded: dbConnectedWallets.length,
+        bankAccountRowsLoaded: dbBankAccounts.length,
+        supportTicketRowsLoaded: dbSupportTickets.length,
+        p2pMerchantApplicationRowsLoaded: dbP2PMerchantApplications.length,
+        p2pNotificationRowsLoaded: dbP2PNotifications.length,
+        elapsedMs: elapsed,
+      },
       "[hydrate] Startup hydration complete",
     );
   } catch (error) {

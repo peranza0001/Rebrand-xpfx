@@ -66,7 +66,7 @@ export function getDb(): DbClient | null {
     logger.info("[db] PostgreSQL connection pool initialised");
     return _db;
   } catch (err) {
-    logger.error({ err: (err as Error).message }, "[db] Failed to initialise pool");
+    logger.error({ err }, "[db] Failed to initialise pool");
     return null;
   }
 }
@@ -82,7 +82,7 @@ export function dbRun(
   const db = getDb();
   if (!db) return;
   fn(db).catch((err: Error) => {
-    logger.warn({ label, err: err.message }, "[db] shadow write failed");
+    logger.warn({ label, err }, "[db] shadow write failed");
   });
 }
 
@@ -104,7 +104,7 @@ export async function dbGet<T>(
     if (message.includes("relation") && message.includes("does not exist")) {
       return fallback;
     }
-    logger.warn({ label, err: message }, "[db] read failed");
+    logger.warn({ label, err }, "[db] read failed");
     return fallback;
   }
 }
