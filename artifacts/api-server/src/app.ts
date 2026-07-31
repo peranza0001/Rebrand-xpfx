@@ -14,6 +14,7 @@ import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
+import apiRoutes from './routes/index';
 
 const app = express();
 app.disable('x-powered-by');
@@ -452,16 +453,7 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
 let apiRoutesHandler: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
 
 function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
-  if (apiRoutesHandler) {
-    return apiRoutesHandler(req, res, next);
-  }
-
-  import('./routes/index')
-    .then(({ default: loadedApiRoutes }) => {
-      apiRoutesHandler = loadedApiRoutes as unknown as (req: Request, res: Response, next: NextFunction) => void;
-      return apiRoutesHandler(req, res, next);
-    })
-    .catch((err) => next(err));
+  return apiRoutes(req, res, next);
 }
 
 app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
