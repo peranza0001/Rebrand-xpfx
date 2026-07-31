@@ -2,6 +2,7 @@
   "name": "xpresspro-fx-api-server",
   "version": "1.0.0",
   "description": "XpressPro FX — Enterprise-grade hybrid fintech forex broker trading and investment API server",
+  "type": "module",
   "main": "dist/index.mjs",
   "scripts": {
     "build": "node ./build.mjs",
