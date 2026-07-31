@@ -14,7 +14,7 @@
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@workspace/db/schema";
-import { buildPostgresConfig } from "../../../../lib/db/src/connection-config";
+import { buildPostgresConfig, getRawDatabaseUrl } from "../../../../lib/db/src/connection-config";
 import { logger } from "./logger";
 
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
@@ -27,7 +27,7 @@ const REINIT_COOLDOWN_MS = 15_000; // don't hammer a dead DB on every request
 export function getDb(): DbClient | null {
   if (_db) return _db;
 
-  const url = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
+  const url = getRawDatabaseUrl();
   if (!url) {
     if (!_warned) {
       logger.warn("[db] DATABASE_URL not set — DB persistence disabled");

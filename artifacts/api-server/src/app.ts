@@ -11,6 +11,7 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
+import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
 
@@ -80,7 +81,7 @@ async function _dbHealthHandler(_req: Request, res: Response) {
 }
 
 async function _readinessHandler(_req: Request, res: Response) {
-  const rawDatabaseUrl = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
+  const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
   }

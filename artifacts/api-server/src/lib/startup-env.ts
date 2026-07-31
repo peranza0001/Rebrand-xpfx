@@ -1,3 +1,5 @@
+import { getRawDatabaseUrl } from '../../../../lib/db/src/connection-config';
+
 export interface StartupEnvResult {
   ok: boolean;
   missing: string[];
@@ -18,7 +20,7 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   resolved.NODE_ENV = nodeEnv || 'development';
   resolved.PORT = normalizeString(env.PORT) || '8080';
 
-  const databaseUrl = normalizeString(env.DATABASE_URL) || normalizeString(env.DATABASE_PUBLIC_URL);
+  const databaseUrl = normalizeString(getRawDatabaseUrl(env as Record<string, string | undefined>));
   if (!databaseUrl) {
     warnings.push('DATABASE_URL');
   }
