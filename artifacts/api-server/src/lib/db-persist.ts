@@ -38,6 +38,7 @@ export async function persistUser(userId: string, userData: {
         email: userData.email,
         username: userData.username,
         full_name: userData.fullName,
+        password_hash: userData.passwordHash,
         country: userData.country,
         phone: userData.phone,
       },
@@ -49,6 +50,25 @@ export async function persistUser(userId: string, userData: {
         password_hash: userData.passwordHash,
         country: userData.country,
         phone: userData.phone,
+      },
+    });
+  } catch (_err) {
+    // Silent fail
+  }
+}
+
+export async function persistResetPasswordToken(
+  userId: string,
+  token: string | null,
+  expiresAt: Date | null,
+): Promise<void> {
+  if (!prismaClient || !isUuid(userId)) return;
+  try {
+    await prismaClient.users.update({
+      where: { id: userId },
+      data: {
+        resetPasswordToken: token,
+        resetPasswordExpiry: expiresAt,
       },
     });
   } catch (_err) {
