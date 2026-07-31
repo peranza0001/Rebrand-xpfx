@@ -25,6 +25,15 @@ const DISCLAIMER =
   "SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.";
 const allocations = planMeta;
 
+router.get("/smartvest/plans", (_req, res) => {
+  res.json(Object.entries(planMeta).map(([key, entry]) => ({
+    key,
+    label: entry.label,
+    allocation: entry.allocation,
+    description: entry.description,
+  })));
+});
+
 function present(data: ReturnType<typeof getUserData>) {
   const account = data.smartVest;
   const simulatedBalance = data.wallets.reduce((total, wallet) => total + wallet.balance, 0);

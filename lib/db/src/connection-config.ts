@@ -29,8 +29,8 @@ export function buildPostgresConfig(
   const url = new URL(urlString);
   const params = url.searchParams;
   const existingSslmode = params.get('sslmode')?.trim().toLowerCase();
-  if (!existingSslmode || existingSslmode === 'disable' || existingSslmode === 'prefer' || existingSslmode === 'require' || existingSslmode === 'verify-ca') {
-    params.set('sslmode', 'verify-full');
+  if (!existingSslmode || existingSslmode === 'disable' || existingSslmode === 'prefer') {
+    params.set('sslmode', 'require');
   }
 
   const ssl = url.protocol === 'postgresql:' || url.protocol === 'postgres:'

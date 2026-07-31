@@ -43,6 +43,7 @@ import mentorshipRouter from "./mentorship";
 import smartVestRouter from "./smartvest";
 import accountTierRouter from "./account-tier";
 import statementsRouter from "./statements";
+import demoRouter from "./demo";
 
 const router: IRouter = Router();
 
@@ -85,6 +86,7 @@ router.use(adminDepositsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);
+router.use(demoRouter);
 router.use('/account', accountTierRouter);
 router.use(statementsRouter);
 
