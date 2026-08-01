@@ -11,10 +11,14 @@ export function getRawDatabaseUrl(
   const directUrl = env.DIRECT_DATABASE_URL?.trim();
   if (directUrl) return directUrl;
 
-  const publicUrl = env.DATABASE_PUBLIC_URL?.trim();
-  if (publicUrl) return publicUrl;
+  // Prefer the private service connection string when both are available.
+  // Railway exposes the internal service URL via DATABASE_URL and a public
+  // proxy URL via DATABASE_PUBLIC_URL. The private URL is the correct one
+  // for server-side connections and avoids proxy certificate issues.
+  const privateUrl = env.DATABASE_URL?.trim();
+  if (privateUrl) return privateUrl;
 
-  return env.DATABASE_URL?.trim();
+  return env.DATABASE_PUBLIC_URL?.trim();
 }
 
 export function buildPostgresConfig(

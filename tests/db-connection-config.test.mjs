@@ -30,23 +30,23 @@ test('strips verify-full sslmode from the connection string', () => {
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
 
-test('prefers the public DATABASE_PUBLIC_URL over the private DATABASE_URL', () => {
+test('prefers private DATABASE_URL over DATABASE_PUBLIC_URL', () => {
   const config = buildPostgresConfig(undefined, {
     DATABASE_URL: 'postgresql://user:pass@postgres.railway.internal:5432/app',
     DATABASE_PUBLIC_URL: 'postgresql://user:pass@public.railway.app:5432/app',
   });
 
-  assert.equal(config.connectionString.includes('public.railway.app'), true);
-  assert.equal(config.connectionString.includes('postgres.railway.internal'), false);
+  assert.equal(config.connectionString.includes('postgres.railway.internal'), true);
+  assert.equal(config.connectionString.includes('public.railway.app'), false);
 });
 
-test('getRawDatabaseUrl prefers DATABASE_PUBLIC_URL when both values are present', () => {
+test('getRawDatabaseUrl prefers DATABASE_URL over DATABASE_PUBLIC_URL when both values are present', () => {
   const url = getRawDatabaseUrl({
     DATABASE_URL: 'postgresql://user:pass@postgres.railway.internal:5432/app',
     DATABASE_PUBLIC_URL: 'postgresql://user:pass@public.railway.app:5432/app',
   });
 
-  assert.equal(url, 'postgresql://user:pass@public.railway.app:5432/app');
+  assert.equal(url, 'postgresql://user:pass@postgres.railway.internal:5432/app');
 });
 
 test('getRawDatabaseUrl prefers DIRECT_DATABASE_URL when present', () => {
