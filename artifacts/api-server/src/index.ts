@@ -136,8 +136,16 @@ async function bootstrap() {
     ensureRuntimeSecrets();
     await loadRuntimeDependencies();
     const { default: app } = await import('./app');
-    server = http.createServer(app);
+        server = http.createServer(app);
     attachServerHandlers();
+        
+        // Initialize realtime Socket.IO server (shared infra for demo trading + live chat)
+        try {
+          const { initRealtime } = await import('./lib/realtime');
+          initRealtime(server);
+        } catch (err) {
+          logger.warn({ err }, '[SERVER] Failed to initialize realtime server; continuing without WebSocket support');
+        }
 
     const startupValidation = validateStartupEnvironment?.(process.env);
     if (!startupValidation) {

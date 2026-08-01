@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
 import { AlertTriangle, BarChart3, Clock3, Lock, PlayCircle, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,23 +53,23 @@ function DemoTradingContent() {
   const [message, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setMarkets((prev) =>
-        prev.map((item) => {
-          const drift = (Math.random() - 0.5) * 0.0025;
-          const nextPrice = Math.max(0.1, item.price * (1 + drift));
-          const change = Number(((nextPrice - item.price) / item.price) * 100);
-          return {
-            ...item,
-            price: Number(nextPrice.toFixed(item.symbol.includes("BTC") ? 2 : item.symbol.includes("EUR") || item.symbol.includes("GBP") ? 4 : 2)),
-            change: Number(change.toFixed(2)),
-            bias: change >= 0 ? "bullish" : "bearish",
-          };
-        }),
-      );
-    }, 1600);
+    // Connect to Socket.IO demo-trading namespace for live prices
+    const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
+    socket.on('connect', () => {
+      // subscribe to a few instruments
+      ['EUR/USD', 'GBP/JPY', 'BTC/USD', 'XAU/USD'].forEach((s) => socket.emit('join_instrument', s));
+    });
+    socket.on('price_update', (payload: any) => {
+      setMarkets((prev) => prev.map((item) => {
+        if (item.symbol === payload.symbol) {
+          const change = Number((((payload.price - item.price) / item.price) * 100).toFixed(2));
+          return { ...item, price: Number(payload.price), change, bias: change >= 0 ? 'bullish' : 'bearish' };
+        }
+        return item;
+      }));
+    });
 
-    return () => window.clearInterval(interval);
+    return () => { socket.disconnect(); };
   }, []);
 
   useEffect(() => {
@@ -104,18 +105,15 @@ function DemoTradingContent() {
     }
 
     const safeSize = Math.max(100, Math.round(sizeValue));
-    const entry = selectedMarket.price;
-    const newPosition: Position = {
-      id: Date.now(),
-      symbol: selectedMarket.symbol,
-      side: side === "Buy" ? "Long" : "Short",
-      entry,
-      size: safeSize,
-      pnl: Number((safeSize * 0.001 * (selectedMarket.bias === "bullish" ? 1 : -1)).toFixed(2)),
-    };
-
-    setPositions((prev) => [newPosition, ...prev].slice(0, 6));
-    setMessage(`Demo order submitted for ${selectedMarket.symbol} at ${formatCurrency(entry)}. Your paper account remains risk-free.`);
+    try {
+      const body = { instrument: selectedMarket.symbol, type: 'market', side: side === 'Buy' ? 'buy' : 'sell', amount: safeSize, leverage: 10 };
+      const resp = await fetch('/api/demo/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
+      if (!resp.ok) throw new Error('Order failed');
+      const json = await resp.json();
+      setMessage(`Demo order submitted for ${selectedMarket.symbol} — order queued.`);
+    } catch (err) {
+      setMessage('Failed to submit demo order.');
+    }
   };
 
   return (

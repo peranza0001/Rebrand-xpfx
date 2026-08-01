@@ -201,6 +201,7 @@ export async function persistTransaction(
     currency: string;
     status: string;
     description: string;
+    isDemo?: boolean;
   },
 ): Promise<void> {
   if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
@@ -213,6 +214,7 @@ export async function persistTransaction(
         currency: transactionData.currency,
         status: transactionData.status,
         description: transactionData.description,
+        is_demo: transactionData.isDemo ?? false,
       },
       create: {
         id: transactionId,
@@ -223,6 +225,7 @@ export async function persistTransaction(
         currency: transactionData.currency,
         status: transactionData.status,
         description: transactionData.description,
+        is_demo: transactionData.isDemo ?? false,
       },
     });
   } catch (_err) {

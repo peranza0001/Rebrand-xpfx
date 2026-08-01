@@ -1228,6 +1228,7 @@ export function applyWalletDebit(
   amount: number,
   description: string,
   currency: string = "USD",
+  isDemo: boolean = false,
 ): { wallet: Wallet; transaction: Transaction } {
   const wallet =
     (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
@@ -1249,6 +1250,40 @@ export function applyWalletDebit(
     currency,
     status: "completed",
     description,
+    isDemo,
+    createdAt: NOW(),
+  };
+  data.transactions.unshift(transaction);
+
+  return { wallet, transaction };
+}
+
+export function applyWalletCredit(
+  data: { wallets: Wallet[]; transactions: Transaction[] },
+  walletId: string | null | undefined,
+  amount: number,
+  description: string,
+  currency: string = 'USD',
+  isDemo: boolean = false,
+): { wallet: Wallet; transaction: Transaction } {
+  const wallet =
+    (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
+    data.wallets.find((w) => w.type === 'main');
+
+  if (!wallet) {
+    throw new Error('No funding wallet available.');
+  }
+
+  wallet.balance = Number((wallet.balance + amount).toFixed(2));
+  const transaction: Transaction = {
+    id: newId('tx'),
+    walletId: wallet.id,
+    type: 'deposit',
+    amount: amount,
+    currency,
+    status: 'completed',
+    description,
+    isDemo,
     createdAt: NOW(),
   };
   data.transactions.unshift(transaction);

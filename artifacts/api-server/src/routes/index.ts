@@ -44,6 +44,7 @@ import smartVestRouter from "./smartvest";
 import accountTierRouter from "./account-tier";
 import statementsRouter from "./statements";
 import demoRouter from "./demo";
+import demoTradingRouter from "./demo-trading";
 
 const router: IRouter = Router();
 
@@ -87,6 +88,7 @@ router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);
 router.use(demoRouter);
+router.use(demoTradingRouter);
 router.use('/account', accountTierRouter);
 router.use(statementsRouter);
 
