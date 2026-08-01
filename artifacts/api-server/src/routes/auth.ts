@@ -194,6 +194,7 @@ router.post("/auth/login", async (req, res) => {
   const sid = newSessionId();
   const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
+  logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] login.session_persist_outcome");
   if (!sessionPersisted) {
     logger.error({ userId: stored.user.id }, "[auth] login.session_persist_failed");
     return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
