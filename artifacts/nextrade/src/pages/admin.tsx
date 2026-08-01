@@ -1,3 +1,96 @@
+import { useEffect, useState } from "react";
+
+function DemoConfigEditor() {
+  const [config, setConfig] = useState<any | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/admin/demo-config', { credentials: 'include' });
+      if (res.ok) setConfig(await res.json());
+    })();
+  }, []);
+
+  const save = async () => {
+    try {
+      const res = await fetch('/api/admin/demo-config', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      if (!res.ok) throw new Error('Save failed');
+      const updated = await res.json();
+      setConfig(updated);
+      toast({ title: 'Demo config updated' });
+    } catch (err: unknown) {
+      toast({ title: 'Failed to save demo config', variant: 'destructive', description: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  if (!config) return <div className="text-sm text-muted-foreground">Loading demo config...</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="space-y-1 text-sm">
+          <div className="text-muted-foreground">Default demo balance</div>
+          <Input value={String(config.defaultBalance)} onChange={(e) => setConfig({ ...config, defaultBalance: Number(e.target.value) })} />
+        </label>
+        <label className="space-y-1 text-sm">
+          <div className="text-muted-foreground">Default leverage</div>
+          <Input value={String(config.defaultLeverage)} onChange={(e) => setConfig({ ...config, defaultLeverage: Number(e.target.value) })} />
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="space-y-1 text-sm">
+          <div className="text-muted-foreground">Volatility (per-tick)</div>
+          <Input value={String(config.volatility)} onChange={(e) => setConfig({ ...config, volatility: Number(e.target.value) })} />
+        </label>
+        <label className="space-y-1 text-sm">
+          <div className="text-muted-foreground">Spread</div>
+          <Input value={String(config.spread)} onChange={(e) => setConfig({ ...config, spread: Number(e.target.value) })} />
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button onClick={save}><Save className="mr-2 h-4 w-4"/> Save</Button>
+      </div>
+    </div>
+  );
+}
+
+function DemoActivityList() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    void (async () => {
+      const res = await fetch('/api/admin/demo-activity', { credentials: 'include' });
+      if (!res.ok) { toast({ title: 'Failed to load demo activity', variant: 'destructive' }); return; }
+      setRows(await res.json());
+    })();
+  }, []);
+
+  if (!rows) return <div className="text-sm text-muted-foreground">Loading demo activity...</div>;
+
+  return (
+    <div className="space-y-3">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>User</TableHead>
+            <TableHead>Trades</TableHead>
+            <TableHead>Demo transactions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.userId}>
+              <TableCell>{r.email}</TableCell>
+              <TableCell>{r.trades?.length ?? 0}</TableCell>
+              <TableCell>{r.transactions?.length ?? 0}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 import { useState } from "react";
 import {
   useGetAdminStats,
@@ -248,6 +341,7 @@ export function Admin() {
           <TabsTrigger value="promotions">Promotions</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="demo">Demo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="withdrawals" className="space-y-4">
@@ -570,6 +664,28 @@ export function Admin() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="demo" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Demo platform configuration</CardTitle>
+              <CardDescription>Adjust demo defaults and simulation parameters.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DemoConfigEditor />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Demo activity</CardTitle>
+              <CardDescription>Recent demo trades & transactions across users.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DemoActivityList />
             </CardContent>
           </Card>
         </TabsContent>
