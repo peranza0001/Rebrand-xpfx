@@ -92,7 +92,7 @@ function DemoTradingContent() {
 
   const guestLocked = !isAuthenticated && guestSecondsLeft <= 0;
 
-  const placeDemoOrder = () => {
+  const placeDemoOrder = async () => {
     if (guestLocked) {
       setMessage("Your guest demo session has expired. Create an account to continue practising.");
       return;
