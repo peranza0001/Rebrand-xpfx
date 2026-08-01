@@ -8,27 +8,25 @@ test('adds Railway SSL settings for plain postgres URLs', () => {
     RAILWAY_ENVIRONMENT_NAME: 'production',
   });
 
-  assert.equal(config.connectionString.includes('sslmode=require'), true);
+  assert.equal(config.connectionString.includes('sslmode='), false);
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
 
-test('overrides a disabled sslmode with Railway-compatible SSL', () => {
+test('removes sslmode from URLs and relies on explicit SSL settings', () => {
   const config = buildPostgresConfig('postgresql://user:pass@db.internal:5432/app?sslmode=disable', {
     RAILWAY_ENVIRONMENT_NAME: 'production',
   });
 
-  assert.equal(config.connectionString.includes('sslmode=require'), true);
-  assert.equal(config.connectionString.includes('sslmode=disable'), false);
+  assert.equal(config.connectionString.includes('sslmode='), false);
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
 
-test('normalizes verify-full sslmode to Railway-compatible SSL settings', () => {
+test('strips verify-full sslmode from the connection string', () => {
   const config = buildPostgresConfig('postgresql://user:pass@db.internal:5432/app?sslmode=verify-full', {
     RAILWAY_ENVIRONMENT_NAME: 'production',
   });
 
-  assert.equal(config.connectionString.includes('sslmode=require'), true);
-  assert.equal(config.connectionString.includes('sslmode=verify-full'), false);
+  assert.equal(config.connectionString.includes('sslmode='), false);
   assert.deepEqual(config.ssl, { rejectUnauthorized: false });
 });
 
