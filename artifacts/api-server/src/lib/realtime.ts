@@ -14,6 +14,11 @@ export function initRealtime(server: http.Server) {
     path: '/socket.io',
   });
 
+  // keep a module-level reference so other modules (HTTP routes) can broadcast
+  // into namespaces without holding the server instance directly.
+  // Consumers should call `getChatNamespace()` to obtain the `/live-chat` namespace.
+  (globalThis as any).__xpfx_io = io;
+
   // Simple auth: read cookie header, unsign using cookie-parser's signedCookie
   io.use((socket, next) => {
     try {
@@ -116,3 +121,9 @@ export function initRealtime(server: http.Server) {
 }
 
 export default initRealtime;
+
+export function getChatNamespace() {
+  const ioRef = (globalThis as any).__xpfx_io as IOServer | undefined | null;
+  if (!ioRef) return null;
+  return ioRef.of('/live-chat');
+}

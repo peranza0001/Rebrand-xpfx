@@ -7,6 +7,7 @@ import {
   AdminReplyLiveChatBody,
   AdminReplyLiveChatParams,
 } from "@workspace/api-zod";
+import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
 import { requireAdmin, requireAuth, requireFullAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
@@ -203,6 +204,14 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(msg);
+  // Broadcast admin reply in realtime to any connected clients in the conv room.
+  try {
+    const ns = getChatNamespace();
+    ns?.to(`conv:${p.data.userId}`).emit('message', msg);
+  } catch (err) {
+    // best-effort; do not fail the request if broadcasting fails
+  }
+
   return res.json(msg);
 });
 
