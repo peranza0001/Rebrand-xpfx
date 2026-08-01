@@ -288,7 +288,7 @@ export async function hydrateFromDb(): Promise<void> {
       supportTicketsByUser.set(userId, list);
     }
 
-    const dbP2PMerchantApps = await loadRowsFromDb<Record<string, unknown>>(
+    const dbP2PMerchantApplications = await loadRowsFromDb<Record<string, unknown>>(
       "hydrate.p2p_merchant_applications",
       (db) => db.select().from(p2pMerchantApplicationsTable),
       async () => {
@@ -299,8 +299,8 @@ export async function hydrateFromDb(): Promise<void> {
         return prisma.p2p_merchant_applications.findMany({});
       },
     );
-    const p2pMerchantApplicationsByUser = new Map<string, typeof dbP2PMerchantApps>();
-    for (const app of dbP2PMerchantApps) {
+    const p2pMerchantApplicationsByUser = new Map<string, typeof dbP2PMerchantApplications>();
+    for (const app of dbP2PMerchantApplications) {
       const userId = getHydratedRowValue<string>(app, "userId", "user_id");
       if (!userId) continue;
       const list = p2pMerchantApplicationsByUser.get(userId) ?? [];
