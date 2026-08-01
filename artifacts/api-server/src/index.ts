@@ -142,7 +142,7 @@ async function bootstrap() {
         // Initialize realtime Socket.IO server (shared infra for demo trading + live chat)
         try {
           const { initRealtime } = await import('./lib/realtime');
-          initRealtime(server);
+          await initRealtime(server);
         } catch (err) {
           logger.warn({ err }, '[SERVER] Failed to initialize realtime server; continuing without WebSocket support');
         }

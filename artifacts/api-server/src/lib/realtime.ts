@@ -5,7 +5,7 @@ import { sessions, users, assetCatalog, userData } from './store';
 import { SESSION_COOKIE } from './session';
 import { logger } from './logger';
 
-export function initRealtime(server: http.Server) {
+export async function initRealtime(server: http.Server) {
   const io = new IOServer(server, {
     cors: {
       origin: (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
