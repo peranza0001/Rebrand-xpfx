@@ -8,6 +8,7 @@ process.env.ENABLE_DEMO_AUTH = 'true';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 
 const appModule = await import('../artifacts/api-server/src/app.ts');
 const otpModule = await import('../artifacts/api-server/src/lib/otp.ts');
@@ -133,9 +134,42 @@ test('login fails when durable session persistence cannot complete', async () =>
 
   try {
     await withTestServer(async (baseUrl) => {
+      const email = `uuid-login-${Date.now()}@example.com`;
+      const userId = randomUUID();
+      store.users.set(userId, {
+        user: {
+          id: userId,
+          username: 'uuid-login',
+          email,
+          fullName: 'UUID Login User',
+          country: 'US',
+          kycVerified: true,
+          avatarUrl: undefined,
+          createdAt: new Date().toISOString(),
+          selectedManagerId: null,
+          phone: null,
+          merchant: false,
+          moonpayEmail: null,
+          buyVerified: false,
+        },
+        passwordHash: store.hashPassword('Secret123!'),
+        role: 'user',
+        referralCode: '',
+        referredBy: null,
+        merchant: false,
+        tradingLocked: false,
+        demoMode: false,
+        phone: null,
+        accountFlag: null,
+        suspended: false,
+        disabled: false,
+      });
+      store.usersByEmail.set(email, userId);
+      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+
       const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
         method: 'POST',
-        body: { email: 'demo@xpressprofx.com', password: 'demo-password' },
+        body: { email, password: 'Secret123!' },
       });
 
       assert.equal(loginResult.response.status, 500);

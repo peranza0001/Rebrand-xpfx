@@ -87,7 +87,7 @@ export async function persistSession(
   expiresAt: Date,
   isAdmin = false,
 ): Promise<boolean> {
-  if (!prismaClient) return true;
+  if (!prismaClient || !isUuid(userId)) return true;
   try {
     await prismaClient.user_sessions.create({
       data: {
