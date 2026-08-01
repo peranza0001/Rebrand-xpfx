@@ -29,8 +29,8 @@ export async function persistUser(userId: string, userData: {
   fullName: string;
   country: string;
   phone?: string | null;
-}): Promise<void> {
-  if (!prismaClient || !isUuid(userId)) return;
+}): Promise<boolean> {
+  if (!prismaClient || !isUuid(userId)) return true;
   try {
     await prismaClient.users.upsert({
       where: { id: userId },
@@ -52,8 +52,9 @@ export async function persistUser(userId: string, userData: {
         phone: userData.phone,
       },
     });
+    return true;
   } catch (_err) {
-    // Silent fail
+    return false;
   }
 }
 
@@ -61,8 +62,8 @@ export async function persistResetPasswordToken(
   userId: string,
   token: string | null,
   expiresAt: Date | null,
-): Promise<void> {
-  if (!prismaClient || !isUuid(userId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(userId)) return true;
   try {
     await prismaClient.users.update({
       where: { id: userId },
@@ -71,8 +72,9 @@ export async function persistResetPasswordToken(
         resetPasswordExpiry: expiresAt,
       },
     });
+    return true;
   } catch (_err) {
-    // Silent fail
+    return false;
   }
 }
 
@@ -84,8 +86,8 @@ export async function persistSession(
   userId: string,
   expiresAt: Date,
   isAdmin = false,
-): Promise<void> {
-  if (!prismaClient) return;
+): Promise<boolean> {
+  if (!prismaClient) return true;
   try {
     await prismaClient.user_sessions.create({
       data: {
@@ -95,8 +97,9 @@ export async function persistSession(
         is_admin: isAdmin,
       },
     });
+    return true;
   } catch (_err) {
-    // Silent fail
+    return false;
   }
 }
 

@@ -12,12 +12,14 @@ import { once } from 'node:events';
 const appModule = await import('../artifacts/api-server/src/app.ts');
 const otpModule = await import('../artifacts/api-server/src/lib/otp.ts');
 const storeModule = await import('../artifacts/api-server/src/lib/store.ts');
+const dbPersistModule = await import('../artifacts/api-server/src/lib/db-persist.ts');
 
 const app = appModule.default?.default ?? appModule.default ?? appModule;
 const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
 const store = storeModule.default?.default ?? storeModule.default ?? storeModule;
 const { _getOtpRecord } = otp;
 const { sentEmails } = store;
+const { setPrismaClient } = dbPersistModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');
@@ -65,6 +67,83 @@ test('seeded demo users can sign in directly without first starting demo auth', 
     assert.equal(loginResult.data.role, 'demo');
     assert.equal(loginResult.data.user.email, 'demo@xpressprofx.com');
   });
+});
+
+test('signup verification fails when durable user persistence cannot be completed', async () => {
+  const failingPrismaClient = {
+    users: {
+      upsert: async () => {
+        throw new Error('db write failed');
+      },
+    },
+    user_sessions: {
+      create: async () => {
+        throw new Error('db write failed');
+      },
+    },
+  };
+
+  setPrismaClient(failingPrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const email = `persistence-${Date.now()}@example.com`;
+      const signupPayload = {
+        email,
+        password: 'Secret123!',
+        fullName: 'Persistence User',
+        country: 'US',
+      };
+
+      const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+        method: 'POST',
+        body: signupPayload,
+      });
+      assert.equal(signupResult.response.status, 200);
+
+      const otpRecord = _getOtpRecord(email);
+      assert.ok(otpRecord, 'OTP record should exist after signup');
+
+      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, code: otpRecord.code },
+      });
+
+      assert.equal(verifyResult.response.status, 500);
+      assert.match(verifyResult.data.error, /Unable to create account/i);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('login fails when durable session persistence cannot complete', async () => {
+  const failingPrismaClient = {
+    users: {
+      upsert: async () => true,
+    },
+    user_sessions: {
+      create: async () => {
+        throw new Error('db write failed');
+      },
+    },
+  };
+
+  setPrismaClient(failingPrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
+        method: 'POST',
+        body: { email: 'demo@xpressprofx.com', password: 'demo-password' },
+      });
+
+      assert.equal(loginResult.response.status, 500);
+      assert.match(loginResult.data.error, /Unable to create authenticated session/i);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
 });
 
 test('end-to-end signup, login, demo, and admin flow', async () => {

@@ -192,10 +192,14 @@ router.post("/auth/login", async (req, res) => {
   }
 
   const sid = newSessionId();
+  const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
+  if (!sessionPersisted) {
+    logger.error({ userId: stored.user.id }, "[auth] login.session_persist_failed");
+    return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
+  }
   sessions.set(sid, stored.user.id);
   setSessionCookie(res, sid);
-  const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  void persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -221,7 +225,7 @@ router.post("/auth/login", async (req, res) => {
   return res.json({ ...sessionFor(stored), status: "authenticated" as const });
 });
 
-router.post("/auth/verify-otp", (req, res) => {
+router.post("/auth/verify-otp", async (req, res) => {
   const parsed = VerifyOtpBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid verification request" });
@@ -296,7 +300,7 @@ router.post("/auth/verify-otp", (req, res) => {
       referrals.set(referredBy, list);
     }
 
-    void persistUser(id, {
+    const userPersisted = await persistUser(id, {
       email: payload.email,
       username: stored.user.username,
       passwordHash: stored.passwordHash,
@@ -304,12 +308,29 @@ router.post("/auth/verify-otp", (req, res) => {
       country: payload.country,
       phone: null,
     });
+    if (!userPersisted) {
+      users.delete(id);
+      usersByEmail.delete(email);
+      referralCodeIndex.delete(referralCode);
+      referrals.delete(id);
+      userData.delete(id);
+      if (referredBy) {
+        const list = referrals.get(referredBy) ?? [];
+        referrals.set(referredBy, list.filter((item) => item.referredId !== id));
+      }
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
+      return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "user_persist_failed" });
+    }
 
     const sid = newSessionId();
+    const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false);
+    if (!sessionPersisted) {
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
+      return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "session_persist_failed" });
+    }
     sessions.set(sid, id);
     setSessionCookie(res, sid);
-    const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    void persistSession(sid, id, sessionExpiresAt, false);
     logActivity({
       actorId: id,
       actorName: payload.fullName,
