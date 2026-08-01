@@ -45,6 +45,7 @@ import accountTierRouter from "./account-tier";
 import statementsRouter from "./statements";
 import demoRouter from "./demo";
 import demoTradingRouter from "./demo-trading";
+import webhooksRouter from "./webhooks";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,7 @@ router.use(referralsRouter);
 router.use(adminRouter);
 router.use(gasFeeRouter);
 router.use(platformConfigRouter);
+router.use(webhooksRouter);
 router.use(liveChatRouter);
 router.use(mailboxRouter);
 router.use(adminExtendedRouter);
