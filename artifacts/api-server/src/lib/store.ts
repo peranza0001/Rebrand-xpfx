@@ -1032,6 +1032,23 @@ export const platformSettings: PlatformSettingsData = {
   maintenanceMessage: "",
 };
 
+/** Demo platform configuration (admin editable) */
+export interface DemoConfig {
+  defaultBalance: number;
+  defaultLeverage: number;
+  volatility: number; // per-tick volatility multiplier
+  spread: number; // synthetic spread in price units
+  enabled: boolean;
+}
+
+export const demoConfig: DemoConfig = {
+  defaultBalance: 10000,
+  defaultLeverage: 10,
+  volatility: 0.0008,
+  spread: 0.0,
+  enabled: true,
+};
+
 export interface P2PMerchantApplicationData {
   id: string;
   userId: string;
