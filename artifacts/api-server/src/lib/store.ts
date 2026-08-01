@@ -9,6 +9,7 @@
  * with Node's scrypt; sessions are random 32-byte tokens stored in memory.
  */
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { persistTransaction } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import type {
@@ -1229,6 +1230,7 @@ export function applyWalletDebit(
   description: string,
   currency: string = "USD",
   isDemo: boolean = false,
+  userId?: string,
 ): { wallet: Wallet; transaction: Transaction } {
   const wallet =
     (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
@@ -1243,7 +1245,7 @@ export function applyWalletDebit(
 
   wallet.balance = Number((wallet.balance - amount).toFixed(2));
   const transaction: Transaction = {
-    id: newId("tx"),
+    id: newUuid(),
     walletId: wallet.id,
     type: "fee",
     amount: -amount,
@@ -1255,6 +1257,18 @@ export function applyWalletDebit(
   };
   data.transactions.unshift(transaction);
 
+  // Persist the transaction to DB if userId and Prisma are available
+  if (userId) {
+    void persistTransaction(transaction.id, wallet.id, userId, {
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      currency: transaction.currency,
+      status: transaction.status,
+      description: transaction.description,
+      isDemo: Boolean(transaction.isDemo),
+    });
+  }
+
   return { wallet, transaction };
 }
 
@@ -1265,6 +1279,7 @@ export function applyWalletCredit(
   description: string,
   currency: string = 'USD',
   isDemo: boolean = false,
+  userId?: string,
 ): { wallet: Wallet; transaction: Transaction } {
   const wallet =
     (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
@@ -1276,7 +1291,7 @@ export function applyWalletCredit(
 
   wallet.balance = Number((wallet.balance + amount).toFixed(2));
   const transaction: Transaction = {
-    id: newId('tx'),
+    id: newUuid(),
     walletId: wallet.id,
     type: 'deposit',
     amount: amount,
@@ -1287,6 +1302,17 @@ export function applyWalletCredit(
     createdAt: NOW(),
   };
   data.transactions.unshift(transaction);
+
+  if (userId) {
+    void persistTransaction(transaction.id, wallet.id, userId, {
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      currency: transaction.currency,
+      status: transaction.status,
+      description: transaction.description,
+      isDemo: Boolean(transaction.isDemo),
+    });
+  }
 
   return { wallet, transaction };
 }

@@ -68,7 +68,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             const notional = current * o.amount; // USD exposure
             const marginRequired = Number((notional / o.leverage).toFixed(2));
             // debit margin from trading wallet
-            const { wallet, transaction } = applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true);
+            const { wallet, transaction } = applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true, o.userId);
             // add trade record
             const trade = {
               id: newId('t'),
@@ -119,8 +119,8 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           t.status = 'completed';
           t.completedAt = NOW();
           // credit back margin + profit to trading wallet
-          try {
-            const { wallet: credited } = applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true);
+            try {
+            const { wallet: credited } = applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
             demoNs.emit('trade_closed', { userId: uid, trade: t });
           } catch (err) {
             logger.warn({ err }, 'Failed to credit closed trade funds');
