@@ -98,36 +98,37 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
         }
       }
       ordersByInstrument.set(inst.symbol, remaining);
-    });
-    // Evaluate active trades for stop-out / P&L updates
-    for (const [uid, data] of userData) {
-      for (const t of data.trades) {
-        if (t.status !== 'active') continue;
-        if (!t.pair || !t.entryPrice) continue;
-        if (t.pair !== inst.symbol) continue; // only update trades for current instrument
-        const current = inst.price;
-        t.currentPrice = current;
-        const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
-        t.profit = Math.round(pnl * 100) / 100;
 
-        // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
-        const margin = t.marginRequired ?? (t.entryPrice * t.amount / (t.leverage || 1));
-        const equity = margin + t.profit; // margin + unrealized pnl
-        const stopOutThreshold = 0.25; // 25% of margin
-        if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
-          // close trade
-          t.status = 'completed';
-          t.completedAt = NOW();
-          // credit back margin + profit to trading wallet
+      // Evaluate active trades for stop-out / P&L updates for the current instrument
+      for (const [uid, data] of userData) {
+        for (const t of data.trades) {
+          if (t.status !== 'active') continue;
+          if (!t.pair || !t.entryPrice) continue;
+          if (t.pair !== inst.symbol) continue; // only update trades for current instrument
+          const current = inst.price;
+          t.currentPrice = current;
+          const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
+          t.profit = Math.round(pnl * 100) / 100;
+
+          // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
+          const margin = t.marginRequired ?? (t.entryPrice * t.amount / (t.leverage || 1));
+          const equity = margin + t.profit; // margin + unrealized pnl
+          const stopOutThreshold = 0.25; // 25% of margin
+          if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
+            // close trade
+            t.status = 'completed';
+            t.completedAt = NOW();
+            // credit back margin + profit to trading wallet
             try {
-            const { wallet: credited } = applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
-            demoNs.emit('trade_closed', { userId: uid, trade: t });
-          } catch (err) {
-            logger.warn({ err }, 'Failed to credit closed trade funds');
+              const { wallet: credited } = applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
+              demoNs.emit('trade_closed', { userId: uid, trade: t });
+            } catch (err) {
+              logger.warn({ err }, 'Failed to credit closed trade funds');
+            }
           }
         }
       }
-    }
+    });
   }, 1500);
 
   logger.info('[simulation] Initialized simulation engine with instruments: ' + instruments.map(i => i.symbol).join(', '));
