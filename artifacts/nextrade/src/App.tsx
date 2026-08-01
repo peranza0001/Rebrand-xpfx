@@ -30,6 +30,7 @@ import { Cards } from "@/pages/cards";
 import { Promotions } from "@/pages/promotions";
 import { Billing } from "@/pages/billing";
 import { Admin } from "@/pages/admin";
+import AdminLiveChat from "@/pages/admin-live-chat";
 import { Education } from "@/pages/education";
 import { SmartVest } from "@/pages/smartvest";
 import { Statements } from "@/pages/statements";
@@ -84,6 +85,11 @@ function ProtectedShell() {
           <Route path="/admin">
             <RequireAdmin>
               <Admin />
+            </RequireAdmin>
+          </Route>
+          <Route path="/admin/live-chat">
+            <RequireAdmin>
+              <AdminLiveChat />
             </RequireAdmin>
           </Route>
           <Route component={NotFound} />

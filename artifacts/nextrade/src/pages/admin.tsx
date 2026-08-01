@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 function DemoConfigEditor() {
   const [config, setConfig] = useState<any | null>(null);
@@ -341,6 +342,7 @@ export function Admin() {
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="demo">Demo</TabsTrigger>
+          <TabsTrigger value="live-chat">Live chat</TabsTrigger>
         </TabsList>
 
         <TabsContent value="withdrawals" className="space-y-4">
@@ -685,6 +687,25 @@ export function Admin() {
             </CardHeader>
             <CardContent>
               <DemoActivityList />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="live-chat" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Live chat</CardTitle>
+              <CardDescription>Open live chat sessions awaiting admin response.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Button variant="secondary" onClick={() => window.location.href = '/admin/live-chat'}>
+                  Open live chat console
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  This opens the dedicated admin live chat panel in a new view.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
