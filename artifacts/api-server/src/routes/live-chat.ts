@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
+import { persistChatMessage } from "../lib/db-persist";
 import { requireAdmin, requireAuth, requireFullAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -81,6 +82,7 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
+  void persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
 
   // Build AI history from prior messages.
   const history = data.liveChat
@@ -112,6 +114,7 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
+  void persistChatMessage(req.userId!, 'bot', null, botReply.content);
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
@@ -130,6 +133,7 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
         createdAt: NOW(),
       };
       data.liveChat.push(noAgentMsg);
+    void persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
     }
     pushAdminAlert({
       kind: "live_chat.handoff",
@@ -204,7 +208,8 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(msg);
-  // Broadcast admin reply in realtime to any connected clients in the conv room.
+  // Persist admin reply (best-effort) and broadcast in realtime to any connected clients in the conv room.
+  void persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
   try {
     const ns = getChatNamespace();
     ns?.to(`conv:${p.data.userId}`).emit('message', msg);

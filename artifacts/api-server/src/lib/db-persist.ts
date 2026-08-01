@@ -424,6 +424,38 @@ export async function persistSupportTicket(
   }
 }
 
+/**
+ * Persist a chat message and ensure the conversation exists.
+ */
+export async function persistChatMessage(
+  conversationId: string,
+  senderType: 'user' | 'admin' | 'bot',
+  senderId: string | null,
+  content: string,
+): Promise<void> {
+  if (!prismaClient || !isUuid(conversationId)) return;
+  try {
+    // Ensure conversation exists (user_id stored as the owner)
+    await prismaClient.conversations.upsert({
+      where: { id: conversationId },
+      update: { updated_at: new Date() },
+      create: { id: conversationId, user_id: senderId ?? conversationId, subject: null },
+    });
+
+    await prismaClient.chat_messages.create({
+      data: {
+        id: undefined, // let DB generate
+        conversation_id: conversationId,
+        sender_type: senderType === 'admin' ? 'admin' : senderType === 'bot' ? 'bot' : 'user',
+        sender_id: senderId ?? null,
+        content,
+      },
+    });
+  } catch (_err) {
+    // silent
+  }
+}
+
 export async function persistP2PMerchantApplication(
   applicationId: string,
   userId: string,
