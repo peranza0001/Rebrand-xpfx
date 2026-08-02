@@ -99,7 +99,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
       }
       ordersByInstrument.set(inst.symbol, remaining);
 
-      // Evaluate active trades for stop-out / P&L updates for the current instrument
+      // Evaluate active trades for stop-out / P&L updates for this instrument
       for (const [uid, data] of userData) {
         for (const t of data.trades) {
           if (t.status !== 'active') continue;
@@ -120,7 +120,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             t.completedAt = NOW();
             // credit back margin + profit to trading wallet
             try {
-              const { wallet: credited } = applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
+              applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
               demoNs.emit('trade_closed', { userId: uid, trade: t });
             } catch (err) {
               logger.warn({ err }, 'Failed to credit closed trade funds');
