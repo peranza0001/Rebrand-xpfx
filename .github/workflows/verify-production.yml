@@ -19,8 +19,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install node-fetch
-        run: npm install node-fetch@2
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run production smoke tests
         env:

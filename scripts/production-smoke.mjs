@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import fetch from 'node-fetch';
 
 const base = process.env.PRODUCTION_URL;
 const email = process.env.SMOKE_EMAIL;
