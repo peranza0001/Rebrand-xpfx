@@ -11,10 +11,26 @@ router.get('/demo/instruments', requireAuth, (_req, res) => {
 });
 
 router.post('/demo/order', requireAuth, (req, res) => {
-  const { instrument, type, side, price, amount, leverage } = req.body as any;
-  if (!instrument || !type || !side || !amount) return res.status(400).json({ error: 'Missing fields' });
-  const ord = sim.placeOrder({ userId: req.userId!, instrument, type, side, price: price ? Number(price) : undefined, amount: Number(amount), leverage: Number(leverage ?? 10) });
-  return res.json({ success: true, order: ord });
+  const { instrument, symbol, type, side, price, amount, quantity, leverage } = req.body as any;
+  const resolvedInstrument = instrument || symbol;
+  const resolvedAmount = amount ?? quantity;
+
+  if (!resolvedInstrument || !type || !side || resolvedAmount === undefined || resolvedAmount === null || Number.isNaN(Number(resolvedAmount))) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+
+  const amountValue = Number(resolvedAmount);
+  const order = sim.placeOrder({
+    userId: req.userId!,
+    instrument: resolvedInstrument,
+    type,
+    side,
+    price: price ? Number(price) : undefined,
+    amount: amountValue,
+    leverage: Number(leverage ?? 10),
+  });
+
+  return res.json({ success: true, order });
 });
 
 router.post('/demo/reset-balance', requireAuth, (req, res) => {
