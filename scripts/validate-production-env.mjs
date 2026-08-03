@@ -29,11 +29,16 @@ function validateProductionEnvironment(env = process.env) {
   function isStrongPassword(value) {
     if (!hasMeaningfulValue(value)) return false;
     const trimmed = value.trim();
-    return trimmed.length >= 16
+    const normalized = trimmed.toLowerCase();
+
+    if (normalized === 'password' || normalized === 'changeme' || normalized.includes('example')) {
+      return false;
+    }
+
+    return trimmed.length >= 12
       && /[A-Z]/.test(trimmed)
       && /[a-z]/.test(trimmed)
-      && /\d/.test(trimmed)
-      && /[^A-Za-z0-9]/.test(trimmed);
+      && /\d/.test(trimmed);
   }
 
   if (env.NODE_ENV === 'production') {

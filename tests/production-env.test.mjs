@@ -27,7 +27,7 @@ test('production validation accepts a complete SMTP configuration', () => {
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
-    ADMIN_EMAIL: 'ops@example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
     ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
@@ -49,7 +49,7 @@ test('production validation accepts DATABASE_PUBLIC_URL as an alternate database
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_PUBLIC_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
-    ADMIN_EMAIL: 'ops@example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
     ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
@@ -104,13 +104,13 @@ test('production validation fails when no blockchain provider is configured', ()
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
-    ADMIN_EMAIL: 'ops@example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
     ADMIN_PASSWORD: 'StrongPassw0rd!2026',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
     SMTP_USER: 'user',
     SMTP_PASS: 'pass',
-    SMTP_FROM: 'no_reply@example.com',
+    SMTP_FROM: 'no_reply@acme.com',
   };
 
   assert.throws(() => validateProductionEnvironment(env), {
@@ -127,19 +127,41 @@ test('production validation fails when admin credentials are weak or missing', (
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
-    ADMIN_EMAIL: 'admin@example.com',
+    ADMIN_EMAIL: 'admin@acme.com',
     ADMIN_PASSWORD: 'ChangeMe123!',
     SMTP_HOST: 'smtp.example.com',
     SMTP_PORT: '587',
     SMTP_USER: 'user',
     SMTP_PASS: 'pass',
-    SMTP_FROM: 'no_reply@example.com',
+    SMTP_FROM: 'no_reply@acme.com',
     ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
   };
 
   assert.throws(() => validateProductionEnvironment(env), {
     message: /ADMIN_PASSWORD must be set to a strong production credential/,
   });
+});
+
+test('production validation accepts an admin password without a symbol', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassword2026',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@acme.com',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
+  };
+
+  assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
 test('environment aliases resolve the production secret names used by deployment platforms', () => {

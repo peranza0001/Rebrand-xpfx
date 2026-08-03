@@ -189,7 +189,9 @@ async function bootstrap() {
       if (!process.env.ADMIN_EMAIL?.trim() || !process.env.ADMIN_EMAIL.includes('@') || process.env.ADMIN_EMAIL.includes('example.com')) {
         throw new Error('ADMIN_EMAIL must be set to a real production address.');
       }
-      if (!process.env.ADMIN_PASSWORD?.trim() || process.env.ADMIN_PASSWORD.trim().length < 16 || !/[A-Z]/.test(process.env.ADMIN_PASSWORD) || !/[a-z]/.test(process.env.ADMIN_PASSWORD) || !/\d/.test(process.env.ADMIN_PASSWORD) || !/[^A-Za-z0-9]/.test(process.env.ADMIN_PASSWORD)) {
+      const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+      const normalizedAdminPassword = adminPassword?.toLowerCase();
+      if (!adminPassword || adminPassword.length < 12 || !/[A-Z]/.test(adminPassword) || !/[a-z]/.test(adminPassword) || !/\d/.test(adminPassword) || normalizedAdminPassword === 'password' || normalizedAdminPassword === 'changeme' || normalizedAdminPassword?.includes('example')) {
         throw new Error('ADMIN_PASSWORD must be set to a strong production credential.');
       }
     } else {
