@@ -119,7 +119,7 @@ function DemoTradingContent() {
   return (
     <div className="space-y-6 p-6">
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background">
+        <Card className="border-primary/20 bg-linear-to-br from-primary/10 via-background to-background">
           <CardHeader>
             <div className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
