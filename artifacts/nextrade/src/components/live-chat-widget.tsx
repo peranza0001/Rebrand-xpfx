@@ -56,7 +56,6 @@ export function LiveChatWidget() {
       path: '/socket.io',
       withCredentials: true,
     });
-    setSocket(socketClient);
 
     socketClient.on('connect', () => {
       socketClient.emit('join_conversation', userId);
@@ -137,7 +136,7 @@ export function LiveChatWidget() {
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!isLoading && messages.length === 0 && (
               <div className="flex gap-2 items-start">
-                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                   <Bot className="w-3.5 h-3.5 text-primary" />
                 </div>
                 <div className="bg-muted rounded-xl rounded-tl-none px-3 py-2 text-sm text-foreground max-w-[85%]">
@@ -151,7 +150,7 @@ export function LiveChatWidget() {
                 className={`flex gap-2 items-start ${m.isFromUser ? "flex-row-reverse" : ""}`}
               >
                 {!m.isFromUser && (
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                     <Bot className="w-3.5 h-3.5 text-primary" />
                   </div>
                 )}

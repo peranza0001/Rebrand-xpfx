@@ -63,7 +63,7 @@ router.get("/live-chat", requireAuth, (req, res) => {
 });
 
 // POST /live-chat — send message, get AI reply (with possible handoff)
-router.post("/live-chat", requireFullAuth, async (req, res) => {
+router.post("/live-chat", requireAuth, async (req, res) => {
   const parsed = SendLiveChatMessageBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
