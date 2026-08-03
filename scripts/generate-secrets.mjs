@@ -58,16 +58,45 @@ envContent.split('\n').forEach((line) => {
   const key = line.slice(0, separatorIndex).trim();
   const value = line.slice(separatorIndex + 1).trim();
   if (key && value !== '') {
-    existingKeys.set(key, true);
+    existingKeys.set(key, value);
   }
 });
+
+function isPlaceholderValue(key, value) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+
+  const emailPlaceholders = ['admin@example.com', 'admin@yourdomain.com'];
+  const passwordPlaceholders = ['changeme123!', 'password', 'admin-password', 'changeme', '12345678', '123456789'];
+  const sendgridPlaceholders = ['<your-real-sendgrid-api-key>', 'sg_generated_prod_key', 'sendgrid_generated'];
+  const alchemyPlaceholders = ['<your-real-alchemy-api-key>', 'alchemy_generated_prod_key', 'alchemy_placeholder'];
+
+  if (key === 'ADMIN_EMAIL') {
+    return emailPlaceholders.includes(normalized);
+  }
+
+  if (key === 'ADMIN_PASSWORD') {
+    return passwordPlaceholders.includes(normalized);
+  }
+
+  if (key === 'SENDGRID_API_KEY') {
+    return sendgridPlaceholders.some((placeholder) => normalized.startsWith(placeholder.replace(/<|>/g, '')) || normalized === placeholder);
+  }
+
+  if (key === 'ALCHEMY_API_KEY') {
+    return alchemyPlaceholders.some((placeholder) => normalized.startsWith(placeholder.replace(/<|>/g, '')) || normalized === placeholder);
+  }
+
+  return false;
+}
 
 const generated = [];
 const existing = [];
 let newContent = envContent;
 
 Object.entries(secrets).forEach(([key, generator]) => {
-  if (existingKeys.has(key)) {
+  const existingValue = existingKeys.get(key);
+  if (existingValue && !isPlaceholderValue(key, existingValue)) {
     existing.push(key);
     return;
   }
