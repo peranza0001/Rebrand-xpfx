@@ -24,11 +24,30 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma migrate deploy --schema=artifacts/api-server/prisma/schema.prisma
 
+      - name: Generate Prisma client (API server)
+        run: npx prisma generate --schema=artifacts/api-server/prisma/schema.prisma
+
       - name: Build API server
         run: npm run build --workspace=artifacts/api-server
+
+      - name: Build NexTrade frontend
+        run: npm run build --workspace=artifacts/nextrade
+
+      - name: Build Admin portal frontend
+        run: npm run build --workspace=artifacts/admin-portal
 
       - name: Upload API dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: api-server-dist
           path: artifacts/api-server/dist
+      - name: Upload NexTrade dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextrade-dist
+          path: artifacts/nextrade/dist
+      - name: Upload Admin portal dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-portal-dist
+          path: artifacts/admin-portal/dist

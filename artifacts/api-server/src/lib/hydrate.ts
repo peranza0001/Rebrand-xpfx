@@ -57,6 +57,29 @@ function getHydratedRowValue<T>(row: Record<string, unknown>, ...keys: string[])
   return undefined;
 }
 
+function coerceString(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return fallback;
+  return String(value);
+}
+
+function coerceNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function coerceDate(value: unknown): string {
+  if (typeof value === "string" || value instanceof Date) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 async function loadRowsFromDb<T>(
   label: string,
   loadDrizzle: (db: any) => Promise<T[]>,
@@ -80,7 +103,7 @@ async function loadRowsFromDb<T>(
   }
 }
 
-export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, existingEmails: Set<string>): StoredUser | null {
+export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, existingEmails: Map<string, string>): StoredUser | null {
   const id = getHydratedRowValue<string>(row, "id");
   const email = getHydratedRowValue<string>(row, "email");
   if (!id || !email) {
@@ -369,17 +392,19 @@ export async function hydrateFromDb(): Promise<void> {
       const persistedWallets = walletsByUser.get(userId);
       if (persistedWallets) {
         data.wallets = persistedWallets.map((walletRow) => {
-          const walletType = ["main", "trading", "social"].includes(walletRow.type)
-            ? (walletRow.type as WalletType)
+          const walletType = ["main", "trading", "social"].includes(
+            coerceString(walletRow.type),
+          )
+            ? (coerceString(walletRow.type) as WalletType)
             : "main";
           return {
-            id: walletRow.id,
+            id: coerceString(walletRow.id),
             type: walletType,
-            label: walletRow.label,
-            currency: walletRow.currency,
-            balance: Number(walletRow.balance),
-            pendingBalance: Number(walletRow.pendingBalance),
-            address: walletRow.address,
+            label: coerceString(walletRow.label),
+            currency: coerceString(walletRow.currency, "USD"),
+            balance: coerceNumber(walletRow.balance),
+            pendingBalance: coerceNumber(walletRow.pendingBalance ?? walletRow.pending_balance),
+            address: coerceString(walletRow.address),
           };
         });
       }
@@ -387,115 +412,117 @@ export async function hydrateFromDb(): Promise<void> {
       const persistedTransactions = transactionsByUser.get(userId);
       if (persistedTransactions) {
         data.transactions = persistedTransactions.map((txRow) => {
-          const type = txRow.type === "gas_fee" || txRow.type === "maintenance_fee"
+          const txType = coerceString(txRow.type);
+          const type = txType === "gas_fee" || txType === "maintenance_fee"
             ? "fee"
-            : txRow.type;
+            : txType;
           return {
-            id: txRow.id,
-            walletId: txRow.walletId,
+            id: coerceString(txRow.id),
+            walletId: coerceString(txRow.walletId ?? txRow.wallet_id),
             type: type as TransactionType,
-            amount: Number(txRow.amount),
-            currency: txRow.currency,
-            status: txRow.status,
-            description: txRow.description,
-            createdAt: txRow.createdAt.toISOString(),
+            amount: coerceNumber(txRow.amount),
+            currency: coerceString(txRow.currency, "USD"),
+            status: coerceString(txRow.status ?? txRow.status, "pending") as import("@workspace/api-zod").TransactionStatus,
+            description: coerceString(txRow.description, ""),
+            createdAt: coerceDate(txRow.createdAt ?? txRow.created_at),
           };
-        });
+        }) as any;
       }
 
       const persistedConnectedWallets = connectedWalletsByUser.get(userId);
       if (persistedConnectedWallets) {
         data.connectedWallets = persistedConnectedWallets.map((cwRow) => {
-          const provider = ["self_custody", "moonpay", "coinbase"].includes(cwRow.provider)
-            ? (cwRow.provider as ConnectedWalletProvider)
+          const providerValue = coerceString(cwRow.provider, "self_custody");
+          const provider = ["self_custody", "moonpay", "coinbase"].includes(providerValue)
+            ? (providerValue as ConnectedWalletProvider)
             : "self_custody";
           return {
-            id: cwRow.id,
-            address: cwRow.address,
-            walletType: cwRow.walletType,
-            balance: Number(cwRow.balance),
-            currency: cwRow.currency,
-            connectedAt: cwRow.connectedAt.toISOString(),
+            id: coerceString(cwRow.id),
+            address: coerceString(cwRow.address),
+            walletType: coerceString(cwRow.walletType, cwRow.wallet_type),
+            balance: coerceNumber(cwRow.balance),
+            currency: coerceString(cwRow.currency, "USD"),
+            connectedAt: coerceDate(cwRow.connectedAt ?? cwRow.connected_at),
             provider,
-            label: cwRow.label ?? null,
-            email: cwRow.email ?? null,
-            syncedProfile: (cwRow.syncedProfile as any) ?? null,
+            label: getHydratedRowValue<string>(cwRow, "label") ?? null,
+            email: getHydratedRowValue<string>(cwRow, "email") ?? null,
+            syncedProfile: (getHydratedRowValue<any>(cwRow, "syncedProfile") as any) ?? null,
             connectionStatus: "public_address",
           };
-        });
+        }) as any;
       }
 
       const persistedBankAccounts = bankAccountsByUser.get(userId);
       if (persistedBankAccounts) {
         data.bankAccounts = persistedBankAccounts.map((bankRow) => ({
-          id: bankRow.id,
-          userId: bankRow.userId,
-          bankName: bankRow.bankName,
-          accountHolder: bankRow.accountName,
-          last4: bankRow.accountNumber.slice(-4).padStart(4, "0"),
-          currency: bankRow.currency,
+          id: coerceString(bankRow.id),
+          userId: coerceString(bankRow.userId),
+          bankName: coerceString(bankRow.bankName),
+          accountHolder: coerceString(bankRow.accountName),
+          last4: coerceString(bankRow.accountNumber).slice(-4).padStart(4, "0"),
+          currency: coerceString(bankRow.currency),
           verified: false,
-          isDefault: bankRow.isDefault,
-          fiatBalance: Number(bankRow.fiatBalance),
-          fiatCurrency: bankRow.fiatCurrency,
-          createdAt: bankRow.createdAt.toISOString(),
-        }));
+          isDefault: Boolean(bankRow.isDefault),
+          fiatBalance: coerceNumber(bankRow.fiatBalance),
+          fiatCurrency: coerceString(bankRow.fiatCurrency),
+          createdAt: coerceDate(bankRow.createdAt),
+        })) as any;
       }
 
       const persistedSupportTickets = supportTicketsByUser.get(userId);
       if (persistedSupportTickets) {
         data.supportTickets = persistedSupportTickets.map((ticketRow) => ({
-          id: ticketRow.id,
-          subject: ticketRow.subject,
-          status: ticketRow.status as import("@workspace/api-zod").SupportTicketStatus,
-          priority: ticketRow.priority as import("@workspace/api-zod").SupportTicketPriority,
+          id: coerceString(ticketRow.id),
+          subject: coerceString(ticketRow.subject),
+          status: coerceString(ticketRow.status) as import("@workspace/api-zod").SupportTicketStatus,
+          priority: coerceString(ticketRow.priority) as import("@workspace/api-zod").SupportTicketPriority,
           messages: [],
-          createdAt: ticketRow.createdAt.toISOString(),
-          updatedAt: ticketRow.updatedAt.toISOString(),
-        }));
+          createdAt: coerceDate(ticketRow.createdAt),
+          updatedAt: coerceDate(ticketRow.updatedAt),
+        })) as any;
       }
 
       const persistedP2PMerchantApplications = p2pMerchantApplicationsByUser.get(userId);
       if (persistedP2PMerchantApplications) {
         for (const appRow of persistedP2PMerchantApplications) {
           p2pMerchantApplications.set(appRow.id, {
-            id: appRow.id,
-            userId: appRow.userId,
+            id: coerceString(appRow.id),
+            userId: coerceString(appRow.userId),
             userName: "",
             userEmail: "",
-            displayName: appRow.displayName,
-            legalName: appRow.legalName,
-            contactEmail: appRow.contactEmail,
-            country: appRow.country,
-            paymentMethod: appRow.paymentMethod as "etransfer" | "bank",
-            payoutEmail: appRow.payoutEmail ?? "",
+            displayName: coerceString(appRow.displayName),
+            legalName: coerceString(appRow.legalName),
+            contactEmail: coerceString(appRow.contactEmail),
+            country: coerceString(appRow.country),
+            paymentMethod: coerceString(appRow.paymentMethod) as "etransfer" | "bank",
+            payoutEmail: coerceString(appRow.payoutEmail) ?? "",
             bankInfo: appRow.bankInfo ?? "",
             assets: appRow.assets,
             reason: appRow.reason,
-            status: appRow.status as "pending" | "approved" | "rejected",
+            status: coerceString(appRow.status) as "pending" | "approved" | "rejected",
             rejectionReason: appRow.rejectionReason ?? null,
-            submittedAt: appRow.submittedAt.toISOString(),
-            decidedAt: appRow.reviewedAt?.toISOString() ?? null,
-          });
+            submittedAt: coerceDate(appRow.submittedAt),
+            decidedAt: appRow.reviewedAt ? coerceDate(appRow.reviewedAt) : null,
+          } as any);
         }
       }
 
       const persistedP2PNotifications = p2pNotificationsByUser.get(userId);
       if (persistedP2PNotifications) {
         data.p2pNotifications = persistedP2PNotifications.map((notifRow) => ({
-          id: notifRow.id,
-          type: notifRow.type,
-          title: notifRow.title,
-          message: notifRow.message,
-          orderId: notifRow.orderId,
-          read: notifRow.read,
+          id: coerceString(notifRow.id),
+          type: coerceString(notifRow.type),
+          title: coerceString(notifRow.title),
+          message: coerceString(notifRow.message),
+          orderId: coerceString(notifRow.orderId),
+          read: Boolean(notifRow.read),
           amount: notifRow.amount !== null ? Number(notifRow.amount) : undefined,
           currency: notifRow.currency ?? undefined,
           asset: notifRow.asset ?? undefined,
           reference: notifRow.reference ?? undefined,
           instructions: notifRow.instructions ?? undefined,
-          createdAt: notifRow.createdAt.toISOString(),
-        }));
+          createdAt: coerceDate(notifRow.createdAt),
+        })) as any;
       }
     }
 

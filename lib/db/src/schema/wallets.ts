@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, timestamp, uuid, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, timestamp, uuid, pgEnum, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -30,6 +30,7 @@ export const transactionsTable = pgTable("transactions", {
   currency: text("currency").notNull().default("USD"),
   status: transactionStatusEnum("status").notNull().default("completed"),
   description: text("description").notNull().default(""),
+  is_demo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -1,7 +1,7 @@
 import type http from 'http';
 import { Server as IOServer } from 'socket.io';
 import cookieParser from 'cookie-parser';
-import { sessions, users, assetCatalog, userData } from './store';
+import { sessions, users, userData } from './store';
 import { SESSION_COOKIE } from './session';
 import { logger } from './logger';
 
@@ -75,10 +75,12 @@ export async function initRealtime(server: http.Server) {
 
     socket.on('send_message', (payload: { convId: string; content: string }) => {
       const { convId, content } = payload;
+      const stored = users.get(userId);
+      const senderName = stored?.user.fullName || stored?.user.username || 'User';
       const msg = {
         id: `msg_${Math.random().toString(36).slice(2, 9)}`,
         userId,
-        senderName: users.get(userId)?.user.name || 'User',
+        senderName,
         content: String(content).slice(0, 10000),
         isFromUser: true,
         isBot: false,

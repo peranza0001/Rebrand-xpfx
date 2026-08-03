@@ -20,10 +20,6 @@ const instruments = assetCatalog.slice(0, 8).map((a) => ({ symbol: a.symbol, pri
 
 const ordersByInstrument = new Map<string, Order[]>();
 
-function findInstrument(symbol: string) {
-  return instruments.find((i) => i.symbol === symbol);
-}
-
 export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Order {
   const id = newId('ord');
   const o: Order = { id, status: 'open', createdAt: NOW(), ...order };
@@ -68,7 +64,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             const notional = current * o.amount; // USD exposure
             const marginRequired = Number((notional / o.leverage).toFixed(2));
             // debit margin from trading wallet
-            const { wallet, transaction } = applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true, o.userId);
+            applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true, o.userId);
             // add trade record
             const trade = {
               id: newId('t'),
@@ -111,7 +107,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           t.profit = Math.round(pnl * 100) / 100;
 
           // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
-          const margin = t.marginRequired ?? (t.entryPrice * t.amount / (t.leverage || 1));
+          const margin = (t as any).marginRequired ?? (t.entryPrice * t.amount / ((t as any).leverage || 1));
           const equity = margin + t.profit; // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
           if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {

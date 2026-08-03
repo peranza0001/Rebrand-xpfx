@@ -15,6 +15,7 @@ export interface Transaction {
   amount: number;
   currency: string;
   status: TransactionStatus;
+  isDemo?: boolean;
   description: string;
   createdAt: string;
 }

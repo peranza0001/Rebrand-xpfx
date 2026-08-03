@@ -1,33 +1,104 @@
 import { useState, useRef, useEffect } from "react";
-import { useGetLiveChatMessages, useSendLiveChatMessage } from "@workspace/api-client-react";
-import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
+import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+
+interface LiveChatMessage {
+  id: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+  isFromUser: boolean;
+  isBot?: boolean;
+}
+
+interface SessionResponse {
+  user: { id: string } | null;
+}
 
 export function LiveChatWidget() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<LiveChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
-  const { data: messages = [], isLoading } = useGetLiveChatMessages({
-    query: {
-      queryKey: ["getLiveChatMessages"],
-      enabled: open,
-      refetchInterval: open ? 3000 : false,
-    },
-  });
-  const sendMutation = useSendLiveChatMessage();
+  useEffect(() => {
+    if (!open) return;
+
+    const fetchSession = async () => {
+      setIsLoading(true);
+      try {
+        const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+        if (!sessionRes.ok) return;
+        const sessionData: SessionResponse = await sessionRes.json();
+        if (!sessionData.user?.id) return;
+        setUserId(sessionData.user.id);
+
+        const res = await fetch('/api/live-chat', { credentials: 'include' });
+        if (!res.ok) return;
+        const chatData = await res.json();
+        setMessages(chatData);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchSession();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !userId) return;
+
+    const socketClient = io('/live-chat', {
+      path: '/socket.io',
+      withCredentials: true,
+    });
+    setSocket(socketClient);
+
+    socketClient.on('connect', () => {
+      socketClient.emit('join_conversation', userId);
+    });
+
+    socketClient.on('message', (msg: LiveChatMessage) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    socketClient.on('disconnect', () => {
+      // ignore
+    });
+
+    return () => {
+      socketClient.disconnect();
+    };
+  }, [open, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSend = async () => {
-    if (!message.trim() || sendMutation.isPending) return;
+    if (!message.trim()) return;
     const text = message;
     setMessage("");
-    await sendMutation.mutateAsync({ data: { content: text } });
-    qc.invalidateQueries({ queryKey: ["getLiveChatMessages"] });
+    try {
+      const res = await fetch('/api/live-chat', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+      if (!res.ok) {
+        throw new Error('Unable to send message');
+      }
+      const result = await res.json();
+      setMessages((prev) => [...prev, result.userMessage, result.botReply]);
+      qc.invalidateQueries({ queryKey: ['getLiveChatMessages'] });
+    } catch {
+      // best-effort live chat send; do not interrupt the user experience
+    }
   };
 
   return (
@@ -109,10 +180,10 @@ export function LiveChatWidget() {
             />
             <button
               onClick={handleSend}
-              disabled={sendMutation.isPending || !message.trim()}
+              disabled={!message.trim()}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {sendMutation.isPending ? (
+              {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />
