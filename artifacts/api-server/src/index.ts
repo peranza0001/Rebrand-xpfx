@@ -173,17 +173,38 @@ async function bootstrap() {
       process.env.ALLOWED_ORIGINS = startupValidation.resolved.ALLOWED_ORIGINS;
     }
 
-    if (!process.env.SESSION_SECRET?.trim()) {
-      process.env.SESSION_SECRET = randomBytes(32).toString('hex');
-    }
-    if (!process.env.JWT_SECRET?.trim()) {
-      process.env.JWT_SECRET = randomBytes(32).toString('hex');
-    }
-    if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
-      process.env.WALLET_ENCRYPTION_KEY = randomBytes(32).toString('hex');
-    }
-    if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {
-      process.env.ALLOWED_ORIGINS = 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173';
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.SESSION_SECRET?.trim()) {
+        throw new Error('SESSION_SECRET must be set to a strong value in production.');
+      }
+      if (!process.env.JWT_SECRET?.trim()) {
+        throw new Error('JWT_SECRET must be set to a strong value in production.');
+      }
+      if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
+        throw new Error('WALLET_ENCRYPTION_KEY must be set in production.');
+      }
+      if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {
+        throw new Error('ALLOWED_ORIGINS or REPLIT_DOMAINS must be configured for production CORS.');
+      }
+      if (!process.env.ADMIN_EMAIL?.trim() || !process.env.ADMIN_EMAIL.includes('@') || process.env.ADMIN_EMAIL.includes('example.com')) {
+        throw new Error('ADMIN_EMAIL must be set to a real production address.');
+      }
+      if (!process.env.ADMIN_PASSWORD?.trim() || process.env.ADMIN_PASSWORD.trim().length < 16 || !/[A-Z]/.test(process.env.ADMIN_PASSWORD) || !/[a-z]/.test(process.env.ADMIN_PASSWORD) || !/\d/.test(process.env.ADMIN_PASSWORD) || !/[^A-Za-z0-9]/.test(process.env.ADMIN_PASSWORD)) {
+        throw new Error('ADMIN_PASSWORD must be set to a strong production credential.');
+      }
+    } else {
+      if (!process.env.SESSION_SECRET?.trim()) {
+        process.env.SESSION_SECRET = randomBytes(32).toString('hex');
+      }
+      if (!process.env.JWT_SECRET?.trim()) {
+        process.env.JWT_SECRET = randomBytes(32).toString('hex');
+      }
+      if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
+        process.env.WALLET_ENCRYPTION_KEY = randomBytes(32).toString('hex');
+      }
+      if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {
+        process.env.ALLOWED_ORIGINS = 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173';
+      }
     }
 
     validateProductionEnvironment(process.env);

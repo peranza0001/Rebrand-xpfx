@@ -22,10 +22,24 @@ function validateProductionEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
 
+  function hasMeaningfulValue(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  function isStrongPassword(value) {
+    if (!hasMeaningfulValue(value)) return false;
+    const trimmed = value.trim();
+    return trimmed.length >= 16
+      && /[A-Z]/.test(trimmed)
+      && /[a-z]/.test(trimmed)
+      && /\d/.test(trimmed)
+      && /[^A-Za-z0-9]/.test(trimmed);
+  }
+
   if (env.NODE_ENV === 'production') {
     if (!env.SESSION_SECRET || env.SESSION_SECRET.trim().length < 32) {
       if (!env.SESSION_SECRET) {
-        warnings.push('SESSION_SECRET not provided; a secure runtime secret will be generated.');
+        errors.push('SESSION_SECRET must be set to a strong value in production.');
       } else {
         errors.push('SESSION_SECRET must be set to a strong value in production.');
       }
@@ -33,7 +47,7 @@ function validateProductionEnvironment(env = process.env) {
 
     if (!env.JWT_SECRET || env.JWT_SECRET.trim().length < 32) {
       if (!env.JWT_SECRET) {
-        warnings.push('JWT_SECRET not provided; a secure runtime secret will be generated.');
+        errors.push('JWT_SECRET must be set to a strong value in production.');
       } else {
         errors.push('JWT_SECRET must be set to a strong value in production.');
       }
@@ -41,7 +55,7 @@ function validateProductionEnvironment(env = process.env) {
 
     if (!env.WALLET_ENCRYPTION_KEY || env.WALLET_ENCRYPTION_KEY.trim().length !== 64) {
       if (!env.WALLET_ENCRYPTION_KEY) {
-        warnings.push('WALLET_ENCRYPTION_KEY not provided; a secure runtime key will be generated.');
+        errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
       } else {
         errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
       }
@@ -49,11 +63,27 @@ function validateProductionEnvironment(env = process.env) {
 
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();
     if (!databaseUrl) {
-      warnings.push('DATABASE_URL or DATABASE_PUBLIC_URL not set; the API will start without database persistence.');
+      errors.push('DATABASE_URL or DATABASE_PUBLIC_URL must be configured for production persistence.');
     }
 
     if (!env.ALLOWED_ORIGINS && !env.REPLIT_DOMAINS) {
-      warnings.push('ALLOWED_ORIGINS or REPLIT_DOMAINS not set; CORS will use local defaults until configured.');
+      errors.push('ALLOWED_ORIGINS or REPLIT_DOMAINS must be configured for production CORS.');
+    }
+
+    const adminEmail = env.ADMIN_EMAIL?.trim();
+    const adminPassword = env.ADMIN_PASSWORD?.trim();
+    const demoAuth = env.ENABLE_DEMO_AUTH?.trim().toLowerCase();
+
+    if (!adminEmail || !adminEmail.includes('@') || adminEmail.includes('example.com')) {
+      errors.push('ADMIN_EMAIL must be set to a real production address.');
+    }
+
+    if (!isStrongPassword(adminPassword)) {
+      errors.push('ADMIN_PASSWORD must be set to a strong production credential.');
+    }
+
+    if (demoAuth !== 'false' && demoAuth !== '0') {
+      warnings.push('ENABLE_DEMO_AUTH remains enabled; consider disabling it in production to reduce public exposure.');
     }
 
     if (env.MOONPAY_API_KEY && !env.MOONPAY_SECRET_KEY) {
