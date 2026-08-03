@@ -3,6 +3,7 @@ name: Migrate and Build
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   migrate-and-build:
@@ -51,3 +52,41 @@ jobs:
         with:
           name: admin-portal-dist
           path: artifacts/admin-portal/dist
+
+  deploy-production:
+    needs: migrate-and-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          if [ -n "$RAILWAY_API_KEY" ] && [ -n "$RAILWAY_PROJECT_ID" ]; then
+            npx railway up --ci --project "$RAILWAY_PROJECT_ID" || true
+          else
+            echo "Railway deployment secrets are not configured; skipping deployment."
+          fi
+
+      - name: Verify production health
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          if [ -n "$PRODUCTION_URL" ]; then
+            curl -fsS "$PRODUCTION_URL/healthz" || exit 1
+          else
+            echo "PRODUCTION_URL not configured; skipping live health verification."
+          fi
