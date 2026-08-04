@@ -39,7 +39,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import {
   issueOtp,
@@ -77,17 +77,120 @@ function otpChallenge(email: string, intent: "signup" | "login") {
   };
 }
 
+async function resolvePersistedUserIdByEmail(email: string): Promise<string | undefined> {
+  const lowerEmail = email.toLowerCase();
+  const existing = usersByEmail.get(lowerEmail);
+  if (existing) return existing;
+
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db.select().from(dbSchema.usersTable).where(eq(dbSchema.usersTable.email, lowerEmail));
+      if (rows.length > 0) {
+        const row: any = rows[0];
+        const id = String(row.id);
+        const stored: StoredUser = {
+          user: {
+            id,
+            username: (row.username as string) ?? lowerEmail.split("@")[0],
+            email: row.email,
+            fullName: (row.fullName as string) ?? row.email,
+            country: (row.country as string) ?? "US",
+            kycVerified: Boolean(row.kycVerified),
+            avatarUrl: row.avatarUrl ?? undefined,
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+            selectedManagerId: row.selectedManagerId ?? null,
+            phone: row.phone ?? null,
+            merchant: false,
+            moonpayEmail: row.moonpayEmail ?? null,
+            buyVerified: Boolean(row.buyVerified),
+          },
+          passwordHash: row.password ?? row.passwordHash ?? "",
+          role: (row.role as any) ?? "user",
+          referralCode: (row.referralCode as string) ?? "",
+          referredBy: row.referredBy ?? null,
+          merchant: false,
+          tradingLocked: Boolean(row.tradingLocked),
+          demoMode: Boolean(row.demoMode),
+          phone: row.phone ?? null,
+          accountFlag: null,
+          suspended: false,
+          disabled: false,
+        } as StoredUser;
+        users.set(id, stored);
+        usersByEmail.set(lowerEmail, id);
+        if (!userData.has(id)) {
+          userData.set(id, freshUserData(id, { country: stored.user.country }));
+        }
+        return id;
+      }
+    } catch (err) {
+      logger.warn({ err, email: lowerEmail }, "[auth] resolvePersistedUserIdByEmail db lookup failed");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.users?.findUnique) {
+    try {
+      const row = await prisma.users.findUnique({ where: { email: lowerEmail } });
+      if (row) {
+        const id = String(row.id);
+        const stored: StoredUser = {
+          user: {
+            id,
+            username: row.username ?? lowerEmail.split("@")[0],
+            email: row.email,
+            fullName: `${row.firstName ?? ""}${row.lastName ? ` ${row.lastName}` : ""}`.trim() || row.email,
+            country: row.country ?? "US",
+            kycVerified: Boolean(row.kycVerified ?? false),
+            avatarUrl: row.avatarUrl ?? undefined,
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+            selectedManagerId: row.selectedManagerId ?? null,
+            phone: row.phone ?? null,
+            merchant: false,
+            moonpayEmail: row.moonpayEmail ?? null,
+            buyVerified: Boolean(row.buyVerified ?? false),
+          },
+          passwordHash: row.passwordHash ?? "",
+          role: (row.role as any) ?? "user",
+          referralCode: row.referralCode ?? "",
+          referredBy: row.referredBy ?? null,
+          merchant: false,
+          tradingLocked: Boolean(row.tradingLocked ?? false),
+          demoMode: Boolean(row.demoMode ?? false),
+          phone: row.phone ?? null,
+          accountFlag: null,
+          suspended: false,
+          disabled: false,
+        } as StoredUser;
+        users.set(id, stored);
+        usersByEmail.set(lowerEmail, id);
+        if (!userData.has(id)) {
+          userData.set(id, freshUserData(id, { country: stored.user.country }));
+        }
+        return id;
+      }
+    } catch (err) {
+      logger.warn({ err, email: lowerEmail }, "[auth] resolvePersistedUserIdByEmail prisma lookup failed");
+    }
+  }
+
+  return undefined;
+}
+
 router.post("/auth/signup", async (req, res) => {
   const parsed = SignupBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid signup", details: parsed.error.issues });
   }
   const email = parsed.data.email.toLowerCase();
+  const existingUserId = await resolvePersistedUserIdByEmail(email);
+
   // Do NOT reveal whether the address is already registered. Always return the
   // same OTP-challenge response. When the email is already taken we skip
   // issuing an OTP; the subsequent verify-otp call will simply time out with a
   // generic "Invalid code" error that does not confirm account existence.
-  if (!usersByEmail.has(email)) {
+  if (!existingUserId) {
     // Account is NOT created yet — we hold the payload in the OTP record and
     // only commit once the email has been verified.
     try {
@@ -118,57 +221,11 @@ router.post("/auth/login", async (req, res) => {
   }
 
   let userId = usersByEmail.get(emailLower);
+  if (!userId) {
+    userId = await resolvePersistedUserIdByEmail(emailLower);
+  }
   logger.info({ email: emailLower, userId: userId ?? null }, "[auth] login.attempt");
   let stored = userId ? users.get(userId) : undefined;
-  // If user is not present in the in-memory store, attempt a DB lookup
-  // and populate the in-memory store so login works when persistence is used.
-  if (!stored) {
-    const db = getDb();
-    if (db) {
-      try {
-        const rows = await db.select().from(dbSchema.usersTable).where(eq(dbSchema.usersTable.email, emailLower));
-        if (rows && rows.length > 0) {
-          const row: any = rows[0];
-          const id = String(row.id);
-          const created: any = {
-            user: {
-              id,
-              username: (row.username as string) ?? emailLower.split("@")[0],
-              email: row.email,
-              fullName: (row.fullName as string) ?? row.email,
-              country: (row.country as string) ?? "US",
-              kycVerified: Boolean(row.kycVerified),
-              avatarUrl: row.avatarUrl ?? undefined,
-              createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
-              selectedManagerId: null,
-              phone: null,
-              merchant: false,
-              moonpayEmail: null,
-              buyVerified: false,
-            },
-            passwordHash: row.password ?? row.passwordHash ?? "",
-            role: (row.role as any) ?? "user",
-            referralCode: (row.referralCode as string) ?? "",
-            referredBy: null,
-            merchant: false,
-            tradingLocked: false,
-            demoMode: false,
-            phone: null,
-            accountFlag: null,
-            suspended: false,
-            disabled: false,
-          } as unknown as StoredUser;
-          users.set(id, created);
-          usersByEmail.set(emailLower, id);
-          userId = id;
-          stored = created;
-          logger.info({ email: emailLower, id }, "[auth] login.db_seeded_user");
-        }
-      } catch (err) {
-        logger.warn({ err, email: emailLower }, "[auth] login.db_lookup_failed");
-      }
-    }
-  }
   if (!stored) {
     logger.warn({ email: emailLower }, "[auth] login.no_user");
     return res.status(401).json({
@@ -247,7 +304,8 @@ router.post("/auth/verify-otp", async (req, res) => {
       return res.status(500).json({ error: "Signup payload missing — please retry signup." });
     }
     const email = payload.email.toLowerCase();
-    if (usersByEmail.has(email)) {
+    const existingUserId = await resolvePersistedUserIdByEmail(email);
+    if (existingUserId) {
       return res.status(409).json({ error: "An account with that email already exists." });
     }
     const id = newUuid();

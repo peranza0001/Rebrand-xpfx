@@ -27,6 +27,16 @@ export function getPrismaClient(): any {
 /**
  * Persists a new user to the database. Silent fail if DB unavailable.
  */
+function deriveFirstLastName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 export async function persistUser(userId: string, userData: {
   email: string;
   username: string;
@@ -36,6 +46,37 @@ export async function persistUser(userId: string, userData: {
   phone?: string | null;
 }): Promise<boolean> {
   if (!isUuid(userId)) return true;
+
+  const prismaFallback = async (): Promise<boolean> => {
+    if (!prismaClient) return true;
+    const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+    try {
+      await prismaClient.users.upsert({
+        where: { id: userId },
+        update: {
+          email: userData.email,
+          firstName,
+          lastName,
+          passwordHash: userData.passwordHash,
+          country: userData.country,
+          phone: userData.phone ?? null,
+        },
+        create: {
+          id: userId,
+          email: userData.email,
+          passwordHash: userData.passwordHash,
+          firstName,
+          lastName,
+          country: userData.country,
+          phone: userData.phone ?? null,
+        },
+      });
+      return true;
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] persistUser failed using Prisma");
+      return false;
+    }
+  };
 
   const db = getDb();
   if (db) {
@@ -67,38 +108,11 @@ export async function persistUser(userId: string, userData: {
       return true;
     } catch (err) {
       logger.warn({ err, userId }, "[db-persist] persistUser failed using Drizzle");
-      return false;
+      return await prismaFallback();
     }
   }
 
-  if (!prismaClient) return true;
-
-  try {
-    await prismaClient.users.upsert({
-      where: { id: userId },
-      update: {
-        email: userData.email,
-        username: userData.username,
-        fullName: userData.fullName,
-        passwordHash: userData.passwordHash,
-        country: userData.country,
-        phone: userData.phone ?? "",
-      },
-      create: {
-        id: userId,
-        email: userData.email,
-        username: userData.username,
-        fullName: userData.fullName,
-        passwordHash: userData.passwordHash,
-        country: userData.country,
-        phone: userData.phone ?? "",
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.warn({ err, userId }, "[db-persist] persistUser failed using Prisma");
-    return false;
-  }
+  return prismaFallback();
 }
 
 export async function persistResetPasswordToken(
@@ -150,6 +164,25 @@ export async function persistSession(
 ): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
+  const prismaFallback = async (): Promise<boolean> => {
+    if (!prismaClient) return true;
+    try {
+      await prismaClient.user_sessions.create({
+        data: {
+          id: sessionId,
+          token: sessionId,
+          user_id: userId,
+          expires_at: expiresAt,
+          is_admin: isAdmin,
+        },
+      });
+      return true;
+    } catch (err) {
+      logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Prisma");
+      return false;
+    }
+  };
+
   const db = getDb();
   if (db) {
     try {
@@ -162,25 +195,11 @@ export async function persistSession(
       return true;
     } catch (err) {
       logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Drizzle");
-      return false;
+      return await prismaFallback();
     }
   }
 
-  if (!prismaClient) return true;
-  try {
-    await prismaClient.user_sessions.create({
-      data: {
-        id: sessionId,
-        user_id: userId,
-        expires_at: expiresAt,
-        is_admin: isAdmin,
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Prisma");
-    return false;
-  }
+  return prismaFallback();
 }
 
 /**

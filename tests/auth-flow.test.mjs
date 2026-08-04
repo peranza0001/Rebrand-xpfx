@@ -224,6 +224,128 @@ test('login fails when durable session persistence cannot complete', async () =>
   }
 });
 
+test('signup with an already-persisted email returns an OTP challenge without creating a new record', async () => {
+  const existingEmail = `existing-${Date.now()}@example.com`;
+  const existingId = randomUUID();
+  const password = 'Secret123!';
+  const passwordHash = store.hashPassword(password);
+
+  const fakePrismaClient = {
+    users: {
+      findUnique: async ({ where }) => {
+        if (where?.email === existingEmail) {
+          return {
+            id: existingId,
+            username: 'existing-user',
+            email: existingEmail,
+            firstName: 'Existing',
+            lastName: 'User',
+            country: 'US',
+            kycVerified: false,
+            avatarUrl: null,
+            createdAt: new Date(),
+            selectedManagerId: null,
+            phone: null,
+            moonpayEmail: null,
+            buyVerified: false,
+            passwordHash,
+            role: 'user',
+            referralCode: '',
+            referredBy: null,
+            tradingLocked: false,
+            demoMode: false,
+          };
+        }
+        return null;
+      },
+    },
+    user_sessions: {
+      create: async () => ({}),
+    },
+  };
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const signupPayload = {
+        email: existingEmail,
+        password,
+        fullName: 'Existing User',
+        country: 'US',
+      };
+
+      const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+        method: 'POST',
+        body: signupPayload,
+      });
+
+      assert.equal(signupResult.response.status, 200);
+      assert.equal(signupResult.data.status, 'otp_required');
+      assert.equal(signupResult.data.intent, 'signup');
+      assert.equal(_getOtpRecord(existingEmail), undefined);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('login loads a persisted user via Prisma when the user is not in memory', async () => {
+  const persistedEmail = `persisted-${Date.now()}@example.com`;
+  const persistedId = randomUUID();
+  const password = 'Secret123!';
+  const passwordHash = store.hashPassword(password);
+
+  const fakePrismaClient = {
+    users: {
+      findUnique: async ({ where }) => {
+        if (where?.email === persistedEmail) {
+          return {
+            id: persistedId,
+            username: 'persisted-user',
+            email: persistedEmail,
+            firstName: 'Persisted',
+            lastName: 'User',
+            country: 'US',
+            kycVerified: false,
+            avatarUrl: null,
+            createdAt: new Date(),
+            selectedManagerId: null,
+            phone: null,
+            moonpayEmail: null,
+            buyVerified: false,
+            passwordHash,
+            role: 'user',
+            referralCode: '',
+            referredBy: null,
+            tradingLocked: false,
+            demoMode: false,
+          };
+        }
+        return null;
+      },
+    },
+    user_sessions: {
+      create: async () => ({}),
+  },
+  };
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
+        method: 'POST',
+        body: { email: persistedEmail, password },
+      });
+
+      assert.equal(loginResult.response.status, 200);
+      assert.equal(loginResult.data.status, 'authenticated');
+      assert.equal(loginResult.data.user.email, persistedEmail);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
 test('end-to-end signup, login, demo, and admin flow', async () => {
   await withTestServer(async (baseUrl) => {
     sentEmails.length = 0;
