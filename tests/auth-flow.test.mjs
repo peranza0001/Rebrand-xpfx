@@ -77,7 +77,7 @@ test('signup verification fails when durable user persistence cannot be complete
         throw new Error('db write failed');
       },
     },
-    user_sessions: {
+    userSession: {
       create: async () => {
         throw new Error('db write failed');
       },
@@ -123,7 +123,7 @@ test('login fails when durable session persistence cannot complete', async () =>
     users: {
       upsert: async () => true,
     },
-    user_sessions: {
+    userSession: {
       create: async () => {
         throw new Error('db write failed');
       },
@@ -259,7 +259,7 @@ test('signup with an already-persisted email returns an OTP challenge without cr
         return null;
       },
     },
-    user_sessions: {
+    userSession: {
       create: async () => ({}),
     },
   };
@@ -324,7 +324,7 @@ test('login loads a persisted user via Prisma when the user is not in memory', a
         return null;
       },
     },
-    user_sessions: {
+    userSession: {
       create: async () => ({}),
   },
   };

@@ -360,12 +360,12 @@ export async function hydrateFromDb(): Promise<void> {
           .where(gt(userSessionsTable.expiresAt, new Date())),
       async () => {
         const prisma = getPrismaClient();
-        if (!prisma?.user_sessions) {
+        if (!prisma?.userSession) {
           return [];
         }
-        return prisma.user_sessions.findMany({
+        return prisma.userSession.findMany({
           where: {
-            expires_at: {
+            expiresAt: {
               gt: new Date(),
             },
           },

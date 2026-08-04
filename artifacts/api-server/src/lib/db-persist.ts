@@ -55,6 +55,7 @@ export async function persistUser(userId: string, userData: {
         where: { id: userId },
         update: {
           email: userData.email,
+          username: userData.username,
           firstName,
           lastName,
           passwordHash: userData.passwordHash,
@@ -64,6 +65,7 @@ export async function persistUser(userId: string, userData: {
         create: {
           id: userId,
           email: userData.email,
+          username: userData.username,
           passwordHash: userData.passwordHash,
           firstName,
           lastName,
@@ -167,7 +169,7 @@ export async function persistSession(
   const prismaFallback = async (): Promise<boolean> => {
     if (!prismaClient) return true;
     try {
-      await prismaClient.user_sessions.create({
+      await prismaClient.userSession.create({
         data: {
           id: sessionId,
           token: sessionId,
