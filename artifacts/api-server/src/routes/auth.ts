@@ -361,6 +361,13 @@ router.post("/auth/verify-otp", async (req, res) => {
     return res.status(404).json({ error: "User no longer exists." });
   }
   const sid = newSessionId();
+  const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
+  logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] verify-otp.login.session_persist_outcome");
+  if (!sessionPersisted) {
+    logger.error({ userId: stored.user.id, email: stored.user.email }, "[auth] verify-otp.login.session_persist_failed");
+    return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
+  }
   sessions.set(sid, stored.user.id);
   setSessionCookie(res, sid);
   logActivity({

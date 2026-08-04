@@ -175,6 +175,50 @@ test('login fails when durable session persistence cannot complete', async () =>
       assert.equal(loginResult.response.status, 500);
       assert.match(loginResult.data.error, /Unable to create authenticated session/i);
     });
+
+    await withTestServer(async (baseUrl) => {
+      const email = `otp-login-${Date.now()}@example.com`;
+      const userId = randomUUID();
+      store.users.set(userId, {
+        user: {
+          id: userId,
+          username: 'otp-login',
+          email,
+          fullName: 'OTP Login User',
+          country: 'US',
+          kycVerified: true,
+          avatarUrl: undefined,
+          createdAt: new Date().toISOString(),
+          selectedManagerId: null,
+          phone: null,
+          merchant: false,
+          moonpayEmail: null,
+          buyVerified: false,
+        },
+        passwordHash: store.hashPassword('Secret123!'),
+        role: 'user',
+        referralCode: '',
+        referredBy: null,
+        merchant: false,
+        tradingLocked: false,
+        demoMode: false,
+        phone: null,
+        accountFlag: null,
+        suspended: false,
+        disabled: false,
+      });
+      store.usersByEmail.set(email, userId);
+      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+
+      const otpRecord = await otp.issueOtp({ email, intent: 'login', userId });
+      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, code: otpRecord.code },
+      });
+
+      assert.equal(verifyResult.response.status, 500);
+      assert.match(verifyResult.data.error, /Unable to create authenticated session/i);
+    });
   } finally {
     setPrismaClient(null);
   }
