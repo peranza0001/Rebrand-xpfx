@@ -86,15 +86,7 @@ router.post("/admin/users/create", requireAdmin, (req, res) => {
   if (parsed.data.phone !== undefined) stored.user.phone = parsed.data.phone;
   userData.set(stored.user.id, freshUserData(stored.user.id, { country: stored.user.country }));
 
-  // Persist the newly created user to the DB (admin bypass should not send OTP)
-  void persistUser(stored.user.id, {
-    email: stored.user.email,
-    username: stored.user.username,
-    passwordHash: stored.passwordHash,
-    fullName: stored.user.fullName,
-    country: stored.user.country,
-    phone: stored.phone ?? null,
-  });
+  // createUser already persists new users to the DB; avoid duplicate persistence here.
 
   logActivity({
     actorId: req.userId!,

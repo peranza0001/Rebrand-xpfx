@@ -322,3 +322,127 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
     assert.equal(createUserResponse.data.role, 'user');
   });
 });
+
+test('admin-created users persist through Prisma fallback on create', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    users: {
+      upsert: async (params) => {
+        persisted.push(params);
+        return { id: params.create.id, email: params.create.email };
+      },
+    },
+    user_sessions: {
+      create: async () => ({})
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const adminLogin = await jsonRequest(baseUrl, '/api/auth/login', {
+        method: 'POST',
+        body: { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD },
+      });
+      assert.equal(adminLogin.response.status, 200);
+      const adminCookie = parseCookie(adminLogin.response.headers.get('set-cookie'));
+
+      const managedEmail = `managed-${Date.now()}@example.com`;
+      const createUserResponse = await jsonRequest(baseUrl, '/api/admin/users/create', {
+        method: 'POST',
+        cookie: adminCookie,
+        body: {
+          email: managedEmail,
+          password: 'NewUser123!',
+          fullName: 'Managed User',
+          username: 'managed-user',
+          country: 'US',
+          role: 'user',
+          kycVerified: false,
+        },
+      });
+      assert.equal(createUserResponse.response.status, 200);
+      assert.equal(createUserResponse.data.email, managedEmail);
+      assert.equal(createUserResponse.data.role, 'user');
+      assert.equal(persisted.length, 1, 'User should be persisted to Prisma fallback');
+      assert.equal(persisted[0].create.email, managedEmail);
+      assert.match(persisted[0].create.id, /^[0-9a-fA-F-]{36}$/);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('admin reregister endpoint persists existing user without OTP', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    users: {
+      upsert: async (params) => {
+        persisted.push(params);
+        return { id: params.create.id, email: params.create.email };
+      },
+    },
+    user_sessions: {
+      create: async () => ({})
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const email = `reregister-${Date.now()}@example.com`;
+      const userId = randomUUID();
+      store.users.set(userId, {
+        user: {
+          id: userId,
+          username: 'reregister-user',
+          email,
+          fullName: 'Reregister User',
+          country: 'US',
+          kycVerified: true,
+          avatarUrl: undefined,
+          createdAt: new Date().toISOString(),
+          selectedManagerId: null,
+          phone: null,
+          merchant: false,
+          moonpayEmail: null,
+          buyVerified: false,
+        },
+        passwordHash: store.hashPassword('Restore123!'),
+        role: 'user',
+        referralCode: '',
+        referredBy: null,
+        merchant: false,
+        tradingLocked: false,
+        demoMode: false,
+        phone: null,
+        accountFlag: null,
+        suspended: false,
+        disabled: false,
+      });
+      store.usersByEmail.set(email, userId);
+      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+
+      const adminLogin = await jsonRequest(baseUrl, '/api/auth/login', {
+        method: 'POST',
+        body: { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD },
+      });
+      assert.equal(adminLogin.response.status, 200);
+      const adminCookie = parseCookie(adminLogin.response.headers.get('set-cookie'));
+
+      const response = await jsonRequest(baseUrl, `/api/admin/users/${userId}/reregister`, {
+        method: 'POST',
+        cookie: adminCookie,
+      });
+      assert.equal(response.response.status, 200);
+      assert.equal(response.data.ok, true);
+      assert.equal(persisted.length, 1);
+      assert.equal(persisted[0].create.email, email);
+      assert.equal(persisted[0].create.id, userId);
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});

@@ -1357,7 +1357,7 @@ export function createUser(opts: {
   merchant?: boolean;
   phone?: string | null;
 }): StoredUser {
-  const id = opts.id ?? newId("u");
+  const id = opts.id ?? newUuid();
   const referralCode = newReferralCode();
   const stored: StoredUser = {
     user: {
