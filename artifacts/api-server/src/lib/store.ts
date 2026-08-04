@@ -9,7 +9,7 @@
  * with Node's scrypt; sessions are random 32-byte tokens stored in memory.
  */
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { persistTransaction } from './db-persist';
+import { persistTransaction, persistUser } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import type {
@@ -1391,6 +1391,15 @@ export function createUser(opts: {
   usersByEmail.set(opts.email.toLowerCase(), id);
   referralCodeIndex.set(referralCode, id);
   referrals.set(id, []);
+  // Best-effort persist to DB so admin-created and seeded users survive restarts.
+  void persistUser(id, {
+    email: opts.email,
+    username: opts.username,
+    passwordHash: stored.passwordHash,
+    fullName: opts.fullName,
+    country: opts.country,
+    phone: opts.phone ?? null,
+  });
   return stored;
 }
 
