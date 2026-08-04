@@ -171,9 +171,9 @@ export async function persistSession(
         data: {
           id: sessionId,
           token: sessionId,
-          user_id: userId,
-          expires_at: expiresAt,
-          is_admin: isAdmin,
+          userId,
+          expiresAt,
+          isAdmin,
         },
       });
       return true;
