@@ -98,6 +98,7 @@ import {
   useGetAdminWithdrawals,
   useGetAdminActivity,
   useGetAdminBanks,
+  useGetAdminLiveChats,
   useGetAdminCards,
   useGetAdminPromotions,
   useGetAdminBilling,
@@ -119,6 +120,7 @@ import {
   getGetAdminCardsQueryKey,
   getGetAdminPromotionsQueryKey,
   getGetAdminBillingQueryKey,
+  getGetAdminLiveChatsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   AdminCardSummary,
@@ -191,6 +193,8 @@ export function Admin() {
   const { data: withdrawals } = useGetAdminWithdrawals();
   const { data: activity } = useGetAdminActivity();
   const { data: banks } = useGetAdminBanks();
+  const { data: liveChats } = useGetAdminLiveChats();
+  const unreadLiveChatCount = liveChats?.reduce((sum, chat) => sum + (chat.unreadByAdmin ?? 0), 0) ?? 0;
   const decideWithdrawal = useDecideWithdrawal();
   const decideKyc = useDecideKyc();
   const setBankVerification = useSetBankVerification();
@@ -211,6 +215,7 @@ export function Admin() {
       queryClient.invalidateQueries({ queryKey: getGetAdminUsersQueryKey() }),
       queryClient.invalidateQueries({ queryKey: getGetAdminActivityQueryKey() }),
       queryClient.invalidateQueries({ queryKey: getGetAdminBanksQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetAdminLiveChatsQueryKey() }),
     ]);
   };
 
@@ -342,7 +347,14 @@ export function Admin() {
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="demo">Demo</TabsTrigger>
-          <TabsTrigger value="live-chat">Live chat</TabsTrigger>
+          <TabsTrigger value="live-chat">
+            Live chat
+            {unreadLiveChatCount > 0 && (
+              <Badge variant="secondary" className="ml-2 text-[11px]">
+                {unreadLiveChatCount}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="withdrawals" className="space-y-4">

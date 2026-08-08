@@ -84,6 +84,13 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   data.liveChat.push(userMsg);
   void persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
 
+  try {
+    const ns = getChatNamespace();
+    ns?.to('admins').emit('message', userMsg);
+  } catch (_err) {
+    // best-effort notification delivery; do not fail the request
+  }
+
   // Build AI history from prior messages.
   const history = data.liveChat
     .filter((m) => m.id !== userMsg.id)

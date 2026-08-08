@@ -69,6 +69,10 @@ export async function initRealtime(server: http.Server) {
     const userId = (socket as any).userId as string;
     logger.info({ userId }, '[realtime] live-chat connected');
 
+    socket.on('join_admin_room', () => {
+      socket.join('admins');
+    });
+
     socket.on('join_conversation', (convId: string) => {
       socket.join(`conv:${convId}`);
     });
@@ -103,6 +107,7 @@ export async function initRealtime(server: http.Server) {
       }
 
       chat.to(`conv:${convId}`).emit('message', msg);
+      chat.to('admins').emit('message', msg);
     });
 
     socket.on('disconnect', () => {

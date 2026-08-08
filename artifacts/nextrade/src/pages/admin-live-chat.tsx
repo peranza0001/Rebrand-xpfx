@@ -24,11 +24,17 @@ export default function AdminLiveChat() {
     })();
   }, []);
 
+  const selectedRef = useRef<SessionSummary | null>(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
   useEffect(() => {
     const socket = io('/live-chat', { path: '/socket.io', withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      socket.emit('join_admin_room');
       // touch admin presence via heartbeat endpoint — optional
       fetch('/api/admin/presence/heartbeat', { method: 'POST', credentials: 'include' }).catch(() => undefined);
     });
@@ -38,9 +44,22 @@ export default function AdminLiveChat() {
         if (!prev) return prev;
         const copy = prev.slice();
         const idx = copy.findIndex((s) => s.userId === msg.userId);
-        if (idx === -1) return prev;
+        if (idx === -1) {
+          const newSession: SessionSummary = {
+            userId: msg.userId,
+            userName: msg.senderName || 'Unknown User',
+            userEmail: '',
+            messages: [msg],
+            lastMessageAt: msg.createdAt,
+            escalated: msg.escalated ?? false,
+            unreadByAdmin: msg.isFromUser ? 1 : 0,
+          };
+          return [newSession, ...copy];
+        }
         copy[idx] = { ...copy[idx], messages: [...copy[idx].messages, msg], lastMessageAt: msg.createdAt };
-        if (selected && selected.userId === msg.userId) setSelected(copy[idx]);
+        if (selectedRef.current && selectedRef.current.userId === msg.userId) {
+          setSelected(copy[idx]);
+        }
         return copy;
       });
     });
@@ -49,7 +68,7 @@ export default function AdminLiveChat() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [selected]);
+  }, []);
 
   const openSession = (s: SessionSummary) => {
     setSelected(s);
