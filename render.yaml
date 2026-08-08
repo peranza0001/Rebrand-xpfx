@@ -59,5 +59,7 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
+      - key: ENABLE_DEMO_AUTH
+        value: "true"
       # PORT is injected automatically by Render — do not set it here.
       # The app reads process.env.PORT via assertRequiredEnv() in src/lib/env.ts.
