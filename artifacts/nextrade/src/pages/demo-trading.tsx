@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { AlertTriangle, BarChart3, Clock3, Lock, PlayCircle, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { BarChart3, Clock3, Lock, PlayCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shell } from "@/components/layout/Shell";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { useAuth } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetSessionQueryKey, useStartDemoSession } from "@workspace/api-client-react";
 
 type MarketItem = {
   symbol: string;
@@ -43,20 +45,25 @@ function formatCurrency(value: number) {
 
 function DemoTradingContent() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const demoMutation = useStartDemoSession();
   const [markets, setMarkets] = useState(initialMarkets);
   const [positions, setPositions] = useState(initialPositions);
   const [selectedSymbol, setSelectedSymbol] = useState(initialMarkets[0]!.symbol);
   const [side, setSide] = useState<"Buy" | "Sell">("Buy");
   const [size, setSize] = useState("2500");
-  const [guestSecondsLeft, setGuestSecondsLeft] = useState(300);
   const [message, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoRequested, setDemoRequested] = useState(false);
+  const [demoStarted, setDemoStarted] = useState(false);
 
   useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+
     // Connect to Socket.IO demo-trading namespace for live prices
     const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
     socket.on('connect', () => {
-      // subscribe to a few instruments
       ['EUR/USD', 'GBP/JPY', 'BTC/USD', 'XAU/USD'].forEach((s) => socket.emit('join_instrument', s));
     });
     socket.on('price_update', (payload: any) => {
@@ -70,16 +77,34 @@ function DemoTradingContent() {
     });
 
     return () => { socket.disconnect(); };
-  }, []);
+  }, [isAuthenticated, isLoading]);
+
+  const ensureDemoSession = async () => {
+    if (isAuthenticated) return true;
+    if (demoRequested) return demoStarted;
+
+    setDemoError(null);
+    setDemoRequested(true);
+
+    try {
+      await demoMutation.mutateAsync();
+      await queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+      setDemoStarted(true);
+      return true;
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      setDemoError(err.message ?? "Unable to start demo session.");
+      setMessage("Demo session is currently unavailable. Please try again.");
+      setDemoStarted(false);
+      return false;
+    }
+  };
 
   useEffect(() => {
-    if (isAuthenticated) return;
-    const interval = window.setInterval(() => {
-      setGuestSecondsLeft((prev) => prev - 1);
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [isAuthenticated]);
+    if (!isAuthenticated && !demoRequested && !isLoading) {
+      void ensureDemoSession();
+    }
+  }, [isAuthenticated, demoRequested, isLoading]);
 
   const selectedMarket = useMemo(() => markets.find((item) => item.symbol === selectedSymbol) ?? markets[0]!, [markets, selectedSymbol]);
   const readiness = useMemo(() => {
@@ -90,12 +115,10 @@ function DemoTradingContent() {
     return Math.min(100, score);
   }, [isAuthenticated, user]);
 
-  const guestLocked = !isAuthenticated && guestSecondsLeft <= 0;
-
   const placeDemoOrder = async () => {
-    if (guestLocked) {
-      setMessage("Your guest demo session has expired. Create an account to continue practising.");
-      return;
+    if (!isAuthenticated) {
+      const started = await ensureDemoSession();
+      if (!started) return;
     }
 
     const sizeValue = Number(size);
@@ -108,11 +131,14 @@ function DemoTradingContent() {
     try {
       const body = { instrument: selectedMarket.symbol, type: 'market', side: side === 'Buy' ? 'buy' : 'sell', amount: safeSize, leverage: 10 };
       const resp = await fetch('/api/demo/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
-      if (!resp.ok) throw new Error('Order failed');
-      const json = await resp.json();
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(errorText || 'Order failed');
+      }
       setMessage(`Demo order submitted for ${selectedMarket.symbol} — order queued.`);
-    } catch (err) {
-      setMessage('Failed to submit demo order.');
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setMessage(error.message ?? 'Failed to submit demo order.');
     }
   };
 
@@ -133,18 +159,18 @@ function DemoTradingContent() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">Free paper account</Badge>
               <Badge variant="secondary">Risk-managed practice</Badge>
-              {isAuthenticated ? <Badge className="bg-emerald-600">Registered learner</Badge> : <Badge className="bg-amber-600">Guest session</Badge>}
+              {isAuthenticated ? <Badge className="bg-emerald-600">Registered learner</Badge> : <Badge className="bg-amber-600">Demo session</Badge>}
             </div>
-            {!isAuthenticated && (
+            {!isAuthenticated && demoError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-950 dark:text-rose-200">
+                <div className="font-semibold">Unable to start demo session</div>
+                <p className="mt-2">{demoError}</p>
+              </div>
+            )}
+            {!isAuthenticated && !demoError && !demoStarted && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-200">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="h-4 w-4" />
-                    <span>Guest trial window</span>
-                  </div>
-                  <span className="font-semibold">{guestSecondsLeft}s</span>
-                </div>
-                <p className="mt-2">You can practise without signing in. When the timer expires, the workspace locks until you create an account.</p>
+                <div className="font-semibold">Preparing your demo session</div>
+                <p className="mt-2">A seeded demo account is being created. You can start trading once your session is ready.</p>
               </div>
             )}
             <div className="rounded-lg border border-border p-4">
@@ -228,23 +254,13 @@ function DemoTradingContent() {
             <CardDescription>Place a paper order with the same workflow used in professional trading desks.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {guestLocked ? (
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-950 dark:text-rose-200">
-                <div className="flex items-center gap-2 font-semibold">
-                  <Lock className="h-4 w-4" />
-                  Guest session expired
-                </div>
-                <p className="mt-1">Create an account to continue with a fresh demo workspace.</p>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-950 dark:text-emerald-200">
+              <div className="flex items-center gap-2 font-semibold">
+                <PlayCircle className="h-4 w-4" />
+                Demo trading active
               </div>
-            ) : (
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-950 dark:text-emerald-200">
-                <div className="flex items-center gap-2 font-semibold">
-                  <PlayCircle className="h-4 w-4" />
-                  Demo trading active
-                </div>
-                <p className="mt-1">You are executing in paper mode. No real funds are at risk.</p>
-              </div>
-            )}
+              <p className="mt-1">You are executing in paper mode. No real funds are at risk.</p>
+            </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm">
@@ -267,11 +283,11 @@ function DemoTradingContent() {
 
             <div className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span>{message}</span>
+              <span>{demoError ? demoError : message}</span>
             </div>
 
-            <Button className="w-full" onClick={placeDemoOrder} disabled={guestLocked}>
-              {guestLocked ? "Guest session locked" : `Place ${side} order`}
+            <Button className="w-full" onClick={placeDemoOrder} disabled={demoMutation.isLoading}>
+              {demoMutation.isLoading ? "Starting demo session..." : `Place ${side} order`}
             </Button>
           </CardContent>
         </Card>
