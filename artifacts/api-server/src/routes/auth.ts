@@ -39,7 +39,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser, getPrismaClient } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient, deleteSession } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import {
   issueOtp,
@@ -478,11 +478,19 @@ router.post("/auth/skip-wallet", requireAuth, (req, res) => {
   return res.json(sessionFor(req.storedUser!));
 });
 
-router.post("/auth/logout", (req, res) => {
+router.post("/auth/logout", async (req, res) => {
   const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as
     | string
     | undefined;
-  if (sid) sessions.delete(sid);
+  if (sid) {
+    sessions.delete(sid);
+    // best-effort remove persisted session if present
+    try {
+      await deleteSession(sid);
+    } catch (_) {
+      // ignore
+    }
+  }
   clearSessionCookie(res);
   res.json({ success: true });
 });

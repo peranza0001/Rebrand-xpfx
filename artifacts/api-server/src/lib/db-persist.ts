@@ -205,6 +205,28 @@ export async function persistSession(
 }
 
 /**
+ * Delete a persisted session record (silent fail when DB unavailable).
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  const db = getDb();
+  if (db) {
+    try {
+      await db.delete(userSessionsTable).where(eq(userSessionsTable.id, sessionId));
+    } catch (err) {
+      logger.warn({ err, sessionId }, "[db-persist] deleteSession failed using Drizzle");
+    }
+  }
+
+  if (prismaClient) {
+    try {
+      await prismaClient.userSession.delete({ where: { id: sessionId } });
+    } catch (err) {
+      // ignore missing or other errors — deletion is best-effort
+    }
+  }
+}
+
+/**
  * Persists a wallet to the database.
  */
 export async function persistWallet(walletId: string, userId: string, walletData: {
