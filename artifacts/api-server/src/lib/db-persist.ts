@@ -75,7 +75,8 @@ export async function persistUser(userId: string, userData: {
       });
       return true;
     } catch (err) {
-      logger.warn({ err, userId }, "[db-persist] persistUser failed using Prisma");
+      const errMessage = err instanceof Error ? err.message : String(err);
+      logger.warn({ errMessage, err, userId }, "[db-persist] persistUser failed using Prisma");
       return false;
     }
   };

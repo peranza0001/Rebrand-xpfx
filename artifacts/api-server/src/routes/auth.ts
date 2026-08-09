@@ -1,4 +1,5 @@
 // /auth routes — signup, login, logout, session, demo, OTP verify/resend, skip-wallet.
+import { randomBytes } from "crypto";
 import { Router, type IRouter } from "express";
 import {
   LoginBody,
@@ -77,6 +78,57 @@ function otpChallenge(email: string, intent: "signup" | "login") {
     expiresInSeconds: Math.floor(OTP_TTL_MS / 1000),
     message: `We sent a 6-digit verification code to ${email}. Enter it to continue.`,
   };
+}
+
+async function isUsernameTaken(username: string): Promise<boolean> {
+  for (const stored of users.values()) {
+    if (stored.user.username === username) {
+      return true;
+    }
+  }
+
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db.select().from(dbSchema.usersTable).where(eq(dbSchema.usersTable.username, username));
+      if (rows.length > 0) {
+        return true;
+      }
+    } catch (err) {
+      logger.warn({ err, username }, "[auth] username uniqueness db lookup failed");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.users?.findUnique) {
+    try {
+      const row = await prisma.users.findUnique({ where: { username } });
+      if (row) {
+        return true;
+      }
+    } catch (err) {
+      logger.warn({ err, username }, "[auth] username uniqueness prisma lookup failed");
+    }
+  }
+
+  return false;
+}
+
+async function deriveUniqueUsername(email: string): Promise<string> {
+  const base = (email.split("@")[0] || "trader").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() || "trader";
+  let candidate = base;
+  let suffix = 1;
+
+  while (await isUsernameTaken(candidate)) {
+    candidate = `${base}${suffix}`;
+    suffix += 1;
+    if (suffix > 100) {
+      candidate = `${base}-${randomBytes(3).toString("hex")}`;
+      break;
+    }
+  }
+
+  return candidate;
 }
 
 async function resolvePersistedUserIdByEmail(email: string): Promise<string | undefined> {
@@ -339,11 +391,12 @@ router.post("/auth/verify-otp", async (req, res) => {
       const referrerId = referralCodeIndex.get(payload.referralCode.trim());
       if (referrerId) referredBy = referrerId;
     }
+    const username = await deriveUniqueUsername(email);
     const stored: StoredUser = {
       user: {
         id,
-        username: email.split("@")[0] ?? "trader",
-        email: payload.email,
+        username,
+        email,
         fullName: payload.fullName,
         country: payload.country,
         kycVerified: false,
@@ -384,7 +437,7 @@ router.post("/auth/verify-otp", async (req, res) => {
     }
 
     const userPersisted = await persistUser(id, {
-      email: payload.email,
+      email,
       username: stored.user.username,
       passwordHash: stored.passwordHash,
       fullName: payload.fullName,
