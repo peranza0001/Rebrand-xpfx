@@ -20,7 +20,7 @@ const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
 const store = storeModule.default?.default ?? storeModule.default ?? storeModule;
 const { _getOtpRecord } = otp;
 const { sentEmails } = store;
-const { setPrismaClient } = dbPersistModule;
+const { setPrismaClient, persistUser, persistSession } = dbPersistModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');
@@ -68,6 +68,64 @@ test('seeded demo users can sign in directly without first starting demo auth', 
     assert.equal(loginResult.data.role, 'demo');
     assert.equal(loginResult.data.user.email, 'demo@xpressprofx.com');
   });
+});
+
+test('signup persistence uses Prisma-compatible user and session field names', async () => {
+  const calls = [];
+  const compatiblePrismaClient = {
+    user: {
+      upsert: async ({ create, update }) => {
+        if (create?.fullName || update?.fullName || create?.username || update?.username) {
+          throw new Error('unsupported legacy fields');
+        }
+        if (!create?.firstName || !create?.lastName || !create?.passwordHash) {
+          throw new Error('missing expected user fields');
+        }
+        calls.push({ kind: 'user', create, update });
+        return true;
+      },
+    },
+    userSession: {
+      create: async ({ data }) => {
+        if (!data?.token) {
+          throw new Error('missing session token');
+        }
+        calls.push({ kind: 'session', data });
+        return true;
+      },
+    },
+  };
+
+  setPrismaClient(compatiblePrismaClient);
+
+  try {
+    const userId = randomUUID();
+    const userPersisted = await persistUser(userId, {
+      email: 'prisma-shape@example.com',
+      username: 'prisma-shape',
+      passwordHash: 'hash',
+      fullName: 'Prisma Shape User',
+      country: 'US',
+      phone: null,
+    });
+    assert.equal(userPersisted, true);
+
+    const sessionPersisted = await persistSession('session-token-123', userId, new Date('2030-01-01T00:00:00Z'), false);
+    assert.equal(sessionPersisted, true);
+    assert.equal(calls[0].kind, 'user');
+    assert.deepEqual(calls[0].create, {
+      id: userId,
+      email: 'prisma-shape@example.com',
+      firstName: 'Prisma',
+      lastName: 'Shape User',
+      passwordHash: 'hash',
+      country: 'US',
+      phone: null,
+    });
+    assert.equal(calls[1].data.token, 'session-token-123');
+  } finally {
+    setPrismaClient(null);
+  }
 });
 
 test('signup verification fails when durable user persistence cannot be completed', async () => {

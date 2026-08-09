@@ -67,6 +67,47 @@ function deriveFirstLastName(fullName: string): { firstName: string; lastName: s
   };
 }
 
+function buildPrismaUserPayloadCandidates(userId: string, userData: {
+  email: string;
+  username: string;
+  passwordHash: string;
+  fullName: string;
+  country: string;
+  phone?: string | null;
+}): Array<Record<string, unknown>> {
+  const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+  const base = {
+    id: userId,
+    email: userData.email,
+    passwordHash: userData.passwordHash,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  return [
+    {
+      ...base,
+      firstName,
+      lastName,
+    },
+    {
+      ...base,
+      fullName: userData.fullName,
+    },
+    {
+      ...base,
+      username: userData.username,
+      firstName,
+      lastName,
+    },
+    {
+      ...base,
+      username: userData.username,
+      fullName: userData.fullName,
+    },
+  ];
+}
+
 async function tryPrismaUserUpsert(userDelegate: any, userId: string, createData: Record<string, unknown>, updateData: Record<string, unknown>): Promise<void> {
   await retryAsync(async () => {
     await userDelegate.upsert({
@@ -91,44 +132,21 @@ export async function persistUser(userId: string, userData: {
     const userDelegate = getPrismaUserDelegate();
     if (!userDelegate) return true;
 
-    const { firstName, lastName } = deriveFirstLastName(userData.fullName);
-    const fullNamePayload = {
-      email: userData.email,
-      username: userData.username,
-      fullName: userData.fullName,
-      passwordHash: userData.passwordHash,
-      country: userData.country,
-      phone: userData.phone ?? null,
-    };
-    const splitNamePayload = {
-      email: userData.email,
-      username: userData.username,
-      firstName,
-      lastName,
-      passwordHash: userData.passwordHash,
-      country: userData.country,
-      phone: userData.phone ?? null,
-    };
+    const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
+    let lastErr: unknown = null;
 
-    try {
-      await tryPrismaUserUpsert(userDelegate, userId, { id: userId, ...fullNamePayload }, fullNamePayload);
-      return true;
-    } catch (err) {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      if (errMessage.includes("fullName") || errMessage.includes("firstName") || errMessage.includes("lastName") || errMessage.includes("Unknown arg")) {
-        try {
-          await tryPrismaUserUpsert(userDelegate, userId, { id: userId, ...splitNamePayload }, splitNamePayload);
-          return true;
-        } catch (innerErr) {
-          const innerErrMessage = innerErr instanceof Error ? innerErr.message : String(innerErr);
-          logger.warn({ errMessage: innerErrMessage, err: innerErr, userId }, "[db-persist] persistUser failed using Prisma");
-          return false;
-        }
+    for (const payload of payloadCandidates) {
+      try {
+        await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
+        return true;
+      } catch (err) {
+        lastErr = err;
       }
-
-      logger.warn({ errMessage, err, userId }, "[db-persist] persistUser failed using Prisma");
-      return false;
     }
+
+    const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    logger.warn({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+    return false;
   };
 
   const db = getDb();
@@ -222,18 +240,35 @@ export async function persistSession(
   const prismaFallback = async (): Promise<boolean> => {
     const sessionDelegate = getPrismaUserSessionDelegate();
     if (!sessionDelegate) return true;
+    const sessionPayloadCandidates = [
+      {
+        id: sessionId,
+        userId,
+        token: sessionId,
+        expiresAt,
+        isAdmin,
+      },
+      {
+        id: sessionId,
+        userId,
+        expiresAt,
+        isAdmin,
+      },
+    ];
+    let lastErr: unknown = null;
+
     try {
-      await retryAsync(async () => {
-        await sessionDelegate.create({
-          data: {
-            id: sessionId,
-            userId,
-            expiresAt,
-            isAdmin,
-          },
-        });
-      }, 3, 300);
-      return true;
+      for (const data of sessionPayloadCandidates) {
+        try {
+          await retryAsync(async () => {
+            await sessionDelegate.create({ data });
+          }, 3, 300);
+          return true;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr;
     } catch (err) {
       logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Prisma");
       return false;
