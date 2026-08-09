@@ -35,11 +35,12 @@ import {
   requireAuth,
   setSessionCookie,
   SESSION_COOKIE,
+  requireAdmin,
 } from "../lib/session";
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser, getPrismaClient, deleteSession } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import {
@@ -583,6 +584,52 @@ router.post("/auth/sessions/revoke-all", requireAuth, async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     logger.error({ err, userId }, "[auth] sessions.revoke_all_failed");
+    return res.status(500).json({ error: "Unable to revoke sessions" });
+  }
+});
+
+// Admin session management
+router.get("/admin/users/:id/sessions", requireAuth, requireAdmin, async (req, res) => {
+  const targetUser = String(req.params.id || "");
+  try {
+    const persisted = await listSessionsForUser(targetUser);
+    const inMemory = [...sessions.entries()].filter(([, uid]) => uid === targetUser).map(([id]) => id);
+    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, inMemory: inMemory.includes(p.id) }));
+    for (const id of inMemory) {
+      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, inMemory: true });
+    }
+    return res.json({ sessions: combined });
+  } catch (err) {
+    logger.error({ err, targetUser }, "[admin] sessions.list_failed");
+    return res.status(500).json({ error: "Unable to list sessions" });
+  }
+});
+
+router.delete("/admin/users/:id/sessions/:sid", requireAuth, requireAdmin, async (req, res) => {
+  const targetUser = String(req.params.id || "");
+  const sid = String(req.params.sid || "");
+  try {
+    // best-effort persisted delete
+    await deleteSession(sid);
+  } catch (_) {}
+  sessions.delete(sid);
+  logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: "admin.session.revoke", detail: `Admin revoked session ${sid} for user ${targetUser}` });
+  pushAdminAlert({ kind: "auth.session.revoked", title: "Session revoked", body: `Admin ${req.storedUser!.user.email} revoked session ${sid} for user ${targetUser}`, userId: targetUser, userEmail: "", severity: "info", linkUrl: `/users/${targetUser}`, email: false });
+  return res.json({ success: true });
+});
+
+router.post("/admin/users/:id/sessions/revoke-all", requireAuth, requireAdmin, async (req, res) => {
+  const targetUser = String(req.params.id || "");
+  try {
+    await deleteSessionsForUser(targetUser);
+    for (const [s, uid] of sessions.entries()) {
+      if (uid === targetUser) sessions.delete(s);
+    }
+    logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: "admin.session.revoke_all", detail: `Admin revoked all sessions for user ${targetUser}` });
+    pushAdminAlert({ kind: "auth.session.revoked_all", title: "All sessions revoked", body: `Admin ${req.storedUser!.user.email} revoked all sessions for user ${targetUser}`, userId: targetUser, userEmail: "", severity: "warning", linkUrl: `/users/${targetUser}`, email: false });
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, targetUser }, "[admin] sessions.revoke_all_failed");
     return res.status(500).json({ error: "Unable to revoke sessions" });
   }
 });
