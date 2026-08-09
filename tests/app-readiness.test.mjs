@@ -123,3 +123,58 @@ test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async 
     assert.ok(body.csrfToken.length > 0, 'csrfToken should not be empty');
   });
 });
+
+test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_ORIGINS is configured without one', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: 'https://example.com/',
+        'x-forwarded-host': 'example.com',
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, 'Origin with trailing slash should be accepted when normalized');
+    const body = await response.json();
+    assert.equal(typeof body.csrfToken, 'string', 'response should include csrfToken');
+  });
+});
+
+test('GET /api/csrf-token issues a fresh token on each request even when the previous cookie is present', async () => {
+  await withTestServer(async (baseUrl) => {
+    const first = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(first.status, 200, 'first CSRF request should succeed');
+    const firstCookie = first.headers.get('set-cookie');
+    const firstBody = await first.json();
+    assert.equal(typeof firstBody.csrfToken, 'string');
+
+    const cookieHeader = firstCookie?.split(';')[0] ?? '';
+
+    const second = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+        cookie: cookieHeader,
+      },
+    });
+
+    assert.equal(second.status, 200, 'second CSRF request should succeed');
+    const secondBody = await second.json();
+    assert.equal(typeof secondBody.csrfToken, 'string');
+    assert.notEqual(secondBody.csrfToken, firstBody.csrfToken, 'CSRF token should be refreshed on each GET issuance');
+  });
+});

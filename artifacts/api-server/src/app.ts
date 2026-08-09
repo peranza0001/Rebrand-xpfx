@@ -207,10 +207,27 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+function normalizeOrigin(origin: string | undefined): string | null {
+  if (!origin) return null;
+  try {
+    const url = new URL(origin);
+    const port = url.port ? `:${url.port}` : '';
+    return `${url.protocol}//${url.hostname}${port}`;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin)
+    .filter(Boolean) as string[];
+}
+
+const getAllowedOrigins = (): string[] => normalizeAllowedOrigins(process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '');
 
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
@@ -231,6 +248,7 @@ app.use(cors({
       return;
     }
 
+    const normalizedOrigin = normalizeOrigin(origin);
     const hostname = (() => {
       try {
         return new URL(origin).hostname;
@@ -239,7 +257,8 @@ app.use(cors({
       }
     })();
 
-    if (allowedOrigins.includes(origin) || isPreviewHost(hostname)) {
+    const allowedOrigins = getAllowedOrigins();
+    if ((normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) || isPreviewHost(hostname)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -257,6 +276,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  const normalizedOrigin = normalizeOrigin(origin);
   const hostname = (() => {
     try {
       return new URL(origin).hostname;
@@ -265,7 +285,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
   })();
 
-  if (!allowedOrigins.includes(origin) && !isPreviewHost(hostname)) {
+  const allowedOrigins = getAllowedOrigins();
+  if (!(normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) && !isPreviewHost(hostname)) {
+    console.error('[CORS DEBUG] origin=', origin, 'normalizedOrigin=', normalizedOrigin, 'allowedOrigins=', allowedOrigins, 'hostname=', hostname);
     return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
   }
   next();
@@ -305,7 +327,7 @@ app.use(cookieParser(sessionSecret));
 app.use(attachSession);
 
 const { doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.SESSION_SECRET || 'dev-csrf-secret',
+  getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',
   getSessionIdentifier: (req) =>
     req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
   cookieName: 'xcsrf',
@@ -461,7 +483,7 @@ function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
 }
 
 app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
-  const csrfToken = (req as any).csrfToken?.();
+  const csrfToken = (req as any).csrfToken?.({ overwrite: true });
   if (!csrfToken) {
     return res.status(500).json({ success: false, message: 'CSRF token unavailable' });
   }
