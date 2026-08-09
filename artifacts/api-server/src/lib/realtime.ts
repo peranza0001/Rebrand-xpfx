@@ -37,7 +37,8 @@ export async function initRealtime(server: http.Server) {
       const secret = process.env.SESSION_SECRET || '';
       const signed = cookieParser.signedCookie(raw, secret);
       const sid = signed || raw;
-      const userId = sessions.get(sid as string);
+      const rec = sessions.get(sid as string);
+      const userId = rec?.userId;
       if (!userId) return next(new Error('Invalid session'));
       // attach userId to socket
       (socket as any).userId = userId;

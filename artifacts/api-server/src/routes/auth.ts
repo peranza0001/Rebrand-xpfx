@@ -267,13 +267,15 @@ router.post("/auth/login", async (req, res) => {
 
   const sid = newSessionId();
   const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
+  // capture lightweight metadata for the session
+  const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
+  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin", meta);
   logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] login.session_persist_outcome");
   if (!sessionPersisted) {
     logger.error({ userId: stored.user.id }, "[auth] login.session_persist_failed");
     return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
   }
-  sessions.set(sid, stored.user.id);
+  sessions.set(sid, { userId: stored.user.id, metadata: meta });
   setSessionCookie(res, sid);
   // Successful login — reset any failure counters
   try { resetLoginFailures(emailLower); } catch (_) { /* best-effort */ }
@@ -405,12 +407,13 @@ router.post("/auth/verify-otp", async (req, res) => {
 
     const sid = newSessionId();
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false);
+    const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
+    const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false, meta);
     if (!sessionPersisted) {
       logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
       return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "session_persist_failed" });
     }
-    sessions.set(sid, id);
+    sessions.set(sid, { userId: id, metadata: meta });
     setSessionCookie(res, sid);
     logActivity({
       actorId: id,
@@ -442,13 +445,14 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
   const sid = newSessionId();
   const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin");
+  const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
+  const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin", meta);
   logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] verify-otp.login.session_persist_outcome");
   if (!sessionPersisted) {
     logger.error({ userId: stored.user.id, email: stored.user.email }, "[auth] verify-otp.login.session_persist_failed");
     return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
   }
-  sessions.set(sid, stored.user.id);
+  sessions.set(sid, { userId: stored.user.id, metadata: meta });
   setSessionCookie(res, sid);
   try { resetLoginFailures(stored.user.email.toLowerCase()); } catch (_) { /* best-effort */ }
   logActivity({
@@ -540,11 +544,11 @@ router.get("/auth/sessions", requireAuth, async (req, res) => {
   try {
     const persisted = await listSessionsForUser(userId);
     const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as string | undefined;
-    const inMemory = [...sessions.entries()].filter(([, uid]) => uid === userId).map(([id]) => id);
-    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, isCurrent: sid === p.id || inMemory.includes(p.id) }));
+    const inMemory = [...sessions.entries()].filter(([, rec]) => rec.userId === userId).map(([id]) => id);
+    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, isCurrent: sid === p.id || inMemory.includes(p.id), metadata: (p as any).metadata ?? undefined }));
     // Include any in-memory-only sessions not present in persisted rows
     for (const id of inMemory) {
-      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, isCurrent: sid === id });
+      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, isCurrent: sid === id, metadata: sessions.get(id)?.metadata });
     }
     return res.json({ sessions: combined });
   } catch (err) {
@@ -558,7 +562,8 @@ router.delete("/auth/sessions/:id", requireAuth, async (req, res) => {
   const target = String(req.params.id || "");
   // Ensure the session belongs to the user (or is current)
   const ownerInMemory = sessions.get(target);
-  if (ownerInMemory && ownerInMemory !== userId) {
+  const ownerInMemoryUserId = ownerInMemory?.userId ?? undefined;
+  if (ownerInMemoryUserId && ownerInMemoryUserId !== userId) {
     return res.status(403).json({ error: "Not authorized to revoke that session." });
   }
   try {
@@ -577,8 +582,8 @@ router.post("/auth/sessions/revoke-all", requireAuth, async (req, res) => {
     // Delete persisted sessions
     await deleteSessionsForUser(userId);
     // Delete in-memory sessions
-    for (const [sid, uid] of sessions.entries()) {
-      if (uid === userId) sessions.delete(sid);
+    for (const [sid, rec] of sessions.entries()) {
+      if (rec.userId === userId) sessions.delete(sid);
     }
     logActivity({ actorId: userId, actorName: req.storedUser!.user.fullName, action: "auth.session.revoke_all", detail: `Revoked all sessions for user` });
     return res.json({ success: true });
@@ -593,10 +598,10 @@ router.get("/admin/users/:id/sessions", requireAuth, requireAdmin, async (req, r
   const targetUser = String(req.params.id || "");
   try {
     const persisted = await listSessionsForUser(targetUser);
-    const inMemory = [...sessions.entries()].filter(([, uid]) => uid === targetUser).map(([id]) => id);
-    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, inMemory: inMemory.includes(p.id) }));
+    const inMemory = [...sessions.entries()].filter(([, rec]) => rec.userId === targetUser).map(([id]) => id);
+    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, inMemory: inMemory.includes(p.id), metadata: (p as any).metadata ?? undefined }));
     for (const id of inMemory) {
-      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, inMemory: true });
+      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, inMemory: true, metadata: sessions.get(id)?.metadata });
     }
     return res.json({ sessions: combined });
   } catch (err) {
@@ -622,8 +627,8 @@ router.post("/admin/users/:id/sessions/revoke-all", requireAuth, requireAdmin, a
   const targetUser = String(req.params.id || "");
   try {
     await deleteSessionsForUser(targetUser);
-    for (const [s, uid] of sessions.entries()) {
-      if (uid === targetUser) sessions.delete(s);
+    for (const [s, rec] of sessions.entries()) {
+      if (rec.userId === targetUser) sessions.delete(s);
     }
     logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: "admin.session.revoke_all", detail: `Admin revoked all sessions for user ${targetUser}` });
     pushAdminAlert({ kind: "auth.session.revoked_all", title: "All sessions revoked", body: `Admin ${req.storedUser!.user.email} revoked all sessions for user ${targetUser}`, userId: targetUser, userEmail: "", severity: "warning", linkUrl: `/users/${targetUser}`, email: false });
@@ -634,7 +639,7 @@ router.post("/admin/users/:id/sessions/revoke-all", requireAuth, requireAdmin, a
   }
 });
 
-router.post("/auth/demo", (_req, res) => {
+router.post("/auth/demo", (req, res) => {
   if (!isDemoRouteAvailable()) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
@@ -646,7 +651,8 @@ router.post("/auth/demo", (_req, res) => {
   const userId = stored.user.id;
   getUserData(userId);
   const sid = newSessionId();
-  sessions.set(sid, userId);
+  const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
+  sessions.set(sid, { userId, metadata: meta });
   setSessionCookie(res, sid);
 
   logActivity({

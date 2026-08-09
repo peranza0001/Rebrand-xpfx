@@ -14,7 +14,8 @@ export function attachSession(req: Request, _res: Response, next: NextFunction):
     | string
     | undefined;
   if (sid) {
-    const userId = sessions.get(sid);
+    const rec = sessions.get(sid);
+    const userId = rec?.userId ?? undefined;
     if (userId) {
       const stored = users.get(userId);
       if (stored) {

@@ -163,6 +163,7 @@ export async function persistSession(
   userId: string,
   expiresAt: Date,
   isAdmin = false,
+  _metadata?: { ip?: string; userAgent?: string; createdAt?: string },
 ): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
