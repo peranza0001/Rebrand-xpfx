@@ -41,7 +41,7 @@ import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { persistSession, persistUser, getPrismaClient, deleteSession } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
-import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent } from "../lib/auth-throttle";
+import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import {
   issueOtp,
   resendOtp as resendOtpFn,
@@ -195,16 +195,16 @@ router.post("/auth/signup", async (req, res) => {
     // Account is NOT created yet — we hold the payload in the OTP record and
     // only commit once the email has been verified.
     try {
-      // Throttle OTP sends per-email to reduce abuse
-      if (!canSendOtp(email)) {
-        logger.warn({ email }, "[auth] signup.otp_throttled");
-        // Do not reveal throttling to callers — return the same OTP-challenge
-        // response while avoiding sending more emails.
-        return res.json(otpChallenge(parsed.data.email, "signup"));
-      }
+        // Throttle OTP sends per-email and per-IP to reduce abuse
+        const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '';
+        if (!canSendOtp(email) || !canSendOtpFromIp(ip)) {
+          logger.warn({ email, ip }, "[auth] signup.otp_throttled");
+          return res.json(otpChallenge(parsed.data.email, "signup"));
+        }
 
-      await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
-      recordOtpSent(email);
+        await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
+        recordOtpSent(email);
+        recordOtpSentFromIp(ip);
     } catch (err) {
       logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
       return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
@@ -324,7 +324,10 @@ router.post("/auth/verify-otp", async (req, res) => {
     const email = payload.email.toLowerCase();
     const existingUserId = await resolvePersistedUserIdByEmail(email);
     if (existingUserId) {
-      return res.status(409).json({ error: "An account with that email already exists." });
+      // Do not reveal whether an account exists. Return a generic error so
+      // callers cannot infer account registration status.
+      logger.warn({ email }, "[auth] signup.verify_otp_account_exists");
+      return res.status(400).json({ error: "Invalid code." });
     }
     const id = newUuid();
     const referralCode = newReferralCode();
@@ -476,13 +479,17 @@ router.post("/auth/resend-otp", async (req, res) => {
   // or by throttle vs. "no pending verification" messages.
   let result;
   try {
-    // Throttle per-email resend to reduce abuse
-    if (!canSendOtp(parsed.data.email)) {
-      logger.warn({ email: parsed.data.email }, "[auth] resend_otp.throttled");
+    // Throttle per-email and per-IP resend to reduce abuse
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '';
+    if (!canSendOtp(parsed.data.email) || !canSendOtpFromIp(ip)) {
+      logger.warn({ email: parsed.data.email, ip }, "[auth] resend_otp.throttled");
       return res.json(otpChallenge(parsed.data.email, "signup"));
     }
     result = await resendOtpFn(parsed.data.email);
-    if (result.ok) recordOtpSent(parsed.data.email);
+    if (result.ok) {
+      recordOtpSent(parsed.data.email);
+      recordOtpSentFromIp(ip);
+    }
   } catch (err) {
     logger.error({ err, email: parsed.data.email }, "[auth] Failed to resend OTP");
     return res.status(500).json({ error: "Unable to resend verification email. Please try again later." });

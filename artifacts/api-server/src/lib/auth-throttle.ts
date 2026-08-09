@@ -15,6 +15,7 @@ type FailureRecord = { count: number; firstAt: number; lockedUntil?: number };
 
 const failedLogins = new Map<string, FailureRecord>();
 const otpRequestsByEmail = new Map<string, { count: number; windowStart: number }>();
+const otpRequestsByIp = new Map<string, { count: number; windowStart: number }>();
 
 export function isLoginLocked(email: string): boolean {
   const rec = failedLogins.get(email);
@@ -68,6 +69,25 @@ export function recordOtpSent(email: string): void {
   }
   rec.count += 1;
   otpRequestsByEmail.set(lower, rec);
+}
+
+export function canSendOtpFromIp(ip: string): boolean {
+  const now = Date.now();
+  const rec = otpRequestsByIp.get(ip);
+  if (!rec) return true;
+  if (now - rec.windowStart > OTP_WINDOW_MS) return true;
+  return rec.count < OTP_MAX_PER_HOUR * 5; // allow more total per IP
+}
+
+export function recordOtpSentFromIp(ip: string): void {
+  const now = Date.now();
+  const rec = otpRequestsByIp.get(ip);
+  if (!rec || now - rec.windowStart > OTP_WINDOW_MS) {
+    otpRequestsByIp.set(ip, { count: 1, windowStart: now });
+    return;
+  }
+  rec.count += 1;
+  otpRequestsByIp.set(ip, rec);
 }
 
 export function _debugResetAll(): void {
