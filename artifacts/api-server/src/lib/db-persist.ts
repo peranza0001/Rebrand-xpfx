@@ -227,6 +227,61 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 /**
+ * List persisted sessions for a user. Returns an array of { id, userId, expiresAt, isAdmin }.
+ */
+export async function listSessionsForUser(userId: string): Promise<Array<{ id: string; userId: string; expiresAt: Date | null; isAdmin: boolean }>> {
+  const out: Array<{ id: string; userId: string; expiresAt: Date | null; isAdmin: boolean }> = [];
+  const db = getDb();
+  if (db) {
+    try {
+      const rows: any[] = await db.select().from(userSessionsTable).where(eq(userSessionsTable.userId, userId));
+      for (const r of rows) {
+        out.push({ id: String(r.id), userId: String(r.userId), expiresAt: r.expiresAt ? new Date(r.expiresAt) : null, isAdmin: Boolean(r.isAdmin) });
+      }
+      return out;
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] listSessionsForUser failed using Drizzle");
+    }
+  }
+
+  if (prismaClient && prismaClient.userSession && prismaClient.userSession.findMany) {
+    try {
+      const rows = await prismaClient.userSession.findMany({ where: { userId } });
+      for (const r of rows) {
+        out.push({ id: String(r.id), userId: String(r.userId), expiresAt: r.expiresAt ?? null, isAdmin: Boolean(r.isAdmin) });
+      }
+      return out;
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] listSessionsForUser failed using Prisma");
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Delete all persisted sessions for a user (best-effort).
+ */
+export async function deleteSessionsForUser(userId: string): Promise<void> {
+  const db = getDb();
+  if (db) {
+    try {
+      await db.delete(userSessionsTable).where(eq(userSessionsTable.userId, userId));
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] deleteSessionsForUser failed using Drizzle");
+    }
+  }
+
+  if (prismaClient && prismaClient.userSession && prismaClient.userSession.deleteMany) {
+    try {
+      await prismaClient.userSession.deleteMany({ where: { userId } });
+    } catch (err) {
+      // ignore
+    }
+  }
+}
+
+/**
  * Persists a wallet to the database.
  */
 export async function persistWallet(walletId: string, userId: string, walletData: {

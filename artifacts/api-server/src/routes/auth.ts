@@ -534,6 +534,59 @@ router.get("/auth/session", (req, res) => {
   return res.json(sessionFor(req.storedUser));
 });
 
+router.get("/auth/sessions", requireAuth, async (req, res) => {
+  const userId = req.userId!;
+  try {
+    const persisted = await listSessionsForUser(userId);
+    const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as string | undefined;
+    const inMemory = [...sessions.entries()].filter(([, uid]) => uid === userId).map(([id]) => id);
+    const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, isCurrent: sid === p.id || inMemory.includes(p.id) }));
+    // Include any in-memory-only sessions not present in persisted rows
+    for (const id of inMemory) {
+      if (!combined.find((c) => c.id === id)) combined.push({ id, expiresAt: null, isAdmin: false, isCurrent: sid === id });
+    }
+    return res.json({ sessions: combined });
+  } catch (err) {
+    logger.error({ err, userId }, "[auth] sessions.list_failed");
+    return res.status(500).json({ error: "Unable to list sessions" });
+  }
+});
+
+router.delete("/auth/sessions/:id", requireAuth, async (req, res) => {
+  const userId = req.userId!;
+  const target = String(req.params.id || "");
+  // Ensure the session belongs to the user (or is current)
+  const ownerInMemory = sessions.get(target);
+  if (ownerInMemory && ownerInMemory !== userId) {
+    return res.status(403).json({ error: "Not authorized to revoke that session." });
+  }
+  try {
+    // Best-effort delete persisted session
+    await deleteSession(target);
+  } catch (_) {}
+  // Remove in-memory mapping
+  sessions.delete(target);
+  logActivity({ actorId: userId, actorName: req.storedUser!.user.fullName, action: "auth.session.revoke", detail: `Revoked session ${target}` });
+  return res.json({ success: true });
+});
+
+router.post("/auth/sessions/revoke-all", requireAuth, async (req, res) => {
+  const userId = req.userId!;
+  try {
+    // Delete persisted sessions
+    await deleteSessionsForUser(userId);
+    // Delete in-memory sessions
+    for (const [sid, uid] of sessions.entries()) {
+      if (uid === userId) sessions.delete(sid);
+    }
+    logActivity({ actorId: userId, actorName: req.storedUser!.user.fullName, action: "auth.session.revoke_all", detail: `Revoked all sessions for user` });
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error({ err, userId }, "[auth] sessions.revoke_all_failed");
+    return res.status(500).json({ error: "Unable to revoke sessions" });
+  }
+});
+
 router.post("/auth/demo", (_req, res) => {
   if (!isDemoRouteAvailable()) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
