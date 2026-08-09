@@ -25,7 +25,7 @@
     "prepare:runtime-secrets": "node scripts/generate-secrets.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
     "build:all": "npm run build",
-    "test:enterprise": "npm run build:all && node --import tsx tests/auth-flow.test.mjs",
+    "test:enterprise": "npm run build:all && node --import tsx tests/auth-flow.test.mjs && node --import tsx tests/sessions.test.mjs",
     "start": "npm run build && node artifacts/api-server/dist/index.mjs",
     "start:prod": "NODE_ENV=production npm run build && NODE_ENV=production node artifacts/api-server/dist/index.mjs",
     "dev": "npm run dev --workspaces --if-present",
