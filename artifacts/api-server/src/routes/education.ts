@@ -8,6 +8,7 @@ import {
 } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -44,7 +45,7 @@ router.get("/education/courses/:courseId", requireAuth, (req, res) => {
       lessons: courseLessons,
     });
   } catch (error) {
-    console.error("[education] GET /courses/:courseId error:", error);
+    logger.error({ err: error }, "[education] GET /courses/:courseId error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve course lessons.",
@@ -80,7 +81,7 @@ router.get("/education/progress", requireAuth, (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[education] GET /progress error:", error);
+    logger.error({ err: error }, "[education] GET /progress error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve progress.",
@@ -121,7 +122,7 @@ router.get("/education/courses", requireAuth, (req, res) => {
       courses: coursesWithProgress,
     });
   } catch (error) {
-    console.error("[education] GET /courses error:", error);
+    logger.error({ err: error }, "[education] GET /courses error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve courses.",
@@ -166,7 +167,7 @@ router.get("/education/courses/:courseId/lessons", requireAuth, (req, res) => {
       lessons: courseLessons,
     });
   } catch (error) {
-    console.error("[education] GET /courses/:courseId/lessons error:", error);
+    logger.error({ err: error }, "[education] GET /courses/:courseId/lessons error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve course lessons.",
@@ -213,7 +214,7 @@ router.get("/education/lessons/:lessonId", requireAuth, (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[education] GET /lessons/:lessonId error:", error);
+    logger.error({ err: error }, "[education] GET /lessons/:lessonId error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve lesson.",
@@ -301,10 +302,7 @@ router.post("/education/lessons/:lessonId/complete", requireAuth, (req, res) => 
       courseCompleted: allCompleted,
     });
   } catch (error) {
-    console.error(
-      "[education] POST /lessons/:lessonId/complete error:",
-      error,
-    );
+    logger.error({ err: error }, "[education] POST /lessons/:lessonId/complete error");
     return res.status(500).json({
       success: false,
       message: "Failed to complete lesson.",
@@ -344,7 +342,7 @@ router.get("/education/progress", requireAuth, (req, res) => {
       completedLessons: Array.from(data.lessonProgress.values()).filter((p) => p.completed).length,
     });
   } catch (error) {
-    console.error("[education] GET /progress error:", error);
+    logger.error({ err: error }, "[education] GET /progress error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve education progress.",
@@ -395,7 +393,7 @@ router.get("/education/stats", requireAuth, (req, res) => {
       stats,
     });
   } catch (error) {
-    console.error("[education] GET /stats error:", error);
+    logger.error({ err: error }, "[education] GET /stats error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve education statistics.",

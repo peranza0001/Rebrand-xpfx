@@ -81,12 +81,8 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
 
   if (!hasEmailProvider && !isProduction) {
     logger.info(
-      { to: maskEmail(email), subject, smtpConfigured: false },
+      { to: maskEmail(email), subject, smtpConfigured: false, intent },
       "[otp] Verification code generated (stub send — no email provider configured)",
-    );
-    // eslint-disable-next-line no-console
-    console.log(
-      `\n[OTP] To: ${email}  Code: ${code}  (intent=${intent}, valid 10min)\n`,
     );
   }
 }

@@ -15,6 +15,7 @@ import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
+import { logger } from './lib/logger';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -169,7 +170,7 @@ app.get('/api/readyz', async (_req: Request, res: Response) => {
 });
 
 // ─── LOGGING ──────────────────────────────────────────────────────────────────
-app.use(pinoHttp({
+app.use((pinoHttp as unknown as any)({
   level: process.env.LOG_LEVEL || 'info',
   transport: undefined,
 }));
@@ -207,7 +208,14 @@ function normalizeOrigin(origin: string | undefined): string | null {
     const port = url.port ? `:${url.port}` : '';
     return `${url.protocol}//${url.hostname}${port}`;
   } catch {
-    return null;
+    const trimmed = origin.trim().replace(/\/+$/, '');
+    try {
+      const url = new URL(trimmed);
+      const port = url.port ? `:${url.port}` : '';
+      return `${url.protocol}//${url.hostname}${port}`;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -221,7 +229,7 @@ function normalizeAllowedOrigins(raw: string): string[] {
 }
 
 const getAllowedOrigins = (): string[] => {
-  const raw = process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '';
+  const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
   return normalizeAllowedOrigins(raw);
 };
 
@@ -283,7 +291,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   const allowedOrigins = getAllowedOrigins();
   if (!(normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) && !isPreviewHost(hostname)) {
-    console.error('[CORS DEBUG] origin=', origin, 'normalizedOrigin=', normalizedOrigin, 'allowedOrigins=', allowedOrigins, 'hostname=', hostname);
+    logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
     return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
   }
   next();
@@ -522,7 +530,7 @@ app.get('*', (req: Request, res: Response) => {
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = (err as any).status || 500;
-  console.error(`[ERROR] ${err.message}`);
+  logger.error({ err }, '[ERROR] Global middleware error');
   res.status(status).json({
     success: false,
     message: process.env.NODE_ENV === 'production'

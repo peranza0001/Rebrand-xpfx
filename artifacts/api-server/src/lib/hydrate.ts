@@ -383,7 +383,7 @@ export async function hydrateFromDb(): Promise<void> {
 
       // Only restore sessions for users we have in memory
       if (users.has(userId)) {
-        sessions.set(sessionId, userId);
+        sessions.set(sessionId, { userId });
         sessionsLoaded++;
       }
     }
@@ -439,7 +439,7 @@ export async function hydrateFromDb(): Promise<void> {
           return {
             id: coerceString(cwRow.id),
             address: coerceString(cwRow.address),
-            walletType: coerceString(cwRow.walletType, cwRow.wallet_type),
+            walletType: coerceString(cwRow.walletType, coerceString(cwRow.wallet_type)),
             balance: coerceNumber(cwRow.balance),
             currency: coerceString(cwRow.currency, "USD"),
             connectedAt: coerceDate(cwRow.connectedAt ?? cwRow.connected_at),
@@ -485,8 +485,9 @@ export async function hydrateFromDb(): Promise<void> {
       const persistedP2PMerchantApplications = p2pMerchantApplicationsByUser.get(userId);
       if (persistedP2PMerchantApplications) {
         for (const appRow of persistedP2PMerchantApplications) {
-          p2pMerchantApplications.set(appRow.id, {
-            id: coerceString(appRow.id),
+          const appId = coerceString(appRow.id);
+          p2pMerchantApplications.set(appId, {
+            id: appId,
             userId: coerceString(appRow.userId),
             userName: "",
             userEmail: "",

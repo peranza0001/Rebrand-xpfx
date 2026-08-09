@@ -17,32 +17,52 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   const warnings: string[] = [];
 
   const nodeEnv = normalizeString(env.NODE_ENV);
+  if (!nodeEnv) {
+    missing.push('NODE_ENV');
+  }
   resolved.NODE_ENV = nodeEnv || 'development';
-  resolved.PORT = normalizeString(env.PORT) || '8080';
+
+  const port = normalizeString(env.PORT);
+  if (!port) {
+    missing.push('PORT');
+  }
+  resolved.PORT = port || '8080';
 
   const databaseUrl = normalizeString(getRawDatabaseUrl(env as Record<string, string | undefined>));
   if (!databaseUrl) {
-    warnings.push('DATABASE_URL');
+    missing.push('DATABASE_URL');
   }
   resolved.DATABASE_URL = databaseUrl;
 
   const sessionSecret = normalizeString(env.SESSION_SECRET);
   if (!sessionSecret) {
-    warnings.push('SESSION_SECRET');
+    missing.push('SESSION_SECRET');
   }
   resolved.SESSION_SECRET = sessionSecret;
 
   const jwtSecret = normalizeString(env.JWT_SECRET);
   if (!jwtSecret) {
-    warnings.push('JWT_SECRET');
+    missing.push('JWT_SECRET');
   }
   resolved.JWT_SECRET = jwtSecret;
 
   const allowedOrigins = normalizeString(env.ALLOWED_ORIGINS) || normalizeString(env.REPLIT_DOMAINS);
   if (!allowedOrigins) {
-    warnings.push('ALLOWED_ORIGINS');
+    missing.push('ALLOWED_ORIGINS');
   }
   resolved.ALLOWED_ORIGINS = allowedOrigins;
+
+  const moonpayApiKey = normalizeString(env.MOONPAY_API_KEY);
+  if (!moonpayApiKey) {
+    missing.push('MOONPAY_API_KEY');
+  }
+  resolved.MOONPAY_API_KEY = moonpayApiKey;
+
+  const coinbaseWebhookSecret = normalizeString(env.COINBASE_WEBHOOK_SECRET);
+  if (!coinbaseWebhookSecret) {
+    missing.push('COINBASE_WEBHOOK_SECRET');
+  }
+  resolved.COINBASE_WEBHOOK_SECRET = coinbaseWebhookSecret;
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
   if (!walletEncryptionKey) {
@@ -62,16 +82,14 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   }
   resolved.ADMIN_PASSWORD = adminPassword;
 
-  if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_SECRET_KEY)) {
+  if (moonpayApiKey && !normalizeString(env.MOONPAY_SECRET_KEY)) {
     warnings.push('MOONPAY_SECRET_KEY');
   }
-  if (normalizeString(env.MOONPAY_API_KEY) && !normalizeString(env.MOONPAY_WEBHOOK_SECRET)) {
+  if (moonpayApiKey && !normalizeString(env.MOONPAY_WEBHOOK_SECRET)) {
     warnings.push('MOONPAY_WEBHOOK_SECRET');
   }
 
   const optionalWarnings = [
-    ['MOONPAY_API_KEY', env.MOONPAY_API_KEY],
-    ['COINBASE_WEBHOOK_SECRET', env.COINBASE_WEBHOOK_SECRET],
     ['AI_INTEGRATIONS_OPENAI_API_KEY', env.AI_INTEGRATIONS_OPENAI_API_KEY],
     ['ALCHEMY_API_KEY', env.ALCHEMY_API_KEY],
   ] as Array<[string, string | undefined]>;

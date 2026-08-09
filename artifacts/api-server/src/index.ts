@@ -64,8 +64,8 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
 async function initDatabase() {
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    logger.warn('[DB] DATABASE_URL and DATABASE_PUBLIC_URL not set — continuing without Prisma persistence');
-    return null;
+    logger.error('[DB] DATABASE_URL is not configured — aborting startup');
+    throw new Error('DATABASE_URL is not configured');
   }
 
   try {
@@ -89,8 +89,8 @@ async function initDatabase() {
     logger.info('[DB] PostgreSQL connected via Prisma');
     return client;
   } catch (error) {
-    logger.warn({ err: error }, '[DB] Prisma unavailable — continuing without persistence');
-    return null;
+    logger.error({ err: error }, '[DB] Prisma failed to connect — aborting startup');
+    throw error;
   }
 }
 
