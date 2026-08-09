@@ -16,6 +16,24 @@ function isUuid(value: string): boolean {
   return UUID_RE.test(value);
 }
 
+async function retryAsync<T>(fn: () => Promise<T>, attempts = 3, delayMs = 300): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      logger.warn({ attempt: i, attempts, err }, '[retry] operation failed, retrying');
+      if (i < attempts) {
+        // backoff
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, delayMs * i));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export function setPrismaClient(client: any): void {
   prismaClient = client;
 }
@@ -51,28 +69,30 @@ export async function persistUser(userId: string, userData: {
     if (!prismaClient) return true;
     const { firstName, lastName } = deriveFirstLastName(userData.fullName);
     try {
-      await prismaClient.users.upsert({
-        where: { id: userId },
-        update: {
-          email: userData.email,
-          username: userData.username,
-          firstName,
-          lastName,
-          passwordHash: userData.passwordHash,
-          country: userData.country,
-          phone: userData.phone ?? null,
-        },
-        create: {
-          id: userId,
-          email: userData.email,
-          username: userData.username,
-          passwordHash: userData.passwordHash,
-          firstName,
-          lastName,
-          country: userData.country,
-          phone: userData.phone ?? null,
-        },
-      });
+      await retryAsync(async () => {
+        await prismaClient.users.upsert({
+          where: { id: userId },
+          update: {
+            email: userData.email,
+            username: userData.username,
+            firstName,
+            lastName,
+            passwordHash: userData.passwordHash,
+            country: userData.country,
+            phone: userData.phone ?? null,
+          },
+          create: {
+            id: userId,
+            email: userData.email,
+            username: userData.username,
+            passwordHash: userData.passwordHash,
+            firstName,
+            lastName,
+            country: userData.country,
+            phone: userData.phone ?? null,
+          },
+        });
+      }, 3, 300);
       return true;
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : String(err);
@@ -84,9 +104,9 @@ export async function persistUser(userId: string, userData: {
   const db = getDb();
   if (db) {
     try {
-      const existing = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+      const existing = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.id, userId)), 3, 200);
       if (existing.length > 0) {
-        await db.update(usersTable)
+        await retryAsync(async () => db.update(usersTable)
           .set({
             email: userData.email,
             username: userData.username,
@@ -95,11 +115,11 @@ export async function persistUser(userId: string, userData: {
             country: userData.country,
             phone: userData.phone ?? "",
           })
-          .where(eq(usersTable.id, userId));
+          .where(eq(usersTable.id, userId)), 3, 200);
         return true;
       }
 
-      await db.insert(usersTable).values({
+      await retryAsync(async () => db.insert(usersTable).values({
         id: userId,
         email: userData.email,
         username: userData.username,
@@ -107,7 +127,7 @@ export async function persistUser(userId: string, userData: {
         passwordHash: userData.passwordHash,
         country: userData.country,
         phone: userData.phone ?? "",
-      });
+      }), 3, 200);
       return true;
     } catch (err) {
       logger.warn({ err, userId }, "[db-persist] persistUser failed using Drizzle");
@@ -171,15 +191,17 @@ export async function persistSession(
   const prismaFallback = async (): Promise<boolean> => {
     if (!prismaClient) return true;
     try {
-      await prismaClient.userSession.create({
-        data: {
-          id: sessionId,
-          token: sessionId,
-          userId,
-          expiresAt,
-          isAdmin,
-        },
-      });
+      await retryAsync(async () => {
+        await prismaClient.userSession.create({
+          data: {
+            id: sessionId,
+            token: sessionId,
+            userId,
+            expiresAt,
+            isAdmin,
+          },
+        });
+      }, 3, 300);
       return true;
     } catch (err) {
       logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Prisma");
@@ -190,12 +212,12 @@ export async function persistSession(
   const db = getDb();
   if (db) {
     try {
-      await db.insert(userSessionsTable).values({
+      await retryAsync(async () => db.insert(userSessionsTable).values({
         id: sessionId,
         userId,
         isAdmin,
         expiresAt,
-      });
+      }), 3, 200);
       return true;
     } catch (err) {
       logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Drizzle");
