@@ -1,13 +1,15 @@
 import { Router, type IRouter } from "express";
 import { CreateDepositBody, type Deposit } from "@workspace/api-zod";
-import { claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
+import { claimTxHash, getUserData, logActivity, newId, newUuid, NOW } from "../lib/store";
 import { requireAuth } from "../lib/session";
+import { persistTransaction } from "../lib/db-persist";
 import {
   getPlatformReceivingAddress,
   verifyOnChainPayment,
 } from "../lib/blockchain";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { determineAccountTier, canPerformAction } from "../lib/account-tiers";
 
 const router: IRouter = Router();
 
@@ -25,6 +27,23 @@ router.post("/deposits", requireAuth, async (req, res) => {
     });
   }
   if (!enforceGasFee(req, res, "deposit")) return;
+  
+  // Check tier permissions for fiat deposits
+  const userTier = determineAccountTier({
+    buyVerified: req.storedUser!.user.buyVerified,
+    kycVerified: req.storedUser!.user.kycVerified,
+    bankAccountsCount: 0,
+    role: req.storedUser!.role,
+  });
+  
+  if (parsed.data.method !== 'crypto_wallet' && !canPerformAction(userTier, 'fiatDepositsEnabled')) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account tier does not support fiat deposits",
+      hint: "Verify your account to enable fiat-capable deposits",
+    });
+  }
+  
   const u = req.storedUser!.user;
   const data = getUserData(req.userId!);
   const mainWallet = data.wallets.find((w) => w.type === "main");
@@ -108,9 +127,10 @@ router.post("/deposits", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.deposits.unshift(deposit);
+  const transactionId = newUuid();
   data.transactions.unshift({
-    id: newId("tx"),
-    walletId: mainWallet?.id ?? "w_main",
+    id: transactionId,
+    walletId: mainWallet?.id ?? "",
     type: "deposit",
     amount: parsed.data.amount,
     currency: parsed.data.currency,
@@ -118,6 +138,15 @@ router.post("/deposits", requireAuth, async (req, res) => {
     description: `Deposit via ${parsed.data.method}${settlement} (pending verification)`,
     createdAt: NOW(),
   });
+  if (mainWallet?.id) {
+    void persistTransaction(transactionId, mainWallet.id, u.id, {
+      type: "deposit",
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
+      status: "pending",
+      description: `Deposit via ${parsed.data.method}${settlement} (pending verification)`,
+    });
+  }
   logActivity({
     actorId: u.id,
     actorName: u.fullName,

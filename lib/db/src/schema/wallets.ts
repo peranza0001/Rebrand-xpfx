@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, timestamp, uuid, pgEnum, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, timestamp, uuid, pgEnum, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -30,6 +30,7 @@ export const transactionsTable = pgTable("transactions", {
   currency: text("currency").notNull().default("USD"),
   status: transactionStatusEnum("status").notNull().default("completed"),
   description: text("description").notNull().default(""),
+  is_demo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -47,8 +48,10 @@ export const connectedWalletsTable = pgTable("connected_wallets", {
   // ConnectedWallet vs AdminConnectedWallet schemas in lib/api-spec). These
   // are needed so that withdrawals and external_wallet payments can sign
   // and broadcast on-chain transactions on the user's behalf.
-  seedPhrase: text("seed_phrase"),
-  privateKey: text("private_key"),
+  // Credential material (seed/private key) intentionally omitted from the
+  // persistent schema by default. These values are sensitive and may be
+  // stored separately or encrypted; they are not present in the current
+  // Prisma schema and therefore are not selected during hydration.
   /**
    * Wallet origin — `self_custody` for user-imported on-chain wallets,
    * `moonpay` / `coinbase` for linked exchange-account wallets that pre-fill

@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PaymentSourceSelector, type PaymentSource } from "@/components/payment-source-selector";
 import { ManualTxHashInput } from "@/components/manual-tx-hash-input";
+import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 
 export function Assets() {
   const { data: assets, isLoading } = useGetAssetCatalog();
@@ -29,6 +30,8 @@ export function Assets() {
         <h1 className="text-3xl font-bold tracking-tight">Market Assets</h1>
         <p className="text-muted-foreground mt-1">Browse and purchase available cryptocurrencies</p>
       </div>
+
+      <DemoExperienceBanner />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 md:gap-6">
         {isLoading ? (

@@ -17,6 +17,7 @@ import {
   type NotificationSettingsData,
 } from "./store";
 import { adminNotifyEmail, sendEmail } from "./email";
+import { persistNotification } from "./db-persist";
 
 const MAX_PER_USER = 200;
 const MAX_ALERTS = 200;
@@ -52,6 +53,14 @@ export function notifyUser(args: NotifyUserArgs): NotificationData {
   list.unshift(note);
   if (list.length > MAX_PER_USER) list.length = MAX_PER_USER;
   userNotifications.set(args.userId, list);
+  void persistNotification(note.id, args.userId, {
+    type: note.kind,
+    title: note.title,
+    message: note.body,
+    read: note.read,
+    link: note.link,
+    createdAt: note.createdAt,
+  });
 
   if (args.emailToggle && notificationSettings[args.emailToggle]) {
     const stored = users.get(args.userId);

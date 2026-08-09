@@ -19,10 +19,13 @@
   "scripts": {
     "generate:secrets": "node scripts/generate-secrets.mjs",
     "generate:pitch-deck": "node scripts/generate-pitch-deck.mjs",
-    "postinstall": "node scripts/generate-secrets.mjs && node scripts/fix-date-fns.mjs && prisma generate",
+    "bootstrap": "node scripts/generate-secrets.mjs && node scripts/fix-date-fns.mjs && prisma generate && npm run build",
+    "postinstall": "node scripts/generate-secrets.mjs",
     "predeploy": "node scripts/predeploy.mjs --skip-env-check",
+    "prepare:runtime-secrets": "node scripts/generate-secrets.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
     "build:all": "npm run build",
+    "test:enterprise": "npm run build:all && node --import tsx tests/auth-flow.test.mjs && node --import tsx tests/sessions.test.mjs && node --import tsx tests/auth-throttle.test.mjs",
     "start": "npm run build && node artifacts/api-server/dist/index.mjs",
     "start:prod": "NODE_ENV=production npm run build && NODE_ENV=production node artifacts/api-server/dist/index.mjs",
     "dev": "npm run dev --workspaces --if-present",
@@ -34,21 +37,30 @@
     "dev:all": "npm run dev:admin & npm run dev:nextrade & npm run dev:mockup || true",
     "lint": "eslint . --config eslint.config.cjs --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build --workspace=artifacts/api-server && node --import tsx tests/app-readiness.test.mjs && node --import tsx tests/production-env.test.mjs",
+    "test": "npm run build --workspace=artifacts/api-server && node --import tsx tests/app-readiness.test.mjs && node --import tsx tests/production-env.test.mjs && node --import tsx tests/demo-auth.test.mjs && node --import tsx tests/generate-secrets.test.mjs && node --import tsx tests/runtime-env-bootstrap.test.mjs",
+    "test:db-connection": "node scripts/test-db-connection.mjs",
     "pm2:install": "npm install -g pm2 || true",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:save": "pm2 save"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
-    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "prisma": "5.14.0",
     "@prisma/client": "5.14.0",
     "tsx": "^4.23.1",
     "typescript": "^5.4.5",
     "husky": "^9.0.0"
+  },
+  "overrides": {
+    "brace-expansion": "2.1.2",
+    "minimatch": "7.4.9",
+    "esbuild": "0.28.1",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.28.1"
+    }
   }
 }

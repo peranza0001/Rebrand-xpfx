@@ -14,6 +14,7 @@ import {
   assetCatalog,
   logActivity,
   newId,
+  demoConfig,
   platformSettings,
   userData,
   users,
@@ -146,4 +147,32 @@ router.get("/admin/trades", requireAdmin, (_req, res) => {
   return res.json(rows);
 });
 
+// ---------- Demo config & activity (admin) ----------
+router.get('/admin/demo-config', requireAdmin, (_req, res) => {
+  return res.json(demoConfig);
+});
+
+router.patch('/admin/demo-config', requireAdmin, (req, res) => {
+  const body = req.body as Partial<typeof demoConfig>;
+  if (body.defaultBalance !== undefined) demoConfig.defaultBalance = Number(body.defaultBalance);
+  if (body.defaultLeverage !== undefined) demoConfig.defaultLeverage = Number(body.defaultLeverage);
+  if (body.volatility !== undefined) demoConfig.volatility = Number(body.volatility);
+  if (body.spread !== undefined) demoConfig.spread = Number(body.spread);
+  if (body.enabled !== undefined) demoConfig.enabled = Boolean(body.enabled);
+  logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: 'admin.demo_config.update', detail: `Updated demo config: ${JSON.stringify(body)}` });
+  return res.json(demoConfig);
+});
+
+router.get('/admin/demo-activity', requireAdmin, (_req, res) => {
+  const activity: Array<{ userId: string; email: string; trades: any[]; transactions: any[] }> = [];
+  for (const [uid, data] of userData) {
+    if ((data.trades && data.trades.length > 0) || (data.transactions && data.transactions.some((tx) => tx.isDemo))) {
+      const stored = users.get(uid);
+      activity.push({ userId: uid, email: stored?.user.email ?? '', trades: data.trades, transactions: data.transactions.filter((tx) => tx.isDemo) });
+    }
+  }
+  return res.json(activity);
+});
+
 export default router;
+

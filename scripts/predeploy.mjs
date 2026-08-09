@@ -62,7 +62,7 @@ if (!skipEnvCheck) {
 
   // Required in production
   if (isProduction) {
-    const prodRequired = ["SESSION_SECRET", "JWT_SECRET", "WALLET_ENCRYPTION_KEY", "DATABASE_URL", "ADMIN_EMAIL", "ADMIN_PASSWORD"];
+    const prodRequired = ["SESSION_SECRET", "JWT_SECRET", "WALLET_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ALCHEMY_API_KEY"];
     for (const key of prodRequired) {
       const val = (process.env[key] ?? "").trim();
       if (!val) {
@@ -71,6 +71,13 @@ if (!skipEnvCheck) {
             `  Set ${key} as a secret in your platform's environment settings.`
         );
       }
+    }
+
+    if (!process.env.DATABASE_URL?.trim() && !process.env.DATABASE_PUBLIC_URL?.trim()) {
+      fail(
+        `Missing required env var for production: DATABASE_URL or DATABASE_PUBLIC_URL\n` +
+          `  Set DATABASE_URL or DATABASE_PUBLIC_URL as a secret in your platform env vars.`
+      );
     }
 
     if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {

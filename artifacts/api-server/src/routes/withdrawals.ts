@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { RequestWithdrawalBody, type Withdrawal } from "@workspace/api-zod";
-import { getGasFeePolicy, getUserData, logActivity, newId, NOW } from "../lib/store";
+import { getGasFeePolicy, getUserData, logActivity, newId, newUuid, NOW } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { persistTransaction, persistWallet } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -104,6 +105,15 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
   main.balance = Math.round((main.balance - amount) * 100) / 100;
   main.pendingBalance = Math.round((main.pendingBalance + amount) * 100) / 100;
 
+  void persistWallet(main.id, req.userId!, {
+    walletType: main.type,
+    balance: main.balance,
+    pendingBalance: main.pendingBalance,
+    currency: main.currency,
+    label: main.label,
+    address: main.address,
+  });
+
   const withdrawal: Withdrawal = {
     id: newId("wd"),
     userId: u.id,
@@ -118,8 +128,9 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
     decidedAt: null,
   };
   data.withdrawals.unshift(withdrawal);
+  const transactionId = newUuid();
   data.transactions.unshift({
-    id: newId("tx"),
+    id: transactionId,
     walletId: main.id,
     type: "withdrawal",
     amount: -amount,
@@ -127,6 +138,13 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
     status: "pending",
     description: `Withdrawal to ${parsed.data.destination}`,
     createdAt: NOW(),
+  });
+  void persistTransaction(transactionId, main.id, u.id, {
+    type: "withdrawal",
+    amount: -amount,
+    currency: walletCurrency,
+    status: "pending",
+    description: `Withdrawal to ${parsed.data.destination}`,
   });
   logActivity({
     actorId: u.id,

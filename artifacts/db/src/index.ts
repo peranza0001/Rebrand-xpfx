@@ -7,13 +7,14 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 // 1. CHECK DATABASE URL
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is missing in your environment");
+const rawDatabaseUrl = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
+if (!rawDatabaseUrl) {
+  throw new Error("DATABASE_URL or DATABASE_PUBLIC_URL is missing in your environment");
 }
 
 // 2. CONNECT TO DATABASE (Neon)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: rawDatabaseUrl,
   ssl: {
     rejectUnauthorized: false,
   },

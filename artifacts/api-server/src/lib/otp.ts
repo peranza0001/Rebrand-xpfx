@@ -7,7 +7,9 @@
  */
 import { randomInt } from "node:crypto";
 import { logger } from "./logger";
-import { hasSmtpCredentials, isProduction } from "./env";
+import { env, hasSmtpCredentials, isProduction } from "./env";
+import { isSendGridConfigured } from "./integration-config";
+import { sendEmail } from "./email";
 
 interface SignupPayload {
   email: string;
@@ -47,39 +49,50 @@ function maskEmail(email: string): string {
   return `${visible}***@${domain}`;
 }
 
-function sendOtpEmail(email: string, code: string, intent: OtpIntent): void {
-  const smtpConfigured = hasSmtpCredentials;
+async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Promise<void> {
   const subject =
     intent === "signup"
       ? "Your XpressPro FX signup verification code"
       : "Your XpressPro FX login verification code";
-  if (isProduction) {
-    // In production, never log the OTP code — only log non-sensitive delivery metadata.
-    // Wire a real SMTP/email transport here before going live.
-    logger.info(
-      { to: maskEmail(email), subject, smtpConfigured },
-      "[otp] Verification code issued (production — code omitted from logs)",
+  const body = `Your verification code is ${code}. Enter this code in the app to complete your ${
+    intent === "signup" ? "signup" : "login"
+  } process. The code expires in 10 minutes.`;
+  const html = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#111">Your verification code is <strong>${code}</strong>.<br/>Enter this code in the app to complete your ${
+    intent === "signup" ? "signup" : "login"
+  } process. The code expires in 10 minutes.</div>`;
+
+  const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
+
+  try {
+    await sendEmail(
+      {
+        to: email,
+        subject,
+        body,
+        html,
+        kind: `otp.${intent}`,
+      },
+      { requireProvider: isProduction },
     );
-  } else {
-    // Development only: log the code to stdout so it can be used without a
-    // real email transport wired up.
+  } catch (err) {
+    logger.error({ err, email, intent }, "[otp] Failed to send OTP email");
+    throw err;
+  }
+
+  if (!hasEmailProvider && !isProduction) {
     logger.info(
-      { to: maskEmail(email), subject, smtpConfigured },
-      "[otp] Verification code generated (stub send — real SMTP not yet wired)",
-    );
-    // eslint-disable-next-line no-console
-    console.log(
-      `\n[OTP] To: ${email}  Code: ${code}  (intent=${intent}, valid 10min)\n`,
+      { to: maskEmail(email), subject, smtpConfigured: false, intent },
+      "[otp] Verification code generated (stub send — no email provider configured)",
     );
   }
 }
 
-export function issueOtp(args: {
+export async function issueOtp(args: {
   email: string;
   intent: OtpIntent;
   signupPayload?: SignupPayload;
   userId?: string;
-}): OtpRecord {
+}): Promise<OtpRecord> {
   const email = args.email.toLowerCase();
   const code = generateCode();
   const record: OtpRecord = {
@@ -93,7 +106,15 @@ export function issueOtp(args: {
   };
   otpCodes.set(email, record);
   lastSentAt.set(email, Date.now());
-  sendOtpEmail(email, code, args.intent);
+
+  try {
+    await sendOtpEmail(email, code, args.intent);
+  } catch (err) {
+    otpCodes.delete(email);
+    lastSentAt.delete(email);
+    throw err;
+  }
+
   return record;
 }
 
@@ -103,7 +124,7 @@ export interface ResendResult {
   record?: OtpRecord;
 }
 
-export function resendOtp(emailRaw: string): ResendResult {
+export async function resendOtp(emailRaw: string): Promise<ResendResult> {
   const email = emailRaw.toLowerCase();
   const existing = otpCodes.get(email);
   if (!existing) {
@@ -116,13 +137,19 @@ export function resendOtp(emailRaw: string): ResendResult {
       reason: "Please wait a few seconds before requesting another code.",
     };
   }
-  const record = issueOtp({
-    email,
-    intent: existing.intent,
-    signupPayload: existing.signupPayload,
-    userId: existing.userId,
-  });
-  return { ok: true, record };
+
+  try {
+    const record = await issueOtp({
+      email,
+      intent: existing.intent,
+      signupPayload: existing.signupPayload,
+      userId: existing.userId,
+    });
+    return { ok: true, record };
+  } catch (err) {
+    logger.error({ err, email }, "[otp] Failed to resend OTP");
+    return { ok: false, reason: "Unable to resend verification email. Please try again later." };
+  }
 }
 
 export interface VerifyResult {
@@ -161,4 +188,8 @@ export function verifyOtp(emailRaw: string, code: string): VerifyResult {
 
 export function _otpStoreSize(): number {
   return otpCodes.size;
+}
+
+export function _getOtpRecord(email: string): OtpRecord | undefined {
+  return otpCodes.get(email.toLowerCase());
 }

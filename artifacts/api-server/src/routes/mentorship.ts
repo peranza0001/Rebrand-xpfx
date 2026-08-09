@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applyWalletDebit, getUserData, logActivity, newId, NOW } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -126,7 +127,7 @@ router.get("/mentors", requireAuth, (_req, res) => {
       })),
     });
   } catch (error) {
-    console.error("[mentorship] GET /mentors error:", error);
+    logger.error({ err: error }, "[mentorship] GET /sessions error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve mentors.",
@@ -143,7 +144,7 @@ router.get("/mentorship/mentors", requireAuth, (_req, res) => {
       })),
     });
   } catch (error) {
-    console.error("[mentorship] GET /mentors error:", error);
+    logger.error({ err: error }, "[mentorship] GET /mentors error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve mentors.",
@@ -172,7 +173,7 @@ router.get("/mentors/:mentorId", requireAuth, (req, res) => {
       mentor,
     });
   } catch (error) {
-    console.error("[mentorship] GET /mentors/:mentorId error:", error);
+    logger.error({ err: error }, "[mentorship] GET /mentors/:mentorId error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve mentor details.",
@@ -197,7 +198,7 @@ router.get("/mentorship/mentors/:mentorId", requireAuth, (req, res) => {
       mentor,
     });
   } catch (error) {
-    console.error("[mentorship] GET /mentors/:mentorId error:", error);
+    logger.error({ err: error }, "[mentorship] GET /mentors/:mentorId error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve mentor details.",
@@ -323,7 +324,7 @@ router.post("/mentors/:mentorId/book", requireAuth, (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[mentorship] POST /mentors/:mentorId/book error:", error);
+    logger.error({ err: error }, "[mentorship] POST /mentors/:mentorId/book error");
     return res.status(500).json({
       success: false,
       message: "Failed to book mentorship session.",
@@ -453,7 +454,7 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[mentorship] POST /sessions/book error:", error);
+    logger.error({ err: error }, "[mentorship] POST /sessions/book error");
     return res.status(500).json({
       success: false,
       message: "Failed to book mentorship session.",
@@ -495,7 +496,7 @@ router.get("/mentorship/sessions", requireAuth, (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[mentorship] GET /sessions error:", error);
+    logger.error({ err: error }, "[mentorship] GET /sessions error");
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve mentorship sessions.",
@@ -564,7 +565,7 @@ router.post("/mentors/bookings/:bookingId/cancel", requireAuth, (req, res) => {
       session,
     });
   } catch (error) {
-    console.error("[mentorship] POST /mentors/bookings/:bookingId/cancel error:", error);
+    logger.error({ err: error }, "[mentorship] POST /mentors/bookings/:bookingId/cancel error");
     return res.status(500).json({
       success: false,
       message: "Failed to cancel mentorship session.",
@@ -636,7 +637,7 @@ router.post("/mentorship/sessions/:sessionId/cancel", requireAuth, (req, res) =>
       session,
     });
   } catch (error) {
-    console.error("[mentorship] POST /sessions/:sessionId/cancel error:", error);
+    logger.error({ err: error }, "[mentorship] POST /sessions/:sessionId/cancel error");
     return res.status(500).json({
       success: false,
       message: "Failed to cancel mentorship session.",

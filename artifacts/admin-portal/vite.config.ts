@@ -38,6 +38,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   server: {
     port,
@@ -49,7 +61,7 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: process.env.API_PROXY_TARGET || "http://localhost:8082",
+        target: process.env.API_PROXY_TARGET || process.env.API_PORT || "http://127.0.0.1:5000",
         changeOrigin: true,
       },
     },

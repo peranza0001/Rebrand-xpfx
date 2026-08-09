@@ -3,6 +3,8 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 import { adminSeedStatus } from "../lib/store";
 import { getDb } from "../lib/db-client";
 import { sql } from "drizzle-orm";
+import { getPrismaClient } from "../lib/db-persist";
+import { getIntegrationStatus } from "../lib/integration-config";
 
 const router: IRouter = Router();
 
@@ -19,6 +21,22 @@ router.get("/healthz", (_req, res) => {
 // intentionally NOT what Railway's restart policy watches, since a DB blip
 // should not kill an otherwise-healthy app server.
 router.get("/healthz/db", async (_req, res) => {
+  const prisma = getPrismaClient();
+  if (prisma?.$queryRaw) {
+    try {
+      await prisma.$queryRaw`select 1`;
+      res.status(200).json({ status: "ok", database: "connected" });
+      return;
+    } catch (err) {
+      res.status(503).json({
+        status: "degraded",
+        database: "unreachable",
+        error: (err as Error).message,
+      });
+      return;
+    }
+  }
+
   const db = getDb();
   if (!db) {
     res.status(200).json({ status: "ok", database: "disabled" });
@@ -40,7 +58,10 @@ router.get("/healthz/db", async (_req, res) => {
 // instead of failing silently when ADMIN_EMAIL/ADMIN_PASSWORD secrets
 // haven't been set yet. Does not leak the actual email.
 router.get("/admin/provisioning-status", (_req, res) => {
-  res.json({ provisioned: adminSeedStatus.provisioned });
+  res.json({
+    provisioned: adminSeedStatus.provisioned,
+    integrations: getIntegrationStatus(),
+  });
 });
 
 export default router;

@@ -23,6 +23,10 @@ import {
   p2pMerchantApplications,
   type P2PMerchantApplicationData,
 } from "../lib/store";
+import {
+  persistP2PMerchantApplication,
+  persistP2PNotification,
+} from "../lib/db-persist";
 import { merchantAdminThread } from "../lib/p2p-chat";
 import { requireAuth, requireFullAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
@@ -244,7 +248,7 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
   const settleNote = parsed.data.txHash
     ? ` Settlement tx ${parsed.data.txHash.slice(0, 10)}…`
     : "";
-  data.p2pNotifications.unshift({
+  const notification: import("@workspace/api-zod").P2PNotification = {
     id: newId("n"),
     type: "order_update",
     title: `Order opened with ${listing.userName}`,
@@ -252,6 +256,20 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
     orderId: order.id,
     read: false,
     createdAt: NOW(),
+  };
+  data.p2pNotifications.unshift(notification);
+  void persistP2PNotification(notification.id, req.userId!, {
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    orderId: notification.orderId,
+    read: notification.read,
+    amount: null,
+    currency: null,
+    asset: null,
+    reference: null,
+    instructions: null,
+    createdAt: notification.createdAt,
   });
   notifyUser({
     userId: req.userId!,
@@ -368,6 +386,22 @@ router.post("/p2p/merchant/application", requireFullAuth, (req, res) => {
     decidedAt: null,
   };
   p2pMerchantApplications.set(app.id, app);
+  void persistP2PMerchantApplication(app.id, app.userId, {
+    status: app.status,
+    displayName: app.displayName,
+    legalName: app.legalName,
+    contactEmail: app.contactEmail,
+    country: app.country,
+    paymentMethod: app.paymentMethod,
+    payoutEmail: app.payoutEmail ?? null,
+    bankInfo: app.bankInfo ?? null,
+    assets: app.assets,
+    reason: app.reason,
+    rejectionReason: app.rejectionReason ?? null,
+    reviewedBy: null,
+    reviewedAt: null,
+    submittedAt: app.submittedAt,
+  });
   return res.json({
     id: app.id,
     userId: app.userId,

@@ -8,6 +8,7 @@ import {
   type Message,
 } from "@workspace/api-zod";
 import { getUserData, managers, newId, NOW } from "../lib/store";
+import { persistSupportTicket } from "../lib/db-persist";
 import { requireAuth } from "../lib/session";
 
 const router: IRouter = Router();
@@ -89,6 +90,13 @@ router.post("/messages", requireAuth, (req, res) => {
       };
       list.push(reply);
       ticket.messages.push(reply);
+      void persistSupportTicket(ticket.id, req.userId!, {
+        subject: ticket.subject,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+      });
     }
   }
   data.messages.set(key, list);

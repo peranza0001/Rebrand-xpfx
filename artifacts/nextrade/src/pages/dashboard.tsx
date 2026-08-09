@@ -4,7 +4,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
   Wallet, ShieldCheck, ShieldAlert, Activity, ArrowRight, Plus,
   Repeat, Briefcase, Bell, Award, BookOpen, Calendar as CalIcon, ArrowUp, ArrowDown,
-  Lock,
+  Lock, FileText,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetWallets, useGetSocialTradingWallet,
@@ -20,6 +20,7 @@ import { useLiveMarkets, formatPrice } from "@/lib/market-data";
 import { useAuth } from "@/lib/auth";
 import { WalletRequiredBanner } from "@/components/wallet-required-banner";
 import { BuyCryptoDialog } from "@/components/BuyCryptoDialog";
+import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 import { Landmark } from "lucide-react";
 
 export function Dashboard() {
@@ -104,9 +105,11 @@ export function Dashboard() {
       </header>
 
       <WalletRequiredBanner />
+      <DemoExperienceBanner />
 
-      <Card className="border-primary/30 bg-primary/5" data-testid="card-smartvest-entry">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card className="border-primary/30 bg-primary/5" data-testid="card-smartvest-entry">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-primary" /> SmartVest
@@ -121,8 +124,28 @@ export function Dashboard() {
         </CardHeader>
         <CardContent className="pt-0 text-xs text-muted-foreground">
           SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" /> Statements
+              </CardTitle>
+              <CardDescription className="text-xs mt-1">
+                Pull a concise account statement with your recent activity.
+              </CardDescription>
+            </div>
+            <Link href="/statements">
+              <Button size="sm" variant="outline">View statement <ArrowRight className="h-3 w-3 ml-1" /></Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            Review balances, deposits, withdrawals, and recent activity from one screen.
+          </CardContent>
+        </Card>
+      </div>
 
       {!hasVerifiedBank && (
         <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-fiat-bank-locked">

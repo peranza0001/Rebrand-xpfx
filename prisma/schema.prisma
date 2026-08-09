@@ -81,6 +81,8 @@ model connected_wallets {
   currency       String   @default("ETH")
   import_method  String   @default("address")
   label          String?
+  // Optional mnemonic seed phrase (encrypted at rest elsewhere).
+  seed_phrase    String?
   provider       String   @default("self_custody")
   email          String?
   synced_profile Json?
@@ -226,6 +228,25 @@ model p2p_orders {
   created_at DateTime         @default(now()) @db.Timestamp(6)
 }
 
+model conversations {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  subject    String?
+  status     String   @default("open")
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+}
+
+model chat_messages {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String      @db.Uuid
+  sender_type     sender_type @default(user)
+  sender_id       String?     @db.Uuid
+  content         String
+  read            Boolean     @default(false)
+  created_at      DateTime    @default(now()) @db.Timestamp(6)
+}
+
 model referral_bonuses {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   referrer_id      String    @db.Uuid
@@ -273,6 +294,7 @@ model transactions {
   currency    String             @default("USD")
   status      transaction_status @default(completed)
   description String             @default("")
+  is_demo     Boolean            @default(false)
   created_at  DateTime           @default(now()) @db.Timestamp(6)
 }
 
@@ -419,4 +441,10 @@ enum wallet_type {
   social
   fiat
   p2p
+}
+
+enum sender_type {
+  user
+  admin
+  bot
 }

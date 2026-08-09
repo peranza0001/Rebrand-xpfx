@@ -88,7 +88,8 @@ export function VerifyOtp() {
       // returning login from a user who connected previously).
       setLocation("/connect-wallet");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Invalid or expired code.";
+      const anyErr = err as { message?: string; response?: { data?: { error?: string } } };
+      const message = anyErr.response?.data?.error || (err instanceof Error ? err.message : "Invalid or expired code.");
       toast({ title: "Verification failed", description: message, variant: "destructive" });
     }
   };

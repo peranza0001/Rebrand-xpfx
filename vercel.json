@@ -1,6 +1,9 @@
 {
-  "buildCommand": "npm install && npm run build --workspace=artifacts/nextrade",
+  "buildCommand": "npm install && npm run prepare:runtime-secrets && npm run build --workspace=artifacts/nextrade",
   "outputDirectory": "artifacts/nextrade/dist/public",
   "installCommand": "npm install",
-  "framework": null
+  "framework": null,
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
