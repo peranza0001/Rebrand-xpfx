@@ -41,6 +41,7 @@ import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { persistSession, persistUser, getPrismaClient, deleteSession } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
+import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent } from "../lib/auth-throttle";
 import {
   issueOtp,
   resendOtp as resendOtpFn,
@@ -194,7 +195,16 @@ router.post("/auth/signup", async (req, res) => {
     // Account is NOT created yet — we hold the payload in the OTP record and
     // only commit once the email has been verified.
     try {
+      // Throttle OTP sends per-email to reduce abuse
+      if (!canSendOtp(email)) {
+        logger.warn({ email }, "[auth] signup.otp_throttled");
+        // Do not reveal throttling to callers — return the same OTP-challenge
+        // response while avoiding sending more emails.
+        return res.json(otpChallenge(parsed.data.email, "signup"));
+      }
+
       await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
+      recordOtpSent(email);
     } catch (err) {
       logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
       return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
@@ -209,6 +219,10 @@ router.post("/auth/login", async (req, res) => {
     return res.status(400).json({ error: "Invalid login" });
   }
   const emailLower = parsed.data.email.toLowerCase();
+  if (isLoginLocked(emailLower)) {
+    logger.warn({ email: emailLower }, "[auth] login.locked_out");
+    return res.status(429).json({ error: "Too many attempts. Try again later.", code: "too_many_requests" });
+  }
   // Ensure demo user is seeded for the direct login flow when demo auth is enabled.
   if (isDemoAuthEnabled && emailLower === "demo@xpressprofx.com") {
     ensureDemoUser();
@@ -228,6 +242,7 @@ router.post("/auth/login", async (req, res) => {
   let stored = userId ? users.get(userId) : undefined;
   if (!stored) {
     logger.warn({ email: emailLower }, "[auth] login.no_user");
+    recordLoginFailure(emailLower);
     return res.status(401).json({
       error: "Invalid email or password.",
       code: "invalid_credentials",
@@ -242,6 +257,7 @@ router.post("/auth/login", async (req, res) => {
   }
   if (!verifyPassword(parsed.data.password, stored.passwordHash)) {
     logger.warn({ email: emailLower, userId: stored.user.id }, "[auth] login.invalid_password");
+    recordLoginFailure(emailLower);
     return res.status(401).json({
       error: "Invalid email or password.",
       code: "invalid_credentials",
@@ -258,6 +274,8 @@ router.post("/auth/login", async (req, res) => {
   }
   sessions.set(sid, stored.user.id);
   setSessionCookie(res, sid);
+  // Successful login — reset any failure counters
+  try { resetLoginFailures(emailLower); } catch (_) { /* best-effort */ }
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -428,6 +446,7 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
   sessions.set(sid, stored.user.id);
   setSessionCookie(res, sid);
+  try { resetLoginFailures(stored.user.email.toLowerCase()); } catch (_) { /* best-effort */ }
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -457,7 +476,13 @@ router.post("/auth/resend-otp", async (req, res) => {
   // or by throttle vs. "no pending verification" messages.
   let result;
   try {
+    // Throttle per-email resend to reduce abuse
+    if (!canSendOtp(parsed.data.email)) {
+      logger.warn({ email: parsed.data.email }, "[auth] resend_otp.throttled");
+      return res.json(otpChallenge(parsed.data.email, "signup"));
+    }
     result = await resendOtpFn(parsed.data.email);
+    if (result.ok) recordOtpSent(parsed.data.email);
   } catch (err) {
     logger.error({ err, email: parsed.data.email }, "[auth] Failed to resend OTP");
     return res.status(500).json({ error: "Unable to resend verification email. Please try again later." });
