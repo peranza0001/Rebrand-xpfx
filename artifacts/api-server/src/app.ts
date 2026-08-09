@@ -168,13 +168,6 @@ app.get('/api/readyz', async (_req: Request, res: Response) => {
   }
 });
 
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
-  req.headers['x-request-id'] = requestId;
-  res.setHeader('x-request-id', requestId);
-  next();
-});
-
 // ─── LOGGING ──────────────────────────────────────────────────────────────────
 app.use(pinoHttp({
   level: process.env.LOG_LEVEL || 'info',
@@ -227,7 +220,10 @@ function normalizeAllowedOrigins(raw: string): string[] {
     .filter(Boolean) as string[];
 }
 
-const getAllowedOrigins = (): string[] => normalizeAllowedOrigins(process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '');
+const getAllowedOrigins = (): string[] => {
+  const raw = process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '';
+  return normalizeAllowedOrigins(raw);
+};
 
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
@@ -313,15 +309,18 @@ app.use(compression());
 app.use('/api/webhooks', express.raw({ type: 'application/json' }));
 
 // ─── BODY PARSERS ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-const sessionSecret = process.env.SESSION_SECRET?.trim() || (process.env.NODE_ENV === 'production' ? undefined : randomBytes(32).toString('hex'));
-if (!sessionSecret) {
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+const cookieSecret = process.env.COOKIE_SECRET?.trim()
+  || process.env.COOKIE_SIGNING_KEY?.trim()
+  || process.env.SESSION_SECRET?.trim()
+  || (process.env.NODE_ENV === 'production' ? undefined : randomBytes(32).toString('hex'));
+if (!cookieSecret) {
   throw new Error(
-    'SESSION_SECRET must be set in production. Signed cookies and sessions cannot use a hardcoded fallback secret.'
+    'COOKIE_SECRET or SESSION_SECRET must be set in production. Signed cookies and sessions cannot use a hardcoded fallback secret.'
   );
 }
-app.use(cookieParser(sessionSecret));
+app.use(cookieParser(cookieSecret));
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
 app.use(attachSession);
@@ -393,19 +392,19 @@ app.use((req, res, next) => {
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests' }
 });
 
 // ─── AUTH RATE LIMITER ────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many authentication attempts.' }
+  message: { error: 'Too many requests' }
 });
 
 // ─── LIVE CHAT RATE LIMITER ───────────────────────────────────────────────────
@@ -420,6 +419,13 @@ const liveChatLimiter = rateLimit({
 app.use('/api/', globalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/live-chat/', liveChatLimiter);
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
+  req.headers['x-request-id'] = requestId;
+  res.setHeader('x-request-id', requestId);
+  next();
+});
 
 // ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
 const candidateRoots = [

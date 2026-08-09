@@ -39,7 +39,13 @@ test('secret generation bootstraps .env from .env.example for fresh clones', () 
   const envContent = readFileSync(tempEnvPath, 'utf8');
   assert.match(envContent, /ENABLE_DEMO_AUTH=true/);
   assert.match(envContent, /SESSION_SECRET=/);
+  assert.match(envContent, /COOKIE_SECRET=/);
+  assert.match(envContent, /ADMIN_SECRET=/);
+  assert.match(envContent, /ENCRYPTION_KEY=/);
   assert.doesNotMatch(envContent, /SESSION_SECRET=\s*$/m);
+  assert.doesNotMatch(envContent, /COOKIE_SECRET=\s*$/m);
+  assert.doesNotMatch(envContent, /ADMIN_SECRET=\s*$/m);
+  assert.doesNotMatch(envContent, /ENCRYPTION_KEY=\s*$/m);
   assert.ok(result.includes('Generated secrets'));
 
   rmSync(tempDir, { recursive: true, force: true });

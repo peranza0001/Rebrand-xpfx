@@ -26,7 +26,10 @@ function randomBase64(bytes = 32) {
 }
 
 const secrets = {
-  SESSION_SECRET: () => randomBase64(48),
+  SESSION_SECRET: () => randomHex(64),
+  COOKIE_SECRET: () => randomHex(64),
+  ADMIN_SECRET: () => randomHex(64),
+  ENCRYPTION_KEY: () => randomHex(64),
   JWT_SECRET: () => randomBase64(48),
   COOKIE_SIGNING_KEY: () => randomHex(32),
   CSRF_SECRET: () => randomHex(32),
@@ -92,10 +95,17 @@ function isPlaceholderValue(key, value) {
 
 const generated = [];
 const existing = [];
+const aliasMap = new Map([
+  ['COOKIE_SECRET', 'COOKIE_SIGNING_KEY'],
+]);
 let newContent = envContent;
 
 Object.entries(secrets).forEach(([key, generator]) => {
-  const existingValue = existingKeys.get(key);
+  const existingValue = existingKeys.get(key) ?? (() => {
+    const alias = aliasMap.get(key);
+    return alias ? existingKeys.get(alias) : undefined;
+  })();
+
   if (existingValue && !isPlaceholderValue(key, existingValue)) {
     existing.push(key);
     return;
