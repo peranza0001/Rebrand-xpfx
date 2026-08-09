@@ -2,14 +2,16 @@
   "name": "xpresspro-fx-api-server",
   "version": "1.0.0",
   "description": "XpressPro FX — Enterprise-grade hybrid fintech forex broker trading and investment API server",
+  "type": "module",
   "main": "dist/index.mjs",
   "scripts": {
     "build": "node ./build.mjs",
     "typecheck": "tsc --noEmit",
     "start": "node --enable-source-maps dist/index.mjs",
+    "start:prod": "NODE_ENV=production node --enable-source-maps dist/index.mjs",
     "dev": "tsx watch src/index.ts",
     "postinstall": "prisma generate --schema=./prisma/schema.prisma || true",
-    "test": "jest --forceExit --coverage",
+    "test": "node --import tsx ../../tests/app-readiness.test.mjs",
     "audit": "npm audit --audit-level=high"
   },
   "engines": {
@@ -24,6 +26,7 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
+    "csrf-csrf": "^4.0.3",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.2",
     "ethers": "^6.0.0",
@@ -34,6 +37,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "nodemailer": "^6.9.4",
     "openai": "^4.0.0",
     "pg": "^8.20.0",
     "pino": "^9.2.0",
@@ -41,12 +45,11 @@
     "pino-pretty": "^11.2.1",
     "prisma": "5.14.0",
     "prom-client": "^14.0.1",
+    "socket.io": "^4.8.3",
     "uuid": "^14.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "esbuild": "0.25.8",
-    "esbuild-plugin-pino": "^2.2.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.7",
@@ -57,9 +60,8 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.14.9",
     "@types/uuid": "^10.0.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.5",
-    "ts-node-dev": "^2.0.0",
+    "esbuild": "0.25.8",
+    "esbuild-plugin-pino": "^2.2.0",
     "typescript": "^5.5.2"
   }
 }

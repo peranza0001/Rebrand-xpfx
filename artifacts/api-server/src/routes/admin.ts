@@ -31,6 +31,7 @@ import {
   userData,
   users,
 } from "../lib/store";
+import { persistBankAccount } from "../lib/db-persist";
 import {
   ensureCurrentCycle,
   getEffectiveRates,
@@ -327,6 +328,21 @@ router.post("/admin/banks/:bankId/verification", requireAdmin, (req, res) => {
     if (!bank) continue;
     bank.verified = parsed.data.verified;
     const stored = users.get(userId);
+    void persistBankAccount(bank.id, userId, {
+      accountName: bank.accountHolder,
+      bankName: bank.bankName,
+      accountNumber: undefined,
+      routingNumber: undefined,
+      iban: undefined,
+      swiftCode: undefined,
+      debitCardLast4: bank.last4,
+      debitCardExpiry: undefined,
+      country: bank.currency,
+      currency: bank.currency,
+      isDefault: bank.isDefault ?? false,
+      fiatBalance: bank.fiatBalance,
+      fiatCurrency: bank.fiatCurrency,
+    });
     logActivity({
       actorId: req.userId!,
       actorName: req.storedUser!.user.fullName,

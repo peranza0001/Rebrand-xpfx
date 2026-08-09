@@ -8,7 +8,17 @@ export type PostgresConnectionConfig = {
 export function getRawDatabaseUrl(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  return env.DATABASE_PUBLIC_URL?.trim() || env.DATABASE_URL?.trim();
+  const directUrl = env.DIRECT_DATABASE_URL?.trim();
+  if (directUrl) return directUrl;
+
+  // Prefer the private service connection string when both are available.
+  // Railway exposes the internal service URL via DATABASE_URL and a public
+  // proxy URL via DATABASE_PUBLIC_URL. The private URL is the correct one
+  // for server-side connections and avoids proxy certificate issues.
+  const privateUrl = env.DATABASE_URL?.trim();
+  if (privateUrl) return privateUrl;
+
+  return env.DATABASE_PUBLIC_URL?.trim();
 }
 
 export function buildPostgresConfig(
@@ -22,11 +32,14 @@ export function buildPostgresConfig(
 
   const url = new URL(urlString);
   const params = url.searchParams;
-  params.set('sslmode', 'require');
+  const existingSslmode = params.get('sslmode')?.trim().toLowerCase();
+  if (existingSslmode) {
+    params.delete('sslmode');
+  }
 
-  const ssl = {
-    rejectUnauthorized: false,
-  };
+  const ssl = url.protocol === 'postgresql:' || url.protocol === 'postgres:'
+    ? { rejectUnauthorized: false }
+    : undefined;
 
   return {
     connectionString: url.toString(),

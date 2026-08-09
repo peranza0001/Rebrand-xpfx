@@ -9,6 +9,7 @@ import { Router } from "express";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { requireAuth } from "../lib/session";
 import { users, usersByEmail, hashPassword, logActivity } from "../lib/store";
+import { persistUser, persistResetPasswordToken, getPrismaClient } from "../lib/db-persist";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { env } from "../lib/env";
@@ -38,6 +39,36 @@ function verifyPassword(supplied: string, stored: string): boolean {
   }
 }
 
+async function getTokenRecord(token: string): Promise<ResetRecord | null> {
+  const record = resetTokens.get(token);
+  if (record) return record;
+
+  const prisma = getPrismaClient();
+  if (!prisma) return null;
+
+  try {
+    const user = await prisma.users.findFirst({
+      where: { resetPasswordToken: token },
+      select: { id: true, resetPasswordExpiry: true },
+    });
+    if (!user || !user.resetPasswordExpiry) return null;
+    const expiresAt = user.resetPasswordExpiry instanceof Date
+      ? user.resetPasswordExpiry.getTime()
+      : new Date(user.resetPasswordExpiry).getTime();
+    return { userId: user.id, expiresAt };
+  } catch {
+    return null;
+  }
+}
+
+function clearResetTokensForUser(userId: string): void {
+  for (const [tok, data] of resetTokens) {
+    if (data.userId === userId) {
+      resetTokens.delete(tok);
+    }
+  }
+}
+
 function getAppOrigin(): string {
   const allowed = env.ALLOWED_ORIGINS?.split(",")[0]?.trim();
   if (allowed) return allowed;
@@ -62,14 +93,14 @@ router.post("/auth/forgot-password", async (req, res) => {
   if (userId) {
     const stored = users.get(userId);
     if (stored && !stored.disabled && stored.role !== "demo") {
-      for (const [tok, data] of resetTokens) {
-        if (data.userId === userId) resetTokens.delete(tok);
-      }
+      clearResetTokensForUser(userId);
       const token = generateToken();
+      const expiresAt = Date.now() + 30 * 60 * 1000;
       resetTokens.set(token, {
         userId,
-        expiresAt: Date.now() + 30 * 60 * 1000,
+        expiresAt,
       });
+      void persistResetPasswordToken(userId, token, new Date(expiresAt));
       const resetUrl = `${getAppOrigin()}/reset-password?token=${token}`;
       try {
         await sendEmail({
@@ -117,7 +148,7 @@ router.post("/auth/forgot-password", async (req, res) => {
  * POST /auth/reset-password
  * Verifies the token (single-use, 30-min TTL) and sets the new password.
  */
-router.post("/auth/reset-password", (req, res) => {
+router.post("/auth/reset-password", async (req, res) => {
   const { token, newPassword } = req.body as { token?: unknown; newPassword?: unknown };
 
   if (!token || typeof token !== "string") {
@@ -127,8 +158,12 @@ router.post("/auth/reset-password", (req, res) => {
     return res.status(400).json({ error: "New password must be at least 8 characters." });
   }
 
-  const record = resetTokens.get(token);
+  const record = await getTokenRecord(token);
   if (!record || Date.now() > record.expiresAt) {
+    if (record) {
+      clearResetTokensForUser(record.userId);
+      void persistResetPasswordToken(record.userId, null, null);
+    }
     resetTokens.delete(token);
     return res.status(400).json({
       error: "This reset link is invalid or has expired. Please request a new one.",
@@ -137,12 +172,51 @@ router.post("/auth/reset-password", (req, res) => {
 
   const stored = users.get(record.userId);
   if (!stored) {
+    // If the user exists in DB but is not loaded into memory, we still
+    // want the reset operation to succeed for the persisted account.
+    const prisma = getPrismaClient();
+    if (prisma) {
+      try {
+        const dbUser = await prisma.users.findUnique({
+          where: { id: record.userId },
+          select: { email: true, passwordHash: true },
+        });
+        if (dbUser) {
+          // We don't have a fully hydrated in-memory user, but the reset
+          // can still proceed by clearing the persistent token and letting
+          // future login use the updated hashed password from the DB.
+          const newHash = hashPassword(newPassword);
+          await prisma.users.update({
+            where: { id: record.userId },
+            data: {
+              passwordHash: newHash,
+              resetPasswordToken: null,
+              resetPasswordExpiry: null,
+            },
+          });
+          clearResetTokensForUser(record.userId);
+          return res.json({ ok: true, message: "Password updated successfully. You can now log in." });
+        }
+      } catch {
+        // Fall through to generic not found handler.
+      }
+    }
     resetTokens.delete(token);
     return res.status(404).json({ error: "Account not found." });
   }
 
   stored.passwordHash = hashPassword(newPassword);
+  clearResetTokensForUser(record.userId);
   resetTokens.delete(token);
+  void persistUser(record.userId, {
+    email: stored.user.email,
+    username: stored.user.username,
+    passwordHash: stored.passwordHash,
+    fullName: stored.user.fullName,
+    country: stored.user.country,
+    phone: stored.phone,
+  });
+  void persistResetPasswordToken(record.userId, null, null);
 
   logActivity({
     actorId: record.userId,

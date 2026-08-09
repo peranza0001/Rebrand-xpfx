@@ -10,6 +10,10 @@ import {
 
 const router: IRouter = Router();
 
+router.get("/assets", (_req, res) => {
+  res.json(assetCatalog);
+});
+
 router.get("/assets/catalog", requireAuth, (_req, res) => {
   res.json(assetCatalog);
 });

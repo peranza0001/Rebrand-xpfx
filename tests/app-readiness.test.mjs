@@ -1,42 +1,180 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'node:http';
-import express from 'express';
+import { once } from 'node:events';
 
-function startServer() {
-  const app = express();
-  app.get('/livez', (_req, res) => {
-    res.status(200).json({ status: 'ok' });
-  });
-  app.get('/readyz', (_req, res) => {
-    res.status(200).json({ ready: true, reason: 'no-db-config' });
-  });
+process.env.NODE_ENV = 'production';
+process.env.SESSION_SECRET = 'test-session-secret';
+process.env.ALLOWED_ORIGINS = 'https://example.com';
 
-  const server = http.createServer(app);
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      resolve({ server, port });
-    });
-  });
+import appModule from '../artifacts/api-server/src/app.ts';
+
+// Handle both direct export and ESM wrapper
+const app = appModule.default?.default ?? appModule.default ?? appModule;
+
+async function withTestServer(handler) {
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Server did not bind to a TCP port');
+  }
+
+  try {
+    return await handler(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 }
 
-test('health endpoints expose liveness and readiness information', async () => {
-  const { server, port } = await startServer();
-  try {
-    const [livez, readyz] = await Promise.all([
-      fetch(`http://127.0.0.1:${port}/livez`),
-      fetch(`http://127.0.0.1:${port}/readyz`),
-    ]);
+test('health endpoints are registered and app imports cleanly', async () => {
+  assert(app, 'app should exist');
 
-    assert.equal(livez.status, 200);
-    const livezBody = await livez.json();
-    assert.equal(livezBody.status, 'ok');
-
-    assert.equal(readyz.status, 200);
-    const readyzBody = await readyz.json();
-    assert.equal(readyzBody.ready, true);
-  } finally {
-    await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  const stack = (app._router?.stack ?? []);
+  const routePaths = [];
+  for (const layer of stack) {
+    if (layer.route) {
+      routePaths.push(layer.route.path);
+    }
   }
+
+  assert(routePaths.includes('/health'), '/health route should be registered');
+  assert(routePaths.includes('/healthz'), '/healthz route should be registered');
+  assert(routePaths.includes('/livez'), '/livez route should be registered');
+  assert(routePaths.includes('/readyz'), '/readyz route should be registered');
+  assert(routePaths.includes('/healthz/db'), '/healthz/db route should be registered');
+  assert(routePaths.includes('/api/health'), '/api/health route should be registered');
+  assert(routePaths.includes('/api/healthz'), '/api/healthz route should be registered');
+  assert(routePaths.includes('/api/livez'), '/api/livez route should be registered');
+  assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
+});
+
+test('production health endpoints remain reachable over http for platform probes', async () => {
+  await withTestServer(async (baseUrl) => {
+    for (const path of ['/health', '/healthz', '/livez', '/readyz', '/api/health', '/api/healthz', '/api/livez', '/api/readyz']) {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { 'x-forwarded-proto': 'http' },
+      });
+
+      assert.equal(response.status, 200, `${path} should remain available to platform health checks`);
+      assert.equal(response.headers.get('location'), null, `${path} should not redirect`);
+    }
+  });
+});
+
+test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/live-chat`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        'content-type': 'application/json',
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ content: 'hello' }),
+    });
+
+    assert.equal(response.status, 401, 'same-origin authenticated requests should reach auth middleware instead of failing CSRF');
+    const body = await response.json();
+    assert.equal(body.error, 'Not authenticated');
+  });
+});
+
+test('preview-host POST requests are not blocked by CSRF middleware before auth checks', async () => {
+  await withTestServer(async (baseUrl) => {
+    const previewOrigin = 'https://rebrand-xpfx-production-1988.up.railway.app';
+    const response = await fetch(`${baseUrl}/api/live-chat`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        'content-type': 'application/json',
+        origin: previewOrigin,
+        'x-forwarded-host': 'rebrand-xpfx-production-1988.up.railway.app',
+        'x-forwarded-proto': 'https',
+      },
+      body: JSON.stringify({ content: 'hello' }),
+    });
+
+    assert.equal(response.status, 401, 'trusted preview-host requests should reach auth middleware instead of failing CSRF');
+    const body = await response.json();
+    assert.equal(body.error, 'Not authenticated');
+  });
+});
+
+test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, '/api/csrf-token should return successfully');
+    const body = await response.json();
+    assert.equal(typeof body.csrfToken, 'string', 'response should include csrfToken');
+    assert.ok(body.csrfToken.length > 0, 'csrfToken should not be empty');
+  });
+});
+
+test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_ORIGINS is configured without one', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: 'https://example.com/',
+        'x-forwarded-host': 'example.com',
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, 'Origin with trailing slash should be accepted when normalized');
+    const body = await response.json();
+    assert.equal(typeof body.csrfToken, 'string', 'response should include csrfToken');
+  });
+});
+
+test('GET /api/csrf-token issues a fresh token on each request even when the previous cookie is present', async () => {
+  await withTestServer(async (baseUrl) => {
+    const first = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(first.status, 200, 'first CSRF request should succeed');
+    const firstCookie = first.headers.get('set-cookie');
+    const firstBody = await first.json();
+    assert.equal(typeof firstBody.csrfToken, 'string');
+
+    const cookieHeader = firstCookie?.split(';')[0] ?? '';
+
+    const second = await fetch(`${baseUrl}/api/csrf-token`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+        cookie: cookieHeader,
+      },
+    });
+
+    assert.equal(second.status, 200, 'second CSRF request should succeed');
+    const secondBody = await second.json();
+    assert.equal(typeof secondBody.csrfToken, 'string');
+    assert.notEqual(secondBody.csrfToken, firstBody.csrfToken, 'CSRF token should be refreshed on each GET issuance');
+  });
 });

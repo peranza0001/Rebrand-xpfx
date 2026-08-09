@@ -12,7 +12,9 @@ import { Loader2 } from "lucide-react";
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const queryParams = new URLSearchParams(location.split("?")[1]);
+  const isDemoLanding = queryParams.get("demo") === "1";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -25,8 +27,7 @@ export function Login() {
       const result = await loginMutation.mutateAsync({
         data: { email, password },
       });
-      // Admins are authenticated immediately; everyone else gets an OTP
-      // challenge they must verify before a session is created.
+      // Successful credential checks now create a session immediately.
       if (result.status === "authenticated") {
         queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
         toast({ title: "Welcome back" });
@@ -40,10 +41,16 @@ export function Login() {
       setLocation(
         `/verify-otp?email=${encodeURIComponent(result.email)}&intent=login`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const anyErr = error as {
+        message?: string;
+        response?: { data?: { error?: string; code?: string; field?: string } };
+      };
+      const data = anyErr?.response?.data;
+      const description = data?.error || anyErr?.message || "Please check your credentials and try again.";
       toast({
         title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        description,
         variant: "destructive",
       });
     }
@@ -62,6 +69,8 @@ export function Login() {
       });
     }
   };
+
+  const showDemoButton = true;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 dark">
@@ -111,25 +120,48 @@ export function Login() {
               </Button>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+            {showDemoButton ? (
+              <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                <div className="font-medium text-primary">
+                  {isDemoLanding ? "Ready for demo trading" : "Need a quick demo account?"}
+                </div>
+                <p className="mt-2">
+                  {isDemoLanding
+                    ? "Click Try Demo Account to launch your seeded demo session instantly."
+                    : "Use the demo credentials below or tap Try Demo Account to start a demo session with pre-funded balances."}
+                </p>
+                {!isDemoLanding && (
+                  <p className="mt-2">
+                    <span className="font-medium">Email:</span> demo@xpressprofx.com<br />
+                    <span className="font-medium">Password:</span> demo-password
+                  </p>
+                )}
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or</span>
-              </div>
-            </div>
+            ) : null}
 
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              onClick={handleDemo}
-              disabled={demoMutation.isPending}
-            >
-              {demoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Try Demo Account
-            </Button>
+            {showDemoButton ? (
+              <>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  onClick={handleDemo}
+                  disabled={demoMutation.isPending}
+                >
+                  {demoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Try Demo Account
+                </Button>
+              </>
+            ) : null}
           </CardContent>
           <CardFooter className="flex flex-col space-y-3">
             <div className="text-sm text-center text-muted-foreground w-full">

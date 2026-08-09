@@ -7,6 +7,8 @@ import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser } from "../lib/notify";
 import { isFirstTrade, triggerReferralReward } from "../lib/referral-rewards";
+import { requireLiveTrading } from "../lib/tier-middleware";
+import { determineAccountTier, checkDailyTradingLimit } from "../lib/account-tiers";
 
 const router: IRouter = Router();
 
@@ -31,12 +33,37 @@ router.get("/trades/social-wallet", requireAuth, (req, res) => {
   });
 });
 
-router.post("/trades/:tradeId/release", requireAuth, (req, res) => {
+router.post("/trades/:tradeId/release", requireAuth, requireLiveTrading, (req, res) => {
   if (!enforceGasFee(req, res, "trade_release")) return;
   if (req.storedUser!.tradingLocked) {
     return res.status(403).json({ success: false, message: "Trading is locked on your account." });
   }
+  
+  // Check daily trading limit
+  const userTier = determineAccountTier({
+    buyVerified: req.storedUser!.user.buyVerified,
+    kycVerified: req.storedUser!.user.kycVerified,
+    bankAccountsCount: 0,
+    role: req.storedUser!.role,
+  });
   const data = getUserData(req.userId!);
+  const tradedToday = data.trades
+    .filter(t => {
+      const createdDate = new Date(t.createdAt).toDateString();
+      const today = new Date().toDateString();
+      return createdDate === today;
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
+  const limitCheck = checkDailyTradingLimit(userTier, tradedToday);
+  if (!limitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: `Daily trading limit of $${limitCheck.limit} reached`,
+      limit: limitCheck.limit,
+      used: tradedToday,
+      remaining: limitCheck.remaining,
+    });
+  }
   const trade = data.trades.find((t) => t.id === req.params["tradeId"]);
   if (!trade) {
     return res.status(404).json({ success: false, message: "Trade not found" });

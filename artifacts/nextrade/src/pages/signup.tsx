@@ -35,10 +35,12 @@ export function Signup() {
       setLocation(
         `/verify-otp?email=${encodeURIComponent(challenge.email)}&intent=signup`,
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const anyErr = error as { message?: string; response?: { data?: { error?: string } } };
+      const description = anyErr.response?.data?.error || anyErr.message || "Please check your details and try again.";
       toast({
         title: "Signup failed",
-        description: error.message || "Please check your details and try again.",
+        description,
         variant: "destructive",
       });
     }

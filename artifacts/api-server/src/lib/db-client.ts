@@ -14,7 +14,7 @@
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@workspace/db/schema";
-import { buildPostgresConfig } from "../../../../lib/db/src/connection-config";
+import { buildPostgresConfig, getRawDatabaseUrl } from "../../../../lib/db/src/connection-config";
 import { logger } from "./logger";
 
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
@@ -27,7 +27,7 @@ const REINIT_COOLDOWN_MS = 15_000; // don't hammer a dead DB on every request
 export function getDb(): DbClient | null {
   if (_db) return _db;
 
-  const url = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
+  const url = getRawDatabaseUrl();
   if (!url) {
     if (!_warned) {
       logger.warn("[db] DATABASE_URL not set — DB persistence disabled");
@@ -66,7 +66,7 @@ export function getDb(): DbClient | null {
     logger.info("[db] PostgreSQL connection pool initialised");
     return _db;
   } catch (err) {
-    logger.error({ err: (err as Error).message }, "[db] Failed to initialise pool");
+    logger.error({ err }, "[db] Failed to initialise pool");
     return null;
   }
 }
@@ -82,7 +82,7 @@ export function dbRun(
   const db = getDb();
   if (!db) return;
   fn(db).catch((err: Error) => {
-    logger.warn({ label, err: err.message }, "[db] shadow write failed");
+    logger.warn({ label, err }, "[db] shadow write failed");
   });
 }
 
@@ -100,7 +100,11 @@ export async function dbGet<T>(
   try {
     return await fn(db);
   } catch (err) {
-    logger.warn({ label, err: (err as Error).message }, "[db] read failed");
+    const message = (err as Error).message ?? String(err);
+    if (message.includes("relation") && message.includes("does not exist")) {
+      return fallback;
+    }
+    logger.warn({ label, err }, "[db] read failed");
     return fallback;
   }
 }

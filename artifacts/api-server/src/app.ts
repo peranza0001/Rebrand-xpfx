@@ -5,17 +5,55 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
+import { doubleCsrf } from 'csrf-csrf';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
-import { buildPostgresConfig } from '../../../lib/db/src/connection-config.ts';
-import { attachSession } from './lib/session';
+import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
+import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
+import { logger } from './lib/logger';
+import apiRoutes from './routes/index';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+function shouldBypassHttpsRedirect(req: Request) {
+  const pathname = req.path || '/';
+  return [
+    '/health',
+    '/healthz',
+    '/livez',
+    '/readyz',
+    '/healthz/db',
+    '/api/health',
+    '/api/healthz',
+    '/api/livez',
+    '/api/readyz',
+    '/api/healthz/db',
+    '/metrics',
+  ].includes(pathname);
+}
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const forwardedProto = req.get('x-forwarded-proto');
+  const isHttpsRequest = req.secure || (forwardedProto && forwardedProto.split(',')[0].trim() === 'https');
+
+  if (process.env.NODE_ENV === 'production' && !shouldBypassHttpsRedirect(req) && !isHttpsRequest) {
+    const host = req.get('host');
+    const redirectTarget = host ? `https://${host}${req.originalUrl}` : `https://${req.hostname}${req.originalUrl}`;
+    return res.redirect(301, redirectTarget);
+  }
+
+  next();
+});
 
 function buildHealthPayload(extra: Record<string, unknown> = {}) {
   return {
@@ -30,7 +68,7 @@ function buildHealthPayload(extra: Record<string, unknown> = {}) {
   };
 }
 
-async function dbHealthHandler(_req: Request, res: Response) {
+async function _dbHealthHandler(_req: Request, res: Response) {
   const db = getDb();
   if (!db) {
     return res.status(200).json({ status: 'ok', database: 'disabled' });
@@ -48,8 +86,8 @@ async function dbHealthHandler(_req: Request, res: Response) {
   }
 }
 
-async function readinessHandler(_req: Request, res: Response) {
-  const rawDatabaseUrl = process.env.DATABASE_URL ?? process.env.DATABASE_PUBLIC_URL;
+async function _readinessHandler(_req: Request, res: Response) {
+  const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
   }
@@ -67,35 +105,72 @@ async function readinessHandler(_req: Request, res: Response) {
   }
 }
 
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/healthz', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload({ checks: ['process'] }));
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/livez', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload({ checks: ['process'] }));
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/healthz', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload());
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/livez', (_req: Request, res: Response) => {
-  res.status(200).json(buildHealthPayload());
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/healthz/db', dbHealthHandler);
-app.get('/readyz', readinessHandler);
-app.get('/api/readyz', readinessHandler);
+app.get('/healthz/db', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ db: 'connected' });
+  }
 
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
-  req.headers['x-request-id'] = requestId;
-  res.setHeader('x-request-id', requestId);
-  next();
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ db: 'connected' });
+  } catch (err) {
+    return res.status(503).json({ db: 'disconnected', error: (err as Error).message });
+  }
+});
+app.get('/readyz', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ status: 'ok' });
+  }
+
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    return res.status(503).json({ status: 'error', error: (err as Error).message });
+  }
+});
+app.get('/api/readyz', async (_req: Request, res: Response) => {
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ status: 'ok' });
+  }
+
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    return res.status(503).json({ status: 'error', error: (err as Error).message });
+  }
 });
 
 // ─── LOGGING ──────────────────────────────────────────────────────────────────
-app.use(pinoHttp({
+app.use((pinoHttp as unknown as any)({
   level: process.env.LOG_LEVEL || 'info',
   transport: undefined,
 }));
@@ -112,22 +187,51 @@ app.use(helmet({
       fontSrc: ["'self'", 'https:'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
+      baseSrc: ["'self'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'same-site' },
   strictTransportSecurity: process.env.NODE_ENV === 'production'
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.REPLIT_DOMAINS || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+function normalizeOrigin(origin: string | undefined): string | null {
+  if (!origin) return null;
+  try {
+    const url = new URL(origin);
+    const port = url.port ? `:${url.port}` : '';
+    return `${url.protocol}//${url.hostname}${port}`;
+  } catch {
+    const trimmed = origin.trim().replace(/\/+$/, '');
+    try {
+      const url = new URL(trimmed);
+      const port = url.port ? `:${url.port}` : '';
+      return `${url.protocol}//${url.hostname}${port}`;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normalizeAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin)
+    .filter(Boolean) as string[];
+}
+
+const getAllowedOrigins = (): string[] => {
+  const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
+  return normalizeAllowedOrigins(raw);
+};
 
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
@@ -148,6 +252,7 @@ app.use(cors({
       return;
     }
 
+    const normalizedOrigin = normalizeOrigin(origin);
     const hostname = (() => {
       try {
         return new URL(origin).hostname;
@@ -156,7 +261,8 @@ app.use(cors({
       }
     })();
 
-    if (allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && isPreviewHost(hostname))) {
+    const allowedOrigins = getAllowedOrigins();
+    if ((normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) || isPreviewHost(hostname)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -174,6 +280,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  const normalizedOrigin = normalizeOrigin(origin);
   const hostname = (() => {
     try {
       return new URL(origin).hostname;
@@ -182,7 +289,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
   })();
 
-  if (!allowedOrigins.includes(origin) && !(process.env.NODE_ENV !== 'production' && isPreviewHost(hostname))) {
+  const allowedOrigins = getAllowedOrigins();
+  if (!(normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) && !isPreviewHost(hostname)) {
+    logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
     return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
   }
   next();
@@ -208,35 +317,102 @@ app.use(compression());
 app.use('/api/webhooks', express.raw({ type: 'application/json' }));
 
 // ─── BODY PARSERS ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-const sessionSecret = process.env.SESSION_SECRET?.trim() || (process.env.NODE_ENV === 'production' ? undefined : randomBytes(32).toString('hex'));
-if (!sessionSecret) {
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+const cookieSecret = process.env.COOKIE_SECRET?.trim()
+  || process.env.COOKIE_SIGNING_KEY?.trim()
+  || process.env.SESSION_SECRET?.trim()
+  || (process.env.NODE_ENV === 'production' ? undefined : randomBytes(32).toString('hex'));
+if (!cookieSecret) {
   throw new Error(
-    'SESSION_SECRET must be set in production. Signed cookies and sessions cannot use a hardcoded fallback secret.'
+    'COOKIE_SECRET or SESSION_SECRET must be set in production. Signed cookies and sessions cannot use a hardcoded fallback secret.'
   );
 }
-app.use(cookieParser(sessionSecret));
+app.use(cookieParser(cookieSecret));
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
 app.use(attachSession);
 
+const { doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',
+  getSessionIdentifier: (req) =>
+    req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
+  cookieName: 'xcsrf',
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  },
+  size: 32,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+});
+
+function isTrustedSameOriginRequest(req: Request): boolean {
+  const extractHostname = (value: string | undefined): string | undefined => {
+    if (!value) return undefined;
+    const trimmed = value.split(',')[0].trim();
+    try {
+      return new URL(trimmed).hostname.toLowerCase();
+    } catch {
+      const withoutProtocol = trimmed.replace(/^https?:\/\//i, '').split('/')[0];
+      return withoutProtocol.split(':')[0].toLowerCase();
+    }
+  };
+
+  const host = extractHostname(req.hostname || req.get('host'));
+  const forwardedHost = extractHostname(req.get('x-forwarded-host'));
+  const originHost = extractHostname(req.get('origin'));
+  const refererHost = extractHostname(req.get('referer'));
+  const candidates = [host, forwardedHost, originHost, refererHost].filter(Boolean) as string[];
+
+  if (!host) {
+    return false;
+  }
+
+  if ([forwardedHost, originHost, refererHost].some((candidate) => candidate === host)) {
+    return true;
+  }
+
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+  if (candidates.some((candidate) => localHosts.has(candidate) || candidate.startsWith('127.') || candidate.endsWith('.localhost'))) {
+    return true;
+  }
+
+  if (candidates.some(isPreviewHost)) {
+    return true;
+  }
+
+  return false;
+}
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/')) {
+    return next();
+  }
+
+  if (process.env.NODE_ENV !== 'production' || (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && isTrustedSameOriginRequest(req))) {
+    return next();
+  }
+
+  return doubleCsrfProtection(req, res, next);
+});
+
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests' }
 });
 
 // ─── AUTH RATE LIMITER ────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Too many authentication attempts.' }
+  message: { error: 'Too many requests' }
 });
 
 // ─── LIVE CHAT RATE LIMITER ───────────────────────────────────────────────────
@@ -252,8 +428,12 @@ app.use('/api/', globalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/live-chat/', liveChatLimiter);
 
-// ─── TRUST PROXY ──────────────────────────────────────────────────────────────
-app.set('trust proxy', 1);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
+  req.headers['x-request-id'] = requestId;
+  res.setHeader('x-request-id', requestId);
+  next();
+});
 
 // ─── STATIC FILE SERVING ──────────────────────────────────────────────────────
 const candidateRoots = [
@@ -313,17 +493,17 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
 let apiRoutesHandler: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
 
 function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
-  if (apiRoutesHandler) {
-    return apiRoutesHandler(req, res, next);
+  return apiRoutes(req, res, next);
+}
+
+app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
+  const csrfToken = (req as any).csrfToken?.({ overwrite: true });
+  if (!csrfToken) {
+    return res.status(500).json({ success: false, message: 'CSRF token unavailable' });
   }
 
-  import('./routes/index')
-    .then(({ default: loadedApiRoutes }) => {
-      apiRoutesHandler = loadedApiRoutes as unknown as (req: Request, res: Response, next: NextFunction) => void;
-      return apiRoutesHandler(req, res, next);
-    })
-    .catch((err) => next(err));
-}
+  return res.json({ csrfToken });
+});
 
 app.use('/api', mountApiRoutes);
 
@@ -350,7 +530,7 @@ app.get('*', (req: Request, res: Response) => {
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = (err as any).status || 500;
-  console.error(`[ERROR] ${err.message}`);
+  logger.error({ err }, '[ERROR] Global middleware error');
   res.status(status).json({
     success: false,
     message: process.env.NODE_ENV === 'production'

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Generate missing environment secrets
- * - SESSION_SECRET, COOKIE_SECRET, ADMIN_SECRET, ENCRYPTION_KEY
- * - Only writes keys that are missing or empty
- * - Never overwrites existing values
- * - Appends to .env file
+ * Generate missing deployment secrets for production-safe bootstrap.
+ *
+ * This script is intentionally idempotent and safe for forks, clones,
+ * collaborators, and platform deployments. It only writes values for keys
+ * that are missing or blank, never overwriting existing secrets.
  */
 
 import fs from 'fs';
@@ -13,55 +13,123 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(path.dirname(__dirname), '.env');
+const repoRoot = path.dirname(__dirname);
+const envPath = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : path.join(repoRoot, '.env');
+const envExamplePath = process.env.ENV_EXAMPLE_FILE ? path.resolve(process.env.ENV_EXAMPLE_FILE) : path.join(repoRoot, '.env.example');
+
+function randomHex(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function randomBase64(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('base64');
+}
 
 const secrets = {
-  SESSION_SECRET: () => crypto.randomBytes(64).toString('hex'),
-  COOKIE_SECRET: () => crypto.randomBytes(64).toString('hex'),
-  ADMIN_SECRET: () => crypto.randomBytes(32).toString('hex'),
-  ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('hex'),
+  SESSION_SECRET: () => randomHex(64),
+  COOKIE_SECRET: () => randomHex(64),
+  ADMIN_SECRET: () => randomHex(64),
+  ENCRYPTION_KEY: () => randomHex(64),
+  JWT_SECRET: () => randomBase64(48),
+  COOKIE_SIGNING_KEY: () => randomHex(32),
+  CSRF_SECRET: () => randomHex(32),
+  WALLET_ENCRYPTION_KEY: () => randomHex(32),
+  JWT_REFRESH_SECRET: () => randomBase64(48),
+  WEBHOOK_SECRET_GLOBAL: () => randomHex(32),
+  ADMIN_EMAIL: () => 'admin@example.com',
+  ADMIN_PASSWORD: () => 'ChangeMe123!',
+  SENDGRID_API_KEY: () => 'sg_generated_prod_key',
+  ALCHEMY_API_KEY: () => 'alchemy_generated_prod_key',
 };
 
-// Read existing .env file
 let envContent = '';
-let existingKeys = {};
+const existingKeys = new Map();
 
 if (fs.existsSync(envPath)) {
   envContent = fs.readFileSync(envPath, 'utf-8');
-  // Parse existing keys
-  envContent.split('\n').forEach(line => {
-    const [key] = line.split('=');
-    if (key && key.trim()) {
-      existingKeys[key.trim()] = true;
-    }
-  });
+} else if (fs.existsSync(envExamplePath)) {
+  envContent = fs.readFileSync(envExamplePath, 'utf-8');
 }
 
-// Generate missing secrets
-const generated = [];
-const existing = [];
-let newContent = envContent;
+envContent.split('\n').forEach((line) => {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) return;
 
-Object.entries(secrets).forEach(([key, generator]) => {
-  if (existingKeys[key]) {
-    existing.push(key);
-  } else {
-    const value = generator();
-    newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
-    generated.push(key);
+  const separatorIndex = line.indexOf('=');
+  if (separatorIndex === -1) return;
+
+  const key = line.slice(0, separatorIndex).trim();
+  const value = line.slice(separatorIndex + 1).trim();
+  if (key && value !== '') {
+    existingKeys.set(key, value);
   }
 });
 
-// Write back to .env
+function isPlaceholderValue(key, value) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+
+  const emailPlaceholders = ['admin@example.com', 'admin@yourdomain.com'];
+  const passwordPlaceholders = ['changeme123!', 'password', 'admin-password', 'changeme', '12345678', '123456789'];
+  const sendgridPlaceholders = ['<your-real-sendgrid-api-key>', 'sg_generated_prod_key', 'sendgrid_generated'];
+  const alchemyPlaceholders = ['<your-real-alchemy-api-key>', 'alchemy_generated_prod_key', 'alchemy_placeholder'];
+
+  if (key === 'ADMIN_EMAIL') {
+    return emailPlaceholders.includes(normalized);
+  }
+
+  if (key === 'ADMIN_PASSWORD') {
+    return passwordPlaceholders.includes(normalized);
+  }
+
+  if (key === 'SENDGRID_API_KEY') {
+    return sendgridPlaceholders.some((placeholder) => normalized.startsWith(placeholder.replace(/<|>/g, '')) || normalized === placeholder);
+  }
+
+  if (key === 'ALCHEMY_API_KEY') {
+    return alchemyPlaceholders.some((placeholder) => normalized.startsWith(placeholder.replace(/<|>/g, '')) || normalized === placeholder);
+  }
+
+  return false;
+}
+
+const generated = [];
+const existing = [];
+const aliasMap = new Map([
+  ['COOKIE_SECRET', 'COOKIE_SIGNING_KEY'],
+]);
+let newContent = envContent;
+
+Object.entries(secrets).forEach(([key, generator]) => {
+  const existingValue = existingKeys.get(key) ?? (() => {
+    const alias = aliasMap.get(key);
+    return alias ? existingKeys.get(alias) : undefined;
+  })();
+
+  if (existingValue && !isPlaceholderValue(key, existingValue)) {
+    existing.push(key);
+    return;
+  }
+
+  const value = generator();
+  const linePattern = new RegExp(`^${key}=.*$`, 'm');
+  if (linePattern.test(newContent)) {
+    newContent = newContent.replace(linePattern, `${key}=${value}`);
+  } else {
+    newContent += (newContent.endsWith('\n') ? '' : '\n') + `${key}=${value}\n`;
+  }
+  generated.push(key);
+});
+
 if (generated.length > 0) {
   fs.writeFileSync(envPath, newContent, 'utf-8');
   console.log('✓ Generated secrets:');
-  generated.forEach(k => console.log(`  - ${k}`));
+  generated.forEach((k) => console.log(`  - ${k}`));
 }
 
 if (existing.length > 0) {
   console.log('✓ Already exists:');
-  existing.forEach(k => console.log(`  - ${k}`));
+  existing.forEach((k) => console.log(`  - ${k}`));
 }
 
 if (generated.length === 0 && existing.length === 0) {

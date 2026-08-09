@@ -25,6 +25,7 @@
 import { newId, NOW, sentEmails, type SentEmailData } from "./store";
 import { logger } from "./logger";
 import { env } from "./env";
+import { isSendGridConfigured } from "./integration-config";
 
 const NO_REPLY = "no_reply@xpressprofx.com";
 const MAX_LOG = 500;
@@ -40,6 +41,10 @@ export interface SendEmailInput {
   from?: string;
 }
 
+export interface SendEmailOptions {
+  requireProvider?: boolean;
+}
+
 interface ProviderResult {
   ok: boolean;
   provider: "sendgrid" | "smtp" | "stub";
@@ -48,7 +53,9 @@ interface ProviderResult {
 
 async function deliverViaSendGrid(input: SendEmailInput, from: string): Promise<ProviderResult> {
   const apiKey = env.SENDGRID_API_KEY;
-  if (!apiKey) return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY not set" };
+  if (!isSendGridConfigured(apiKey)) {
+    return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY is not configured for production delivery" };
+  }
   try {
     const textBody = input.text ?? input.body ?? "";
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -133,8 +140,11 @@ async function deliverViaSmtp(input: SendEmailInput, from: string): Promise<Prov
   }
 }
 
-export async function sendEmail(input: SendEmailInput): Promise<SentEmailData> {
-  const from = input.from ?? NO_REPLY;
+export async function sendEmail(
+  input: SendEmailInput,
+  options: SendEmailOptions = {},
+): Promise<SentEmailData> {
+  const from = input.from ?? env.SMTP_FROM ?? NO_REPLY;
   const body = input.body ?? input.text ?? "";
   const record: SentEmailData = {
     id: newId("email"),
@@ -161,6 +171,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SentEmailData> {
       result = { ok: true, provider: "stub" };
     }
   }
+
+  if (result.provider === "stub" && options.requireProvider) {
+    const errorMessage = `Email delivery failed for ${record.kind}; no configured provider available.`;
+    logger.error({ to: record.to, kind: record.kind }, errorMessage);
+    throw new Error(errorMessage);
+  }
+
   logger.info(
     { to: record.to, kind: record.kind, subject: record.subject, provider: result.provider },
     "email.send",

@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PaymentSourceSelector, type PaymentSource } from "@/components/payment-source-selector";
 import { ManualTxHashInput } from "@/components/manual-tx-hash-input";
+import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 
 export function Trades() {
   const { data: trades, isLoading: isLoadingTrades } = useGetTrades();
@@ -60,6 +61,8 @@ export function Trades() {
         <h1 className="text-3xl font-bold tracking-tight">Trading Desk</h1>
         <p className="text-muted-foreground mt-1">Monitor active positions and social trading performance</p>
       </div>
+
+      <DemoExperienceBanner />
 
       <div className="grid gap-6 md:grid-cols-4">
         {/* Social Trading Summary Panel */}

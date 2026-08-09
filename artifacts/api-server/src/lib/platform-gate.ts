@@ -13,6 +13,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { platformSettings, sessions, users } from "./store";
 import { SESSION_COOKIE, clearSessionCookie } from "./session";
+import { deleteSession } from "./db-persist";
 
 const MAINTENANCE_ALLOW_PREFIXES = [
   "/api/auth/login",
@@ -36,7 +37,11 @@ export function platformGate(req: Request, res: Response, next: NextFunction): v
       const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as
         | string
         | undefined;
-      if (sid) sessions.delete(sid);
+      if (sid) {
+        sessions.delete(sid);
+        // best-effort delete persisted session
+        void deleteSession(sid).catch(() => undefined);
+      }
       clearSessionCookie(res);
       if (!url.startsWith("/api/auth/logout") && !url.startsWith("/api/auth/session")) {
         res.status(403).json({ error: "Account disabled. Contact support." });

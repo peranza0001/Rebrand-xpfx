@@ -14,7 +14,8 @@ export function attachSession(req: Request, _res: Response, next: NextFunction):
     | string
     | undefined;
   if (sid) {
-    const userId = sessions.get(sid);
+    const rec = sessions.get(sid);
+    const userId = rec?.userId ?? undefined;
     if (userId) {
       const stored = users.get(userId);
       if (stored) {
@@ -61,7 +62,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 export function setSessionCookie(res: Response, sid: string): void {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: isProduction ? "none" : "lax",
     signed: true,
     secure: isProduction,
     maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
@@ -72,7 +73,7 @@ export function setSessionCookie(res: Response, sid: string): void {
 export function clearSessionCookie(res: Response): void {
   res.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: isProduction ? "none" : "lax",
     secure: isProduction,
     path: "/",
   });

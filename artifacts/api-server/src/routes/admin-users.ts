@@ -27,8 +27,10 @@ import {
   users,
   usersByEmail,
 } from "../lib/store";
+import { persistUser } from "../lib/db-persist";
 import { requireAdmin } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
+import { deleteBankAccount, persistBankAccount } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -83,6 +85,8 @@ router.post("/admin/users/create", requireAdmin, (req, res) => {
   });
   if (parsed.data.phone !== undefined) stored.user.phone = parsed.data.phone;
   userData.set(stored.user.id, freshUserData(stored.user.id, { country: stored.user.country }));
+
+  // createUser already persists new users to the DB; avoid duplicate persistence here.
 
   logActivity({
     actorId: req.userId!,
@@ -147,7 +151,42 @@ router.patch("/admin/users/:userId/profile", requireAdmin, (req, res) => {
     action: "admin.user.profile_update",
     detail: `Updated profile for ${stored.user.email} (${userId}).`,
   });
+  // Persist updated profile to DB (best-effort)
+  void persistUser(stored.user.id, {
+    email: stored.user.email,
+    username: stored.user.username,
+    passwordHash: stored.passwordHash,
+    fullName: stored.user.fullName,
+    country: stored.user.country,
+    phone: stored.phone ?? null,
+  });
+
   return res.json(stored.user);
+});
+
+// POST /admin/users/:userId/reregister — persist an existing in-memory user to DB
+router.post("/admin/users/:userId/reregister", requireAdmin, (req, res) => {
+  const userId = ((req.params["userId"] as string) as string);
+  const stored = users.get(userId);
+  if (!stored) return res.status(404).json({ error: "User not found" });
+
+  void persistUser(stored.user.id, {
+    email: stored.user.email,
+    username: stored.user.username,
+    passwordHash: stored.passwordHash,
+    fullName: stored.user.fullName,
+    country: stored.user.country,
+    phone: stored.phone ?? null,
+  });
+
+  logActivity({
+    actorId: req.userId!,
+    actorName: req.storedUser!.user.fullName,
+    action: "admin.user.reregister",
+    detail: `Persisted user ${stored.user.email} (${userId}) to the database without OTP.`,
+  });
+
+  return res.json({ ok: true });
 });
 
 // ---------- Status / locks ----------
@@ -338,6 +377,16 @@ router.patch("/admin/users/:userId/status", requireAdmin, (req, res) => {
     action: "admin.user.status_update",
     detail: `Updated ${stored.user.email}: ${changes.join(", ") || "no changes"}.`,
   });
+  // Persist status/profile changes to DB (best-effort)
+  void persistUser(stored.user.id, {
+    email: stored.user.email,
+    username: stored.user.username,
+    passwordHash: stored.passwordHash,
+    fullName: stored.user.fullName,
+    country: stored.user.country,
+    phone: stored.phone ?? null,
+  });
+
   return res.json(buildDetail(userId));
 });
 
@@ -402,6 +451,22 @@ router.patch("/admin/users/:userId/bank-accounts/:bankId", requireAdmin, (req, r
     bank.fiatCurrency = parsed.data.fiatCurrency.toUpperCase();
   }
 
+  void persistBankAccount(bank.id, userId, {
+    accountName: bank.accountHolder,
+    bankName: bank.bankName,
+    accountNumber: undefined,
+    routingNumber: undefined,
+    iban: undefined,
+    swiftCode: undefined,
+    debitCardLast4: bank.last4,
+    debitCardExpiry: undefined,
+    country: bank.currency,
+    currency: bank.currency,
+    isDefault: bank.isDefault ?? false,
+    fiatBalance: bank.fiatBalance,
+    fiatCurrency: bank.fiatCurrency,
+  });
+
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,
@@ -418,6 +483,7 @@ router.delete("/admin/users/:userId/bank-accounts/:bankId", requireAdmin, (req, 
   const idx = data.bankAccounts.findIndex((b) => b.id === bankId);
   if (idx === -1) return res.status(404).json({ error: "Bank account not found" });
   const removed = data.bankAccounts.splice(idx, 1)[0]!;
+  void deleteBankAccount(removed.id);
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,

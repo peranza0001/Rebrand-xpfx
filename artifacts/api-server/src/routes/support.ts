@@ -8,6 +8,7 @@ import {
   type SupportTicket,
 } from "@workspace/api-zod";
 import { getUserData, newId, NOW } from "../lib/store";
+import { persistSupportTicket } from "../lib/db-persist";
 import { requireAuth, requireFullAuth } from "../lib/session";
 
 const router: IRouter = Router();
@@ -56,6 +57,13 @@ router.post("/support/tickets", requireFullAuth, (req, res) => {
     updatedAt: NOW(),
   };
   data.supportTickets.unshift(ticket);
+  void persistSupportTicket(ticket.id, u.id, {
+    subject: ticket.subject,
+    status: ticket.status,
+    priority: ticket.priority,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+  });
   return res.json(ticket);
 });
 

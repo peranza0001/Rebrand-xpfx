@@ -53,7 +53,7 @@ export function PublicHome() {
                 <Link href="/signup">Open free account <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
               <Button asChild size="lg" variant="outline" data-testid="button-hero-demo">
-                <Link href="/login">Try demo account</Link>
+                <Link href="/login?demo=1">Try demo account</Link>
               </Button>
             </div>
             <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">
@@ -93,6 +93,49 @@ export function PublicHome() {
           </div>
         </div>
       </section>
+
+      <Section title="Demo account ready in seconds" subtitle="Launch a fully seeded trading demo with one click.">
+        <div className="grid gap-4 md:grid-cols-[1.2fr_auto] items-center rounded-3xl border border-primary/10 bg-primary/5 p-8">
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-primary font-semibold">Demo account</p>
+            <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
+              Explore the platform with a pre-funded demo trading account.
+            </h2>
+            <p className="mt-4 text-muted-foreground max-w-xl">
+              No deposit required. Start with a seeded portfolio, live charts, demo wallets, sample P2P orders and trades.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/login?demo=1">Start demo account</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/signup">Open live account</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            <Card className="border border-border bg-card">
+              <CardContent className="p-6">
+                <div className="text-sm font-semibold text-primary">Demo highlights</div>
+                <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 h-4 w-4 text-primary shrink-0" />
+                    Access a fully seeded portfolio with demo balances.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 h-4 w-4 text-primary shrink-0" />
+                    View sample trades, orders, and P2P activity.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="mt-1 h-4 w-4 text-primary shrink-0" />
+                    Keep the same user experience as live trading.
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </Section>
 
       {/* Asset classes */}
       <Section title="Markets you can trade" subtitle="One account, every major asset class.">

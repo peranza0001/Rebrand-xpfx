@@ -62,7 +62,7 @@ if (!skipEnvCheck) {
 
   // Required in production
   if (isProduction) {
-    const prodRequired = ["SESSION_SECRET", "JWT_SECRET", "WALLET_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD"];
+    const prodRequired = ["SESSION_SECRET", "JWT_SECRET", "WALLET_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ALCHEMY_API_KEY"];
     for (const key of prodRequired) {
       const val = (process.env[key] ?? "").trim();
       if (!val) {

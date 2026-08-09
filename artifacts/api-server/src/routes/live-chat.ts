@@ -7,7 +7,9 @@ import {
   AdminReplyLiveChatBody,
   AdminReplyLiveChatParams,
 } from "@workspace/api-zod";
+import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
+import { persistChatMessage } from "../lib/db-persist";
 import { requireAdmin, requireAuth, requireFullAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -61,7 +63,7 @@ router.get("/live-chat", requireAuth, (req, res) => {
 });
 
 // POST /live-chat — send message, get AI reply (with possible handoff)
-router.post("/live-chat", requireFullAuth, async (req, res) => {
+router.post("/live-chat", requireAuth, async (req, res) => {
   const parsed = SendLiveChatMessageBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
 
@@ -80,6 +82,14 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
+  void persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
+
+  try {
+    const ns = getChatNamespace();
+    ns?.to('admins').emit('message', userMsg);
+  } catch (_err) {
+    // best-effort notification delivery; do not fail the request
+  }
 
   // Build AI history from prior messages.
   const history = data.liveChat
@@ -111,6 +121,7 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
+  void persistChatMessage(req.userId!, 'bot', null, botReply.content);
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
@@ -129,6 +140,7 @@ router.post("/live-chat", requireFullAuth, async (req, res) => {
         createdAt: NOW(),
       };
       data.liveChat.push(noAgentMsg);
+    void persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
     }
     pushAdminAlert({
       kind: "live_chat.handoff",
@@ -203,6 +215,15 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(msg);
+  // Persist admin reply (best-effort) and broadcast in realtime to any connected clients in the conv room.
+  void persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
+  try {
+    const ns = getChatNamespace();
+    ns?.to(`conv:${p.data.userId}`).emit('message', msg);
+  } catch (err) {
+    // best-effort; do not fail the request if broadcasting fails
+  }
+
   return res.json(msg);
 });
 

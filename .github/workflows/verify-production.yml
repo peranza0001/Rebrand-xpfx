@@ -1,0 +1,30 @@
+name: Verify Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Production base URL (e.g. https://rebrand-xpfx-production-... )'
+        required: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run production smoke tests
+        env:
+          PRODUCTION_URL: ${{ github.event.inputs.url || secrets.PRODUCTION_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: node ./scripts/production-smoke.mjs

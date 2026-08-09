@@ -25,6 +25,7 @@ import {
   useGetCurrentUser,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -298,6 +299,7 @@ export function TopAppBar({
         {title}
       </h1>
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <ThemeToggle />
         <EnvPill />
         <UserMenu />
       </div>

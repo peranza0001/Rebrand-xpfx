@@ -1,0 +1,98 @@
+name: Enterprise Deploy — XpressPro FX
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '${{ env.NODE_VERSION }}'
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm audit --audit-level=high
+      - run: npx audit-ci --high
+
+  quality:
+    name: Type Check + Lint + Test
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '${{ env.NODE_VERSION }}'
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm run lint --workspaces --if-present
+      - run: npm test --workspaces --if-present
+
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '${{ env.NODE_VERSION }}'
+      - run: npm ci
+      - run: npm run build --workspaces --if-present
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            artifacts/api-server/dist
+            artifacts/nextrade/dist
+            artifacts/admin-portal/dist
+          retention-days: 7
+
+  deploy-vps:
+    name: Deploy to VPS (Production)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || '22' }}
+          script: |
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            git pull origin main
+            npm install --workspaces
+            npm run build --workspace=artifacts/api-server
+            npm run build --workspace=artifacts/nextrade
+            npm run build --workspace=artifacts/admin-portal
+            cd artifacts/api-server && npx prisma migrate deploy && cd ../..
+            pm2 reload ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production
+            sudo nginx -t && sudo systemctl reload nginx
+          timeout: 20m
+
+  notify:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [security, quality, build, deploy-vps]
+    if: failure()
+    steps:
+      - name: Send failure notification
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            --data '{"text":"🚨 XpressPro FX deployment FAILED on branch main. Check GitHub Actions."}'

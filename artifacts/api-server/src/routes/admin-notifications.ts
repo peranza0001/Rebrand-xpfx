@@ -21,6 +21,7 @@ import {
   sentEmails,
   users,
 } from "../lib/store";
+import { persistSupportTicket } from "../lib/db-persist";
 import type { MailboxMsg, MailboxThreadData } from "../lib/store";
 import { requireAdmin } from "../lib/session";
 import { notifyUser } from "../lib/notify";
@@ -143,6 +144,13 @@ router.post("/admin/broadcast-tickets", requireAdmin, (req, res) => {
         updatedAt: NOW(),
       };
       data.supportTickets.unshift(ticket);
+      void persistSupportTicket(ticket.id, userId, {
+        subject: ticket.subject,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+      });
     }
 
     notifyUser({

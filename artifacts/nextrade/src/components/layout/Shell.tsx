@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   Wallet,
   LineChart,
+  FileText,
   ArrowLeftRight,
   Users,
   MessageSquare,
@@ -40,6 +41,7 @@ import {
   LogOut,
   Menu,
   Receipt,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -59,6 +61,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /** Type of a single sidebar navigation entry. */
 type NavItem = {
@@ -85,12 +88,14 @@ const navGroups: NavGroup[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Wallets", href: "/wallets", icon: Wallet },
       { name: "Assets", href: "/assets", icon: Package },
+      { name: "Statements", href: "/statements", icon: FileText },
     ],
   },
   {
     label: "Trading",
     items: [
       { name: "Trades", href: "/trades", icon: LineChart },
+      { name: "Demo Trading", href: "/demo-trading", icon: BarChart3 },
       { name: "P2P Market", href: "/p2p", icon: ArrowLeftRight },
       { name: "Trade Manager", href: "/managers", icon: Users },
       { name: "Messages", href: "/messages", icon: MessageSquare },
@@ -289,6 +294,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 ml-auto">
+            <ThemeToggle />
             {isDemo && (
               <Badge
                 variant="secondary"

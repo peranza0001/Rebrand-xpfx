@@ -479,10 +479,16 @@ export function UserDetailPage({ userId }: { userId: string }) {
       {/* Status */}
       {tab === "status" && (
         <div className="bg-card border border-card-border rounded-xl divide-y divide-border max-w-lg">
+          <div className="p-5 space-y-2 border-b border-border">
+            <p className="text-sm font-semibold text-foreground">Access control</p>
+            <p className="text-xs text-muted-foreground">
+              These toggles apply silently in the backend and immediately change the user-facing experience without a client-side notification. This is the admin backend control path for lockout, demo access, and access changes.
+            </p>
+          </div>
           <Toggle label="KYC verified" value={detail.kycStatus === "approved"} onChange={(v) => setStatusFlag({ kycVerified: v })} description="Mark identity verification as complete." />
           <Toggle label="Trading locked" value={detail.tradingLocked} onChange={(v) => setStatusFlag({ tradingLocked: v })} description="Block this user from opening or closing trades." />
           <Toggle label="Social locked" value={detail.socialLocked} onChange={(v) => setStatusFlag({ socialLocked: v })} description="Hide social/community features from this user." />
-          <Toggle label="Demo mode" value={detail.demoMode} onChange={(v) => setStatusFlag({ demoMode: v })} description="Treat this account as a demo account." />
+          <Toggle label="Demo mode" value={detail.demoMode} onChange={(v) => setStatusFlag({ demoMode: v })} description="Treat this account as a demo account and enable backend-managed demo access." />
           <Toggle label="P2P merchant" value={detail.merchant} onChange={(v) => setStatusFlag({ merchant: v })} description="Allow this user to publish P2P listings." />
           <Toggle label="Suspended (read-only)" value={detail.suspended} onChange={(v) => setStatusFlag({ suspended: v })} description="Account becomes read-only. User stays signed in but cannot mutate data." />
           <Toggle label="Disabled (cannot sign in)" value={detail.disabled} onChange={(v) => setStatusFlag({ disabled: v })} description="Kills any active session and blocks future logins." />

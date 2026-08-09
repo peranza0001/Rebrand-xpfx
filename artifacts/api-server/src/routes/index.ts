@@ -41,6 +41,11 @@ import adminDepositsRouter from "./admin-deposits";
 import educationRouter from "./education";
 import mentorshipRouter from "./mentorship";
 import smartVestRouter from "./smartvest";
+import accountTierRouter from "./account-tier";
+import statementsRouter from "./statements";
+import demoRouter from "./demo";
+import demoTradingRouter from "./demo-trading";
+import webhooksRouter from "./webhooks";
 
 const router: IRouter = Router();
 
@@ -65,6 +70,7 @@ router.use(referralsRouter);
 router.use(adminRouter);
 router.use(gasFeeRouter);
 router.use(platformConfigRouter);
+router.use(webhooksRouter);
 router.use(liveChatRouter);
 router.use(mailboxRouter);
 router.use(adminExtendedRouter);
@@ -83,5 +89,9 @@ router.use(adminDepositsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);
+router.use(demoRouter);
+router.use(demoTradingRouter);
+router.use('/account', accountTierRouter);
+router.use(statementsRouter);
 
 export default router;

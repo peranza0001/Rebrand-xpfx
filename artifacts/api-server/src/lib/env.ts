@@ -9,11 +9,23 @@
  * directly — that way missing optional secrets never crash startup.
  */
 
+import { loadRuntimeEnv } from './runtime-env';
+
+loadRuntimeEnv();
+
+export function resolveEnvValue(rawEnv: Record<string, string | undefined>, key: string, aliases: string[] = []): string | undefined {
+  const candidates = [key, ...aliases];
+  for (const candidate of candidates) {
+    const raw = rawEnv[candidate];
+    if (raw === undefined) continue;
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+}
+
 const get = (key: string): string | undefined => {
-  const raw = process.env[key];
-  if (raw === undefined) return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length === 0 ? undefined : trimmed;
+  return resolveEnvValue(process.env, key);
 };
 
 export const env = {
@@ -25,16 +37,16 @@ export const env = {
   LOG_LEVEL: get("LOG_LEVEL") ?? "info",
 
   // Demo auth
-    // Demo auth: allow explicit true/false via env; if unset, default to true in
-    // non-production and false in production so demo endpoints work for local dev.
-    ENABLE_DEMO_AUTH: (() => {
-      const raw = process.env["ENABLE_DEMO_AUTH"];
-      if (raw === undefined) return undefined;
-      const val = raw.trim().toLowerCase();
-      if (val === "true") return true;
-      if (val === "false") return false;
-      return undefined;
-    })(),
+  // Demo auth: allow explicit true/false via env; defaults to true when missing
+  // so the demo endpoint is available in production unless explicitly disabled.
+  ENABLE_DEMO_AUTH: (() => {
+    const raw = resolveEnvValue(process.env, "ENABLE_DEMO_AUTH");
+    if (raw === undefined) return true;
+    const val = raw.trim().toLowerCase();
+    if (val === "true") return true;
+    if (val === "false") return false;
+    return true;
+  })(),
 
   // Admin provisioning
   ADMIN_EMAIL: get("ADMIN_EMAIL"),
@@ -48,19 +60,30 @@ export const env = {
   SMTP_PASS: get("SMTP_PASS"),
   SMTP_FROM: get("SMTP_FROM"),
 
+  // Additional deployment aliases for production platforms
+  COOKIE_SIGNING_KEY: resolveEnvValue(process.env, "COOKIE_SIGNING_KEY"),
+  CSRF_SECRET: resolveEnvValue(process.env, "CSRF_SECRET"),
+  JWT_REFRESH_SECRET: resolveEnvValue(process.env, "JWT_REFRESH_SECRET"),
+  WEBHOOK_SECRET_GLOBAL: resolveEnvValue(process.env, "WEBHOOK_SECRET_GLOBAL"),
+
   // Blockchain providers (optional — falls back to ethers public provider)
   ALCHEMY_API_KEY: get("ALCHEMY_API_KEY"),
   INFURA_API_KEY: get("INFURA_API_KEY"),
 
   // MoonPay (optional — falls back to sandbox)
   MOONPAY_API_KEY: get("MOONPAY_API_KEY"),
-  MOONPAY_SECRET_KEY: get("MOONPAY_SECRET_KEY"),
+  MOONPAY_SECRET_KEY: resolveEnvValue(process.env, "MOONPAY_SECRET_KEY", ["MOONPAY_SECRET"]),
   MOONPAY_WEBHOOK_SECRET: get("MOONPAY_WEBHOOK_SECRET"),
 
   // Coinbase Commerce / On-ramp (optional — falls back to sandbox/test URL)
   COINBASE_API_KEY: get("COINBASE_API_KEY"),
   COINBASE_API_SECRET: get("COINBASE_API_SECRET"),
   COINBASE_WEBHOOK_SECRET: get("COINBASE_WEBHOOK_SECRET"),
+
+  // Paystack (optional — uses deployment-style aliases when provided)
+  PAYSTACK_SECRET: resolveEnvValue(process.env, "PAYSTACK_SECRET", ["PAYSTACK_SECRET_KEY"]),
+  PAYSTACK_PUBLIC: resolveEnvValue(process.env, "PAYSTACK_PUBLIC", ["PAYSTACK_PUBLIC_KEY"]),
+  PAYSTACK_WEBHOOK_SECRET: resolveEnvValue(process.env, "PAYSTACK_WEBHOOK_SECRET"),
 
   /**
    * JSON array of ISO-3166-1 alpha-2 country codes where MoonPay is
@@ -73,14 +96,17 @@ export const env = {
   SESSION_SECRET: get("SESSION_SECRET"),
 
   // OpenAI integration (optional — chat features degrade without it)
-  AI_INTEGRATIONS_OPENAI_API_KEY: get("AI_INTEGRATIONS_OPENAI_API_KEY"),
-  AI_INTEGRATIONS_OPENAI_BASE_URL: get("AI_INTEGRATIONS_OPENAI_BASE_URL"),
+  AI_INTEGRATIONS_OPENAI_API_KEY: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_API_KEY", ["OPENAI_API_KEY"]),
+  AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL"]),
 
   // SendGrid (optional — email.ts falls back to SMTP, then to logged-only)
   SENDGRID_API_KEY: get("SENDGRID_API_KEY"),
 
   // Platform on-chain receiving address override
   PLATFORM_RECEIVING_ADDRESS: get("PLATFORM_RECEIVING_ADDRESS"),
+
+  // Frontend runtime exposure
+  VITE_API_URL: resolveEnvValue(process.env, "VITE_API_URL", ["API_PROXY_TARGET"]),
 
   // CORS allowlist — comma-separated list of allowed frontend origins.
   // Use this on Railway, Render, VPS, and any non-Replit deployment:
@@ -112,13 +138,22 @@ export const env = {
 } as const;
 
 export const isProduction = env.NODE_ENV === "production";
-export const isDemoAuthEnabled =
-  // If the env var was explicitly set, respect it. Otherwise enable demo auth
-  // by default in non-production environments for easier local testing.
-  (env.ENABLE_DEMO_AUTH ?? !isProduction) as boolean;
+
+export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined> = process.env) {
+  const explicitValue = rawEnv["ENABLE_DEMO_AUTH"]?.trim().toLowerCase();
+  if (explicitValue === "true") return true;
+  if (explicitValue === "false") return false;
+  return true;
+}
+
+export const isDemoAuthEnabled = resolveDemoAuthEnabled();
 export const hasSmtpCredentials = Boolean(
   env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS,
 );
+
+export function isDemoRouteAvailable(): boolean {
+  return isDemoAuthEnabled;
+}
 
 export function assertRequiredEnv(): { port: number } {
   if (!env.PORT) {

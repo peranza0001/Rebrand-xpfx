@@ -9,6 +9,7 @@
  * with Node's scrypt; sessions are random 32-byte tokens stored in memory.
  */
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { persistTransaction, persistUser } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import type {
@@ -232,6 +233,7 @@ export interface SmartVestAccount {
   disclaimerAcknowledged: boolean;
   createdAt: string;
   updatedAt: string;
+  returnPercent?: number;
 }
 
 /**
@@ -250,8 +252,8 @@ export const defaultBillingRates: BillingRates = {
 export const users = new Map<string, StoredUser>();
 /** Email -> userId index for login. */
 export const usersByEmail = new Map<string, string>();
-/** sessionId -> userId map. */
-export const sessions = new Map<string, string>();
+/** sessionId -> session record (userId + optional metadata). */
+export const sessions = new Map<string, { userId: string; metadata?: { ip?: string; userAgent?: string; createdAt: string } }>();
 /** Per-user data store. */
 export const userData = new Map<string, UserData>();
 
@@ -320,6 +322,10 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomUUID().split("-")[0]}`;
+}
+
+export function newUuid(): string {
+  return randomUUID();
 }
 
 export function newSessionId(): string {
@@ -1026,6 +1032,23 @@ export const platformSettings: PlatformSettingsData = {
   maintenanceMessage: "",
 };
 
+/** Demo platform configuration (admin editable) */
+export interface DemoConfig {
+  defaultBalance: number;
+  defaultLeverage: number;
+  volatility: number; // per-tick volatility multiplier
+  spread: number; // synthetic spread in price units
+  enabled: boolean;
+}
+
+export const demoConfig: DemoConfig = {
+  defaultBalance: 10000,
+  defaultLeverage: 10,
+  volatility: 0.0008,
+  spread: 0.0,
+  enabled: true,
+};
+
 export interface P2PMerchantApplicationData {
   id: string;
   userId: string;
@@ -1102,7 +1125,7 @@ export function freshUserData(
   const data: UserData = {
     wallets: [
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "main",
         label: "Main Wallet",
         currency: walletCurrency,
@@ -1111,7 +1134,7 @@ export function freshUserData(
         address: `0x${randomBytes(20).toString("hex")}`,
       },
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "trading",
         label: "Trading Wallet",
         currency: walletCurrency,
@@ -1120,7 +1143,7 @@ export function freshUserData(
         address: `0x${randomBytes(20).toString("hex")}`,
       },
       {
-        id: newId("w"),
+        id: newUuid(),
         type: "social",
         label: "Social Trading Wallet",
         currency: walletCurrency,
@@ -1223,6 +1246,8 @@ export function applyWalletDebit(
   amount: number,
   description: string,
   currency: string = "USD",
+  isDemo: boolean = false,
+  userId?: string,
 ): { wallet: Wallet; transaction: Transaction } {
   const wallet =
     (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
@@ -1237,16 +1262,74 @@ export function applyWalletDebit(
 
   wallet.balance = Number((wallet.balance - amount).toFixed(2));
   const transaction: Transaction = {
-    id: newId("tx"),
+    id: newUuid(),
     walletId: wallet.id,
     type: "fee",
     amount: -amount,
     currency,
     status: "completed",
     description,
+    isDemo,
     createdAt: NOW(),
   };
   data.transactions.unshift(transaction);
+
+  // Persist the transaction to DB if userId and Prisma are available
+  if (userId) {
+    void persistTransaction(transaction.id, wallet.id, userId, {
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      currency: transaction.currency,
+      status: transaction.status,
+      description: transaction.description,
+      isDemo: Boolean(transaction.isDemo),
+    });
+  }
+
+  return { wallet, transaction };
+}
+
+export function applyWalletCredit(
+  data: { wallets: Wallet[]; transactions: Transaction[] },
+  walletId: string | null | undefined,
+  amount: number,
+  description: string,
+  currency: string = 'USD',
+  isDemo: boolean = false,
+  userId?: string,
+): { wallet: Wallet; transaction: Transaction } {
+  const wallet =
+    (walletId ? data.wallets.find((w) => w.id === walletId) : null) ??
+    data.wallets.find((w) => w.type === 'main');
+
+  if (!wallet) {
+    throw new Error('No funding wallet available.');
+  }
+
+  wallet.balance = Number((wallet.balance + amount).toFixed(2));
+  const transaction: Transaction = {
+    id: newUuid(),
+    walletId: wallet.id,
+    type: 'deposit',
+    amount: amount,
+    currency,
+    status: 'completed',
+    description,
+    isDemo,
+    createdAt: NOW(),
+  };
+  data.transactions.unshift(transaction);
+
+  if (userId) {
+    void persistTransaction(transaction.id, wallet.id, userId, {
+      type: transaction.type,
+      amount: Number(transaction.amount),
+      currency: transaction.currency,
+      status: transaction.status,
+      description: transaction.description,
+      isDemo: Boolean(transaction.isDemo),
+    });
+  }
 
   return { wallet, transaction };
 }
@@ -1274,7 +1357,7 @@ export function createUser(opts: {
   merchant?: boolean;
   phone?: string | null;
 }): StoredUser {
-  const id = opts.id ?? newId("u");
+  const id = opts.id ?? newUuid();
   const referralCode = newReferralCode();
   const stored: StoredUser = {
     user: {
@@ -1308,6 +1391,65 @@ export function createUser(opts: {
   usersByEmail.set(opts.email.toLowerCase(), id);
   referralCodeIndex.set(referralCode, id);
   referrals.set(id, []);
+  // Best-effort persist to DB so admin-created and seeded users survive restarts.
+  void persistUser(id, {
+    email: opts.email,
+    username: opts.username,
+    passwordHash: stored.passwordHash,
+    fullName: opts.fullName,
+    country: opts.country,
+    phone: opts.phone ?? null,
+  });
+  return stored;
+}
+
+const DEMO_USER_EMAIL = "demo@xpressprofx.com";
+const DEMO_USER_ID = "u_demo_default";
+
+export function ensureDemoUser(): StoredUser {
+  const existing = users.get(DEMO_USER_ID);
+  if (existing) {
+    return existing;
+  }
+
+  const stored = createUser({
+    id: DEMO_USER_ID,
+    email: DEMO_USER_EMAIL,
+    password: "demo-password",
+    fullName: "Demo Trader",
+    username: "demo_trader",
+    country: "US",
+    role: "demo",
+    kycVerified: true,
+    avatarSeed: "demo",
+  });
+
+  stored.demoMode = true;
+  stored.user.kycVerified = true;
+  stored.user.buyVerified = false;
+  stored.user.merchant = false;
+  stored.role = "demo";
+
+  const demoData = freshUserData(stored.user.id, { withDemoBalances: true, country: stored.user.country });
+  demoData.wallets[0]!.balance = 24850.42;
+  demoData.wallets[1]!.balance = 12480;
+  demoData.wallets[1]!.pendingBalance = 350.5;
+  demoData.wallets[2]!.pendingBalance = 1820.75;
+  demoData.transactions = [
+    {
+      id: newId("tx"),
+      walletId: demoData.wallets[0]!.id,
+      type: "deposit",
+      amount: 5000,
+      currency: "USD",
+      status: "completed",
+      description: "Demo funding",
+      createdAt: NOW(),
+    },
+  ];
+  demoData.trades = [];
+  userData.set(stored.user.id, demoData);
+
   return stored;
 }
 
@@ -1433,37 +1575,73 @@ referrals.set(alex.user.id, [
 logActivity({ actorId: alex.user.id, actorName: alex.user.fullName, action: "system.seed", detail: "Demo user Alex Morgan seeded with sample portfolio." });
 } // end non-production seed block
 
-// --- Seed Admin user (credentials must be set via environment variables) ---
-const rawAdminEmail = env.ADMIN_EMAIL;
-const adminPassword = env.ADMIN_PASSWORD;
-const adminEmails = rawAdminEmail
-  ? [...new Set(rawAdminEmail.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))]
-  : [];
 export const adminSeedStatus: {
   provisioned: boolean;
   emails: string[];
   reason: string;
-} = adminEmails.length > 0 && adminPassword
-  ? {
-      provisioned: true,
-      emails: adminEmails,
-      reason: `Admin account(s) provisioned from environment for ${adminEmails.length} address(es).`,
-    }
-  : {
-      provisioned: false,
-      emails: adminEmails,
-      reason: !adminEmails.length && !adminPassword
-        ? "Both ADMIN_EMAIL and ADMIN_PASSWORD env vars are missing."
-        : !adminEmails.length
-          ? "ADMIN_EMAIL env var is missing."
-          : "ADMIN_PASSWORD env var is missing.",
-    };
+} = {
+  provisioned: false,
+  emails: [],
+  reason: "",
+};
 
-if (adminEmails.length > 0 && adminPassword) {
+// --- Seed Admin user (credentials must be set via environment variables) ---
+export function seedAdminAccountsFromEnv(): void {
+  const rawAdminEmail = env.ADMIN_EMAIL;
+  const adminPassword = env.ADMIN_PASSWORD;
+  const adminEmails = rawAdminEmail
+    ? [...new Set(rawAdminEmail.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))]
+    : [];
+
+  const nextStatus = adminEmails.length > 0 && adminPassword
+    ? {
+        provisioned: true,
+        emails: adminEmails,
+        reason: `Admin account(s) provisioned from environment for ${adminEmails.length} address(es).`,
+      }
+    : {
+        provisioned: false,
+        emails: adminEmails,
+        reason: !adminEmails.length && !adminPassword
+          ? "Both ADMIN_EMAIL and ADMIN_PASSWORD env vars are missing."
+          : !adminEmails.length
+            ? "ADMIN_EMAIL env var is missing."
+            : "ADMIN_PASSWORD env var is missing.",
+      };
+
+  adminSeedStatus.provisioned = nextStatus.provisioned;
+  adminSeedStatus.emails = nextStatus.emails;
+  adminSeedStatus.reason = nextStatus.reason;
+
+  if (adminEmails.length === 0 || !adminPassword) {
+    return;
+  }
+
   adminEmails.forEach((email, index) => {
     const adminId = index === 0 ? "u_admin" : `u_admin_${index + 1}`;
     const username = index === 0 ? "admin" : `admin${index + 1}`;
     const fullName = index === 0 ? "Platform Admin" : `Platform Admin ${index + 1}`;
+    const existing = usersByEmail.get(email);
+    if (existing) {
+      const stored = users.get(existing);
+      if (stored) {
+        stored.role = "admin";
+        stored.passwordHash = createUser({
+          id: existing,
+          email,
+          password: adminPassword,
+          fullName,
+          username,
+          country: "US",
+          role: "admin",
+          kycVerified: true,
+          avatarSeed: username,
+        }).passwordHash;
+      }
+      logActivity({ actorId: existing, actorName: fullName, action: "system.seed", detail: `Admin credentials refreshed from environment for ${email}.` });
+      return;
+    }
+
     const user = createUser({
       id: adminId,
       email,
@@ -1475,10 +1653,16 @@ if (adminEmails.length > 0 && adminPassword) {
       kycVerified: true,
       avatarSeed: username,
     });
+    users.set(user.user.id, user);
+    usersByEmail.set(email, user.user.id);
+    referralCodeIndex.set(user.referralCode, user.user.id);
+    if (!referrals.has(user.user.id)) referrals.set(user.user.id, []);
     userData.set(user.user.id, freshUserData(user.user.id));
     logActivity({ actorId: user.user.id, actorName: user.user.fullName, action: "system.seed", detail: adminSeedStatus.reason });
   });
 }
+
+seedAdminAccountsFromEnv();
 
 // --- Seed sample P2P merchant applications (development-only) ---
 if (isDemoAuthEnabled) {

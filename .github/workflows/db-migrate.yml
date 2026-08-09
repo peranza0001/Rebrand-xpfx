@@ -1,0 +1,42 @@
+name: DB connectivity & migrations
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-and-migrate:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install PostgreSQL client helper
+        run: npm install pg --no-save
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run DB connectivity test
+        run: npm run test:db-connection
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+
+      - name: Post-migration smoke test
+        run: node scripts/post-migration-check.mjs
