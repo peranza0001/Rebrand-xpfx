@@ -44,10 +44,10 @@ async function getTokenRecord(token: string): Promise<ResetRecord | null> {
   if (record) return record;
 
   const prisma = getPrismaClient();
-  if (!prisma) return null;
+  if (!prisma?.user) return null;
 
   try {
-    const user = await prisma.users.findFirst({
+    const user = await prisma.user.findFirst({
       where: { resetPasswordToken: token },
       select: { id: true, resetPasswordExpiry: true },
     });
@@ -177,7 +177,7 @@ router.post("/auth/reset-password", async (req, res) => {
     const prisma = getPrismaClient();
     if (prisma) {
       try {
-        const dbUser = await prisma.users.findUnique({
+        const dbUser = await prisma.user.findUnique({
           where: { id: record.userId },
           select: { email: true, passwordHash: true },
         });
@@ -186,7 +186,7 @@ router.post("/auth/reset-password", async (req, res) => {
           // can still proceed by clearing the persistent token and letting
           // future login use the updated hashed password from the DB.
           const newHash = hashPassword(newPassword);
-          await prisma.users.update({
+          await prisma.user.update({
             where: { id: record.userId },
             data: {
               passwordHash: newHash,

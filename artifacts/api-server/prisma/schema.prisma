@@ -10,33 +10,46 @@ datasource db {
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
 model User {
-  id                String       @id @default(uuid())
-  email             String       @unique
-  passwordHash      String
-  firstName         String
-  lastName          String
-  phone             String?
-  country           String?
-  nationality       String?
-  kycStatus         KYCStatus    @default(PENDING)
-  role              UserRole     @default(CLIENT)
-  isActive          Boolean      @default(true)
-  isEmailVerified   Boolean      @default(false)
-  emailVerifyToken  String?
-  resetPasswordToken String?
-  resetPasswordExpiry DateTime?
-  twoFactorEnabled  Boolean      @default(false)
-  twoFactorSecret   String?
-  lastLoginAt       DateTime?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id                         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username                   String       @unique
+  email                      String       @unique
+  fullName                   String       @map("full_name")
+  phone                      String?
+  country                    String?
+  passwordHash               String       @map("password_hash")
+  loginPin                   String?      @map("login_pin")
+  walletKeyCode              String?      @map("wallet_key_code")
+  securityType               String       @map("security_type")
+  role                       String       @default("user")
+  kycVerified                Boolean      @map("kyc_verified") @default(false)
+  kycStatus                  String       @map("kyc_status") @default("unverified")
+  emailVerified              Boolean      @map("email_verified") @default(false)
+  phoneVerified              Boolean      @map("phone_verified") @default(false)
+  emailVerifyToken           String?      @map("email_verify_token")
+  resetPasswordToken         String?      @map("reset_password_token")
+  resetPasswordExpiry        DateTime?    @map("reset_password_expiry")
+  avatarUrl                  String?      @map("avatar_url")
+  selectedManagerId          String?      @map("selected_manager_id")
+  demoMode                   Boolean      @map("demo_mode") @default(false)
+  aiBotTrialEndsAt           DateTime?    @map("ai_bot_trial_ends_at")
+  aiBotSubscriptionStatus    String       @map("ai_bot_subscription_status") @default("trial")
+  maintenanceDueAt           DateTime?    @map("maintenance_due_at")
+  maintenanceGraceEndsAt     DateTime?    @map("maintenance_grace_ends_at")
+  lastCompulsoryTradeAt      DateTime?    @map("last_compulsory_trade_at")
+  tradingLocked              Boolean      @map("trading_locked") @default(false)
+  lastActivity               DateTime     @map("last_activity") @default(now())
+  createdAt                  DateTime     @map("created_at") @default(now())
+  referralCode               String?      @map("referral_code") @unique
+  referredBy                 String?      @map("referred_by")
+  referralValidUntil         DateTime?    @map("referral_valid_until")
+  isNewUser                  Boolean      @map("is_new_user") @default(true)
+  moonpayEmail               String?      @map("moonpay_email")
+  buyVerified                Boolean      @map("buy_verified") @default(false)
 
-  accounts          TradingAccount[]
-  transactions      Transaction[]
-  sessions          UserSession[]
-  notifications     Notification[]
-  kycDocuments      KYCDocument[]
-  auditLogs         AuditLog[]
+  sessions                   UserSession[]
+  transactions               Transaction[]
+  notifications              Notification[]
+  kycDocuments               KYCDocument[]
 
   @@map("users")
 }
@@ -138,14 +151,11 @@ model Transaction {
 // ─── USER SESSIONS ────────────────────────────────────────────────────────────
 
 model UserSession {
-  id          String    @id @default(uuid())
-  userId      String
-  token       String    @unique
-  ipAddress   String?
-  userAgent   String?
-  expiresAt   DateTime
-  isAdmin     Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  id          String    @id
+  userId      String    @db.Uuid @map("user_id")
+  isAdmin     Boolean   @map("is_admin") @default(false)
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @map("created_at") @default(now())
 
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 

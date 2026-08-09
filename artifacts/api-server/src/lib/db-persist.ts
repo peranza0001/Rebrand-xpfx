@@ -42,9 +42,21 @@ export function getPrismaClient(): any {
   return prismaClient;
 }
 
-/**
- * Persists a new user to the database. Silent fail if DB unavailable.
- */
+export function getPrismaModelDelegate(modelName: string): any | null {
+  if (!prismaClient) return null;
+  const singular = `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`;
+  const plural = `${singular}s`;
+  return prismaClient[singular] ?? prismaClient[plural] ?? null;
+}
+
+function getPrismaUserDelegate(): any | null {
+  return getPrismaModelDelegate("User");
+}
+
+function getPrismaUserSessionDelegate(): any | null {
+  return getPrismaModelDelegate("UserSession");
+}
+
 function deriveFirstLastName(fullName: string): { firstName: string; lastName: string } {
   const trimmed = fullName.trim();
   if (!trimmed) return { firstName: "", lastName: "" };
@@ -53,6 +65,16 @@ function deriveFirstLastName(fullName: string): { firstName: string; lastName: s
     firstName: parts[0],
     lastName: parts.slice(1).join(" "),
   };
+}
+
+async function tryPrismaUserUpsert(userDelegate: any, userId: string, createData: Record<string, unknown>, updateData: Record<string, unknown>): Promise<void> {
+  await retryAsync(async () => {
+    await userDelegate.upsert({
+      where: { id: userId },
+      create: createData,
+      update: updateData,
+    });
+  }, 3, 300);
 }
 
 export async function persistUser(userId: string, userData: {
@@ -66,36 +88,44 @@ export async function persistUser(userId: string, userData: {
   if (!isUuid(userId)) return true;
 
   const prismaFallback = async (): Promise<boolean> => {
-    if (!prismaClient) return true;
+    const userDelegate = getPrismaUserDelegate();
+    if (!userDelegate) return true;
+
     const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+    const fullNamePayload = {
+      email: userData.email,
+      username: userData.username,
+      fullName: userData.fullName,
+      passwordHash: userData.passwordHash,
+      country: userData.country,
+      phone: userData.phone ?? null,
+    };
+    const splitNamePayload = {
+      email: userData.email,
+      username: userData.username,
+      firstName,
+      lastName,
+      passwordHash: userData.passwordHash,
+      country: userData.country,
+      phone: userData.phone ?? null,
+    };
+
     try {
-      await retryAsync(async () => {
-        await prismaClient.users.upsert({
-          where: { id: userId },
-          update: {
-            email: userData.email,
-            username: userData.username,
-            firstName,
-            lastName,
-            passwordHash: userData.passwordHash,
-            country: userData.country,
-            phone: userData.phone ?? null,
-          },
-          create: {
-            id: userId,
-            email: userData.email,
-            username: userData.username,
-            passwordHash: userData.passwordHash,
-            firstName,
-            lastName,
-            country: userData.country,
-            phone: userData.phone ?? null,
-          },
-        });
-      }, 3, 300);
+      await tryPrismaUserUpsert(userDelegate, userId, { id: userId, ...fullNamePayload }, fullNamePayload);
       return true;
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : String(err);
+      if (errMessage.includes("fullName") || errMessage.includes("firstName") || errMessage.includes("lastName") || errMessage.includes("Unknown arg")) {
+        try {
+          await tryPrismaUserUpsert(userDelegate, userId, { id: userId, ...splitNamePayload }, splitNamePayload);
+          return true;
+        } catch (innerErr) {
+          const innerErrMessage = innerErr instanceof Error ? innerErr.message : String(innerErr);
+          logger.warn({ errMessage: innerErrMessage, err: innerErr, userId }, "[db-persist] persistUser failed using Prisma");
+          return false;
+        }
+      }
+
       logger.warn({ errMessage, err, userId }, "[db-persist] persistUser failed using Prisma");
       return false;
     }
@@ -161,9 +191,10 @@ export async function persistResetPasswordToken(
     }
   }
 
-  if (!prismaClient) return true;
+  const userDelegate = getPrismaUserDelegate();
+  if (!userDelegate) return true;
   try {
-    await prismaClient.users.update({
+    await userDelegate.update({
       where: { id: userId },
       data: {
         resetPasswordToken: token,
@@ -189,13 +220,13 @@ export async function persistSession(
   if (!isUuid(userId)) return true;
 
   const prismaFallback = async (): Promise<boolean> => {
-    if (!prismaClient) return true;
+    const sessionDelegate = getPrismaUserSessionDelegate();
+    if (!sessionDelegate) return true;
     try {
       await retryAsync(async () => {
-        await prismaClient.userSession.create({
+        await sessionDelegate.create({
           data: {
             id: sessionId,
-            token: sessionId,
             userId,
             expiresAt,
             isAdmin,

@@ -102,7 +102,7 @@ async function isUsernameTaken(username: string): Promise<boolean> {
   const prisma = getPrismaClient();
   if (prisma?.users?.findUnique) {
     try {
-      const row = await prisma.users.findUnique({ where: { username } });
+      const row = await prisma.user.findUnique({ where: { username } });
       if (row) {
         return true;
       }
@@ -186,7 +186,7 @@ async function resolvePersistedUserIdByEmail(email: string): Promise<string | un
   const prisma = getPrismaClient();
   if (prisma?.users?.findUnique) {
     try {
-      const row = await prisma.users.findUnique({ where: { email: lowerEmail } });
+      const row = await prisma.user.findUnique({ where: { email: lowerEmail } });
       if (row) {
         const id = String(row.id);
         const stored: StoredUser = {
@@ -194,7 +194,7 @@ async function resolvePersistedUserIdByEmail(email: string): Promise<string | un
             id,
             username: row.username ?? lowerEmail.split("@")[0],
             email: row.email,
-            fullName: `${row.firstName ?? ""}${row.lastName ? ` ${row.lastName}` : ""}`.trim() || row.email,
+            fullName: row.fullName ?? row.email,
             country: row.country ?? "US",
             kycVerified: Boolean(row.kycVerified ?? false),
             avatarUrl: row.avatarUrl ?? undefined,

@@ -156,29 +156,29 @@ export async function hydrateFromDb(): Promise<void> {
       (db) => db.select().from(usersTable),
       async () => {
         const prisma = getPrismaClient();
-        if (!prisma?.users) {
+        if (!prisma?.user) {
           return [];
         }
-        return prisma.users.findMany({
+        return prisma.user.findMany({
           select: {
             id: true,
             username: true,
             email: true,
-            full_name: true,
+            fullName: true,
             country: true,
-            kyc_verified: true,
-            avatar_url: true,
-            created_at: true,
-            selected_manager_id: true,
+            kycVerified: true,
+            avatarUrl: true,
+            createdAt: true,
+            selectedManagerId: true,
             phone: true,
-            moonpay_email: true,
-            buy_verified: true,
-            password_hash: true,
+            moonpayEmail: true,
+            buyVerified: true,
+            passwordHash: true,
             role: true,
-            referral_code: true,
-            referred_by: true,
-            trading_locked: true,
-            demo_mode: true,
+            referralCode: true,
+            referredBy: true,
+            tradingLocked: true,
+            demoMode: true,
           },
         });
       },
