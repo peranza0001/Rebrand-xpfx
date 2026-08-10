@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getUserData, newId, NOW } from "../lib/store";
 import { requireFullAuth } from "../lib/session";
+import { requireSmartvestAccess } from "../lib/tier-middleware";
 
 const planMeta = {
   conservative: {
@@ -56,11 +57,11 @@ function present(data: ReturnType<typeof getUserData>) {
   };
 }
 
-router.get("/smartvest", requireFullAuth, (req, res) => {
+router.get("/smartvest", requireFullAuth, requireSmartvestAccess, (req, res) => {
   res.json(present(getUserData(req.userId!)));
 });
 
-router.post("/smartvest", requireFullAuth, (req, res) => {
+router.post("/smartvest", requireFullAuth, requireSmartvestAccess, (req, res) => {
   const plan = req.body?.plan;
   if (!(plan in allocations)) {
     return res.status(400).json({ error: "Choose conservative, balanced, or growth." });

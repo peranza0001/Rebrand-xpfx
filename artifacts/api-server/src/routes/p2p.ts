@@ -29,6 +29,7 @@ import {
 } from "../lib/db-persist";
 import { merchantAdminThread } from "../lib/p2p-chat";
 import { requireAuth, requireFullAuth } from "../lib/session";
+import { requireP2pAccess } from "../lib/tier-middleware";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser } from "../lib/notify";
 import {
@@ -38,7 +39,7 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/p2p/listings", requireAuth, (req, res) => {
+router.get("/p2p/listings", requireAuth, requireP2pAccess, (req, res) => {
   const parsed = GetP2PListingsQueryParams.safeParse(req.query);
   let result = p2pListings.filter((l) => l.status === "active");
   if (parsed.success) {
@@ -51,7 +52,7 @@ router.get("/p2p/listings", requireAuth, (req, res) => {
   res.json(result);
 });
 
-router.post("/p2p/listings", requireFullAuth, (req, res) => {
+router.post("/p2p/listings", requireFullAuth, requireP2pAccess, (req, res) => {
   const stored = req.storedUser!;
   if (!stored.merchant) {
     return res.status(403).json({
@@ -86,11 +87,11 @@ router.post("/p2p/listings", requireFullAuth, (req, res) => {
   return res.json(listing);
 });
 
-router.get("/p2p/orders", requireAuth, (req, res) => {
+router.get("/p2p/orders", requireAuth, requireP2pAccess, (req, res) => {
   res.json(getUserData(req.userId!).p2pOrders);
 });
 
-router.post("/p2p/orders", requireAuth, async (req, res) => {
+router.post("/p2p/orders", requireAuth, requireP2pAccess, async (req, res) => {
   const parsed = CreateP2POrderBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid order", details: parsed.error.issues });
@@ -282,7 +283,7 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
   return res.json(order);
 });
 
-router.get("/p2p/notifications", requireAuth, (req, res) => {
+router.get("/p2p/notifications", requireAuth, requireP2pAccess, (req, res) => {
   const list = getUserData(req.userId!).p2pNotifications;
   res.json({
     notifications: list,
@@ -290,7 +291,7 @@ router.get("/p2p/notifications", requireAuth, (req, res) => {
   });
 });
 
-router.post("/p2p/notifications/:id/read", requireAuth, (req, res) => {
+router.post("/p2p/notifications/:id/read", requireAuth, requireP2pAccess, (req, res) => {
   const id = (req.params["id"] as string);
   const list = getUserData(req.userId!).p2pNotifications;
   const found = list.find((n) => n.id === id);
@@ -307,7 +308,7 @@ router.post("/p2p/notifications/:id/read", requireAuth, (req, res) => {
 
 // ---------- Merchant application ----------
 
-router.get("/p2p/merchant/application", requireAuth, (req, res) => {
+router.get("/p2p/merchant/application", requireAuth, requireP2pAccess, (req, res) => {
   const userId = req.userId!;
   const stored = req.storedUser!;
   const app = [...p2pMerchantApplications.values()]
@@ -340,7 +341,7 @@ router.get("/p2p/merchant/application", requireAuth, (req, res) => {
   return res.json(out);
 });
 
-router.post("/p2p/merchant/application", requireFullAuth, (req, res) => {
+router.post("/p2p/merchant/application", requireFullAuth, requireP2pAccess, (req, res) => {
   const userId = req.userId!;
   const stored = req.storedUser!;
   const parsed = SubmitP2PMerchantApplicationBody.safeParse(req.body);
@@ -425,11 +426,11 @@ router.post("/p2p/merchant/application", requireFullAuth, (req, res) => {
 
 // ---------- Merchant ↔ admin chat (merchant side, reuses /messages store) ----------
 
-router.get("/p2p/merchant/chat", requireAuth, (req, res) => {
+router.get("/p2p/merchant/chat", requireAuth, requireP2pAccess, (req, res) => {
   return res.json(merchantAdminThread(req.userId!));
 });
 
-router.post("/p2p/merchant/chat", requireFullAuth, (req, res) => {
+router.post("/p2p/merchant/chat", requireFullAuth, requireP2pAccess, (req, res) => {
   const userId = req.userId!;
   const stored = req.storedUser!;
   const parsed = SendMyP2PMerchantChatBody.safeParse(req.body);
