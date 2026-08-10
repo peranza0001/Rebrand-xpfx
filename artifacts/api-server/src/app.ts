@@ -106,27 +106,27 @@ async function _readinessHandler(_req: Request, res: Response) {
 }
 
 app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/healthz', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/livez', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/healthz', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/livez', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/healthz/db', async (_req: Request, res: Response) => {
@@ -490,8 +490,6 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ─── API ROUTES ───────────────────────────────────────────────────────────────
-let apiRoutesHandler: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
-
 function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
   return apiRoutes(req, res, next);
 }
