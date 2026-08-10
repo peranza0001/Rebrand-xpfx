@@ -277,6 +277,18 @@
   - Run in CI before deployment
   - Prevents bad builds reaching production
 
+- [ ] **Security audit**:
+  ```bash
+  npm run audit:ci
+  ```
+  - Run before any production release
+  - Fail on high or critical dependency vulnerabilities
+
+- [ ] **Operational readiness**:
+  - Confirm `/health`, `/healthz`, `/readyz`, and `/metrics` are reachable in production.
+  - Verify `ALLOWED_ORIGINS` contains all app and admin origins.
+  - Confirm incident handling: alert routing, rollback process, and post-mortem documentation.
+
 ### Platform-Specific Deployment
 
 #### Railway

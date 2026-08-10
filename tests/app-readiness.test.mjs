@@ -4,7 +4,7 @@ import { once } from 'node:events';
 
 process.env.NODE_ENV = 'production';
 process.env.SESSION_SECRET = 'test-session-secret';
-process.env.ALLOWED_ORIGINS = 'https://example.com';
+process.env.ALLOWED_ORIGINS = 'https://example.com,http://127.0.0.1';
 
 import appModule from '../artifacts/api-server/src/app.ts';
 
@@ -47,6 +47,39 @@ test('health endpoints are registered and app imports cleanly', async () => {
   assert(routePaths.includes('/api/healthz'), '/api/healthz route should be registered');
   assert(routePaths.includes('/api/livez'), '/api/livez route should be registered');
   assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
+  assert(routePaths.includes('/metrics'), '/metrics route should be registered');
+});
+
+test('monitoring and admin portal routes are registered', () => {
+  const stack = (app._router?.stack ?? []);
+  const hasMetricsRoute = stack.some((layer) => layer.route?.path === '/metrics');
+  const hasXpAdminRoute = stack.some(
+    (layer) => layer.route?.path === '/xpadmin*' || String(layer.regexp).includes('\\/xpadmin'),
+  );
+
+  assert.ok(hasMetricsRoute, '/metrics route should be registered');
+  assert.ok(hasXpAdminRoute, 'XP Admin static route or fallback should be registered');
+});
+
+test('GET /metrics returns Prometheus exposition format', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/metrics`, {
+      method: 'GET',
+      redirect: 'manual',
+    });
+
+    assert.equal(response.status, 200, '/metrics should return successfully');
+    assert.equal(
+      response.headers.get('content-type'),
+      'text/plain; version=0.0.4; charset=utf-8',
+      'metrics endpoint should return Prometheus content type',
+    );
+    const body = await response.text();
+    assert.ok(
+      body.includes('# HELP') || body.includes('# TYPE'),
+      'metrics endpoint should return Prometheus formatted text',
+    );
+  });
 });
 
 test('production health endpoints remain reachable over http for platform probes', async () => {
@@ -66,6 +99,7 @@ test('production health endpoints remain reachable over http for platform probes
 
 test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;
     const response = await fetch(`${baseUrl}/api/live-chat`, {
       method: 'POST',
       redirect: 'manual',
@@ -107,6 +141,7 @@ test('preview-host POST requests are not blocked by CSRF middleware before auth 
 
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
     const response = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',
@@ -126,6 +161,7 @@ test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async 
 
 test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_ORIGINS is configured without one', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;
     const response = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',
@@ -144,6 +180,7 @@ test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_O
 
 test('GET /api/csrf-token issues a fresh token on each request even when the previous cookie is present', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
     const first = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',

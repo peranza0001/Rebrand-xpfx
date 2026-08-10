@@ -36,11 +36,8 @@ jobs:
       - name: Build API server
         run: npm run build --workspace=artifacts/api-server
 
-      - name: Build NeXTrade frontend
-        run: npm run build --workspace=artifacts/nextrade
-
-      - name: Build Admin Portal
-        run: npm run build --workspace=artifacts/admin-portal
+      - name: Build frontend packages
+        run: npm run build:frontend:xpadmin
 
       - name: Build API Zod package
         run: npm run build --workspace=lib/api-zod
