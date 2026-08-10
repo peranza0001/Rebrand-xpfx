@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { AccountTier, getMandatoryChecklist } from '../artifacts/api-server/src/lib/account-tiers.ts';
+import { AccountTier, calculateDailyUsageSummary, getMandatoryChecklist } from '../artifacts/api-server/src/lib/account-tiers.ts';
 import { getFeatureAccess } from '../artifacts/nextrade/src/lib/account-access.ts';
 
 const tier1 = {
@@ -43,5 +43,20 @@ assert.equal(tier8Access.requiresUpgradeForSmartVest, false);
 
 const progressionChecklist = getMandatoryChecklist(AccountTier.TIER_2, AccountTier.TIER_3);
 assert.deepEqual(progressionChecklist, []);
+
+const usageSummary = calculateDailyUsageSummary({
+  trades: [
+    { amount: 250, createdAt: '2026-08-10T09:00:00.000Z' },
+    { amount: 100, createdAt: '2026-08-09T09:00:00.000Z' },
+  ],
+  transactions: [
+    { amount: 400, type: 'withdrawal', createdAt: '2026-08-10T10:30:00.000Z' },
+    { amount: 75, type: 'deposit', createdAt: '2026-08-10T11:00:00.000Z' },
+    { amount: 50, type: 'withdrawal', createdAt: '2026-08-09T08:00:00.000Z' },
+  ],
+  referenceDate: new Date('2026-08-10T12:00:00.000Z'),
+});
+assert.equal(usageSummary.tradingUsed, 250);
+assert.equal(usageSummary.withdrawalUsed, 400);
 
 console.log('feature access test passed');

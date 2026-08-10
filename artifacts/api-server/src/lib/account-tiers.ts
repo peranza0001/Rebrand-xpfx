@@ -284,6 +284,32 @@ export function getMandatoryChecklist(currentTier: AccountTier, targetTier: Acco
   return checklist;
 }
 
+export function calculateDailyUsageSummary(payload: {
+  trades?: Array<{ amount?: number; createdAt?: string | null }>;
+  transactions?: Array<{ amount?: number; type?: string | null; createdAt?: string | null }>;
+  referenceDate?: Date | string | null;
+}): { tradingUsed: number; withdrawalUsed: number } {
+  const referenceDate = payload.referenceDate ? new Date(payload.referenceDate) : new Date();
+  const referenceDay = referenceDate.toDateString();
+
+  const tradingUsed = (payload.trades ?? []).reduce((sum, trade) => {
+    if (!trade.createdAt) return sum;
+    const tradeDate = new Date(trade.createdAt);
+    if (tradeDate.toDateString() !== referenceDay) return sum;
+    return sum + Number(trade.amount ?? 0);
+  }, 0);
+
+  const withdrawalUsed = (payload.transactions ?? []).reduce((sum, transaction) => {
+    if (!transaction.createdAt) return sum;
+    const transactionDate = new Date(transaction.createdAt);
+    if (transactionDate.toDateString() !== referenceDay) return sum;
+    if (!transaction.type || !['withdrawal', 'withdrawal_fee'].includes(transaction.type)) return sum;
+    return sum + Number(transaction.amount ?? 0);
+  }, 0);
+
+  return { tradingUsed, withdrawalUsed };
+}
+
 /**
  * Check if user can perform an action based on tier.
  */
