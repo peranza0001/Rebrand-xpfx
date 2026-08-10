@@ -693,7 +693,7 @@ router.post("/admin/users/:id/sessions/revoke-all", requireAuth, requireAdmin, a
   }
 });
 
-router.post("/auth/demo", (req, res) => {
+router.post("/auth/demo", async (req, res) => {
   if (!isDemoRouteAvailable()) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
@@ -705,7 +705,13 @@ router.post("/auth/demo", (req, res) => {
   const userId = stored.user.id;
   getUserData(userId);
   const sid = newSessionId();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
+  const sessionPersisted = await persistSession(sid, userId, expiresAt, false, meta);
+  if (!sessionPersisted) {
+    logger.error({ userId, sid }, "[auth] demo.session_persist_failed");
+    return res.status(500).json({ error: "Unable to create demo session. Please try again later.", code: "session_persist_failed" });
+  }
   sessions.set(sid, { userId, metadata: meta });
   setSessionCookie(res, sid);
 
