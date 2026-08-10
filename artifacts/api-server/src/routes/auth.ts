@@ -184,9 +184,10 @@ async function resolvePersistedUserIdByEmail(email: string): Promise<string | un
   }
 
   const prisma = getPrismaClient();
-  if (prisma?.users?.findUnique) {
+  const userDelegate = prisma?.user?.findUnique ? prisma.user : prisma?.users?.findUnique ? prisma.users : null;
+  if (userDelegate?.findUnique) {
     try {
-      const row = await prisma.user.findUnique({ where: { email: lowerEmail } });
+      const row = await userDelegate.findUnique({ where: { email: lowerEmail } });
       if (row) {
         const id = String(row.id);
         const stored: StoredUser = {
