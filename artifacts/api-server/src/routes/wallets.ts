@@ -15,7 +15,6 @@ import {
 import {
   getUserData,
   logActivity,
-  newId,
   newUuid,
   NOW,
   toPublicConnectedWallet,
@@ -23,7 +22,6 @@ import {
 } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
-import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { persistConnectedWallet } from "../lib/db-persist";
 import {
   getLiveBalance,
@@ -283,78 +281,6 @@ router.post("/wallets/connected/:walletId/send", requireAuth, async (req, res) =
     status: null,
     message: "Connected wallets are non-custodial. Sign this transaction in your wallet provider.",
   });
-  /*
-  try {
-    const result = await Promise.reject(new Error("unreachable"));
-    const txId = newId("tx");
-    const txStatus = result.status === 1 ? "completed" : "pending";
-    data.transactions.unshift({
-      id: txId,
-      walletId: wallet.id,
-      type: "withdrawal",
-      amount: -parsed.data.amount,
-      currency: result.asset,
-      status: txStatus,
-      description: `Sent ${parsed.data.amount} ${result.asset} to ${parsed.data.to.slice(0, 10)}… (tx ${result.hash.slice(0, 10)}…)`,
-      createdAt: NOW(),
-    });
-    logActivity({
-      actorId: req.userId!,
-      actorName: req.storedUser!.user.fullName,
-      action: "wallet.send",
-      detail: `On-chain send ${parsed.data.amount} ${result.asset} from ${wallet.walletType} → ${parsed.data.to}`,
-    });
-    pushAdminAlert({
-      kind: "wallet.transfer",
-      title: "Outbound wallet transfer",
-      body: `${req.storedUser!.user.email} sent ${parsed.data.amount} ${result.asset} from a connected wallet (tx ${result.hash}).`,
-      userId: req.userId!,
-      userEmail: req.storedUser!.user.email,
-      severity: "warning",
-      linkUrl: `/users/${req.userId}`,
-      email: true,
-    });
-    notifyUser({
-      userId: req.userId!,
-      kind: "wallet_transfer",
-      emailToggle: "walletTransfer",
-      title: "Wallet transfer broadcast",
-      body: `Sent ${parsed.data.amount} ${result.asset} from your connected wallet to ${parsed.data.to}. Tx hash: ${result.hash}.`,
-      link: "/wallets",
-    });
-    const confirmedSuffix =
-      result.confirmations > 0
-        ? ` Mined in block ${result.blockNumber}.`
-        : " Broadcast — awaiting first confirmation.";
-    return res.json({
-      success: true,
-      hash: result.hash,
-      from: result.from,
-      to: result.to,
-      asset: result.asset,
-      amount: result.amount,
-      blockNumber: result.blockNumber,
-      confirmations: result.confirmations,
-      status: result.status,
-      message: `Tx ${result.hash}.${confirmedSuffix}`,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "On-chain send failed.";
-    req.log.warn({ err: message, walletId: wallet.id }, "on-chain send failed");
-    return res.json({
-      success: false,
-      hash: null,
-      from: wallet.address,
-      to: parsed.data.to,
-      asset: parsed.data.asset,
-      amount: parsed.data.amount,
-      blockNumber: null,
-      confirmations: 0,
-      status: null,
-      message,
-    });
-  }
-    */
-  });
+});
 
 export default router;

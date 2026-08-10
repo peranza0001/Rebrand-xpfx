@@ -10,7 +10,7 @@ import {
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
 import { persistChatMessage } from "../lib/db-persist";
-import { requireAdmin, requireAuth, requireFullAuth } from "../lib/session";
+import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
 import type { LiveChatMsg } from "../lib/store";
@@ -87,7 +87,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   try {
     const ns = getChatNamespace();
     ns?.to('admins').emit('message', userMsg);
-  } catch (_err) {
+  } catch {
     // best-effort notification delivery; do not fail the request
   }
 
@@ -220,7 +220,7 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
   try {
     const ns = getChatNamespace();
     ns?.to(`conv:${p.data.userId}`).emit('message', msg);
-  } catch (err) {
+  } catch {
     // best-effort; do not fail the request if broadcasting fails
   }
 

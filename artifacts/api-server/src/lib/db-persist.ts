@@ -26,7 +26,6 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 3, delayMs = 300):
       logger.warn({ attempt: i, attempts, err }, '[retry] operation failed, retrying');
       if (i < attempts) {
         // backoff
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, delayMs * i));
       }
     }
@@ -220,7 +219,7 @@ export async function persistResetPasswordToken(
       },
     });
     return true;
-  } catch (_err) {
+  } catch {
     return false;
   }
 }
@@ -310,7 +309,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
   if (prismaClient) {
     try {
       await prismaClient.userSession.delete({ where: { id: sessionId } });
-    } catch (err) {
+    } catch {
       // ignore missing or other errors — deletion is best-effort
     }
   }
@@ -365,7 +364,7 @@ export async function deleteSessionsForUser(userId: string): Promise<void> {
   if (prismaClient && prismaClient.userSession && prismaClient.userSession.deleteMany) {
     try {
       await prismaClient.userSession.deleteMany({ where: { userId } });
-    } catch (err) {
+    } catch {
       // ignore
     }
   }
@@ -433,7 +432,7 @@ export async function persistWallet(walletId: string, userId: string, walletData
         address: walletData.address,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -480,7 +479,7 @@ export async function persistConnectedWallet(
         synced_profile: walletData.syncedProfile,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -525,7 +524,7 @@ export async function persistTransaction(
         is_demo: transactionData.isDemo ?? false,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -554,7 +553,7 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
         status: kycData.status,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -630,7 +629,7 @@ export async function persistBankAccount(
         fiat_currency: bankData.fiatCurrency,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -641,7 +640,7 @@ export async function deleteBankAccount(bankAccountId: string): Promise<void> {
     await prismaClient.bank_accounts.delete({
       where: { id: bankAccountId },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -681,7 +680,7 @@ export async function persistNotification(
         created_at: new Date(notificationData.createdAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -716,7 +715,7 @@ export async function persistSupportTicket(
         updated_at: new Date(ticketData.updatedAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -748,7 +747,7 @@ export async function persistChatMessage(
         content,
       },
     });
-  } catch (_err) {
+  } catch {
     // silent
   }
 }
@@ -811,7 +810,7 @@ export async function persistP2PMerchantApplication(
         submitted_at: new Date(applicationData.submittedAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -866,7 +865,7 @@ export async function persistP2PNotification(
         created_at: new Date(notificationData.createdAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }

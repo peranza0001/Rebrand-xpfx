@@ -75,17 +75,6 @@ async function persistOtpRecord(record: OtpRecord): Promise<void> {
   }
 }
 
-async function deleteOtpRecord(email: string): Promise<void> {
-  const db = getDb();
-  if (db) {
-    try {
-      await db.delete(otpCodesTable).where(eq(otpCodesTable.code, ""));
-    } catch (err) {
-      logger.warn({ err, email }, "[otp] failed to prune OTP rows");
-    }
-  }
-}
-
 function generateCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }

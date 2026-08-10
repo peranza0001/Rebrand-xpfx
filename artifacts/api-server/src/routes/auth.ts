@@ -15,7 +15,6 @@ import {
   getUserData,
   hashPassword,
   logActivity,
-  newId,
   newReferralCode,
   newSessionId,
   newUuid,
@@ -331,7 +330,7 @@ router.post("/auth/login", async (req, res) => {
   sessions.set(sid, { userId: stored.user.id, metadata: meta });
   setSessionCookie(res, sid);
   // Successful login — reset any failure counters
-  try { resetLoginFailures(emailLower); } catch (_) { /* best-effort */ }
+  try { resetLoginFailures(emailLower); } catch { /* best-effort */ }
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -518,7 +517,7 @@ router.post("/auth/verify-otp", async (req, res) => {
   }
   sessions.set(sid, { userId: stored.user.id, metadata: meta });
   setSessionCookie(res, sid);
-  try { resetLoginFailures(stored.user.email.toLowerCase()); } catch (_) { /* best-effort */ }
+  try { resetLoginFailures(stored.user.email.toLowerCase()); } catch { /* best-effort */ }
   logActivity({
     actorId: stored.user.id,
     actorName: stored.user.fullName,
@@ -588,7 +587,7 @@ router.post("/auth/logout", async (req, res) => {
     // best-effort remove persisted session if present
     try {
       await deleteSession(sid);
-    } catch (_) {
+    } catch {
       // ignore
     }
   }
@@ -633,7 +632,7 @@ router.delete("/auth/sessions/:id", requireAuth, async (req, res) => {
   try {
     // Best-effort delete persisted session
     await deleteSession(target);
-  } catch (_) {}
+  } catch {}
   // Remove in-memory mapping
   sessions.delete(target);
   logActivity({ actorId: userId, actorName: req.storedUser!.user.fullName, action: "auth.session.revoke", detail: `Revoked session ${target}` });
@@ -680,7 +679,7 @@ router.delete("/admin/users/:id/sessions/:sid", requireAuth, requireAdmin, async
   try {
     // best-effort persisted delete
     await deleteSession(sid);
-  } catch (_) {}
+  } catch {}
   sessions.delete(sid);
   logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: "admin.session.revoke", detail: `Admin revoked session ${sid} for user ${targetUser}` });
   pushAdminAlert({ kind: "auth.session.revoked", title: "Session revoked", body: `Admin ${req.storedUser!.user.email} revoked session ${sid} for user ${targetUser}`, userId: targetUser, userEmail: "", severity: "info", linkUrl: `/users/${targetUser}`, email: false });
