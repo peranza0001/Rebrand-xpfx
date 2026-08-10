@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
 import { logger } from './lib/logger';
+import { restoreOtpCodesFromStorage } from './lib/otp';
 
 type PrismaClientType = {
   $connect: () => Promise<void>;
@@ -213,6 +214,7 @@ async function bootstrap() {
     prisma = await initDatabase();
     setPrismaClient?.(prisma);
     await hydrateFromDb?.();
+    await restoreOtpCodesFromStorage();
 
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 

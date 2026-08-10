@@ -70,6 +70,51 @@ test('seeded demo users can sign in directly without first starting demo auth', 
   });
 });
 
+test('OTP codes are persisted and rehydrated from durable storage', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    otpCode: {
+      create: async ({ data }) => {
+        persisted.push(data);
+        return data;
+      },
+      findMany: async () => persisted.map((item) => ({
+        id: item.id,
+        email: item.email,
+        code: item.code,
+        type: item.type,
+        expiresAt: item.expiresAt,
+        used: item.used,
+        createdAt: item.createdAt,
+      })),
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    const record = await otp.issueOtp({
+      email: 'durable-otp@example.com',
+      intent: 'signup',
+      signupPayload: {
+        email: 'durable-otp@example.com',
+        password: 'Secret123!',
+        fullName: 'Durable OTP User',
+        country: 'US',
+      },
+    });
+
+    const hydrated = await otp.restoreOtpCodesFromStorage();
+    assert.equal(hydrated.length, 1);
+    assert.equal(hydrated[0].email, record.email);
+    assert.equal(hydrated[0].code, record.code);
+    assert.equal(hydrated[0].intent, 'signup');
+    assert.equal(persisted[0].email, 'durable-otp@example.com');
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
 test('signup persistence uses Prisma-compatible user and session field names', async () => {
   const calls = [];
   const compatiblePrismaClient = {

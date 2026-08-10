@@ -10,6 +10,10 @@ import { logger } from "./logger";
 import { env, hasSmtpCredentials, isProduction } from "./env";
 import { isSendGridConfigured } from "./integration-config";
 import { sendEmail } from "./email";
+import { getPrismaClient } from "./db-persist";
+import { getDb } from "./db-client";
+import { eq } from "drizzle-orm";
+import { otpCodesTable } from "@workspace/db/schema";
 
 interface SignupPayload {
   email: string;
@@ -37,6 +41,50 @@ export const RESEND_THROTTLE_MS = 15 * 1000;
 
 const otpCodes = new Map<string, OtpRecord>();
 const lastSentAt = new Map<string, number>();
+
+function toDbOtpRecord(record: OtpRecord, userId?: string) {
+  return {
+    email: record.email,
+    userId: userId ?? "00000000-0000-0000-0000-000000000000",
+    code: record.code,
+    type: record.intent,
+    expiresAt: new Date(record.expiresAt),
+    used: false,
+    createdAt: new Date(),
+  };
+}
+
+async function persistOtpRecord(record: OtpRecord): Promise<void> {
+  const db = getDb();
+  if (db) {
+    try {
+      await db.insert(otpCodesTable).values(toDbOtpRecord(record));
+      return;
+    } catch (err) {
+      logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.otpCode?.create) {
+    try {
+      await prisma.otpCode.create({ data: { ...toDbOtpRecord(record), id: undefined } });
+    } catch (err) {
+      logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Prisma");
+    }
+  }
+}
+
+async function deleteOtpRecord(email: string): Promise<void> {
+  const db = getDb();
+  if (db) {
+    try {
+      await db.delete(otpCodesTable).where(eq(otpCodesTable.code, ""));
+    } catch (err) {
+      logger.warn({ err, email }, "[otp] failed to prune OTP rows");
+    }
+  }
+}
 
 function generateCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -108,6 +156,7 @@ export async function issueOtp(args: {
   lastSentAt.set(email, Date.now());
 
   try {
+    await persistOtpRecord(record);
     await sendOtpEmail(email, code, args.intent);
   } catch (err) {
     otpCodes.delete(email);
@@ -184,6 +233,63 @@ export function verifyOtp(emailRaw: string, code: string): VerifyResult {
   otpCodes.delete(email);
   lastSentAt.delete(email);
   return { ok: true, record };
+}
+
+export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db.select().from(otpCodesTable).where(eq(otpCodesTable.used, false));
+      const restored: OtpRecord[] = [];
+      for (const row of rows) {
+        const email = row.email;
+        if (!email || !row.code || !row.type) continue;
+        const normalized = {
+          email,
+          code: row.code,
+          intent: row.type as OtpIntent,
+          expiresAt: new Date(row.expiresAt).getTime(),
+          attempts: 0,
+          signupPayload: undefined,
+          userId: row.userId ?? undefined,
+        };
+        otpCodes.set(email, normalized);
+        restored.push(normalized);
+      }
+      return restored;
+    } catch (err) {
+      logger.warn({ err }, "[otp] failed to restore OTPs from Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.otpCode?.findMany) {
+    try {
+      const rows = await prisma.otpCode.findMany({});
+      const restored: OtpRecord[] = [];
+      for (const row of rows) {
+        if (!row?.code || !row?.type) continue;
+        const email = row.email ?? "";
+        if (!email) continue;
+        const normalized = {
+          email,
+          code: row.code,
+          intent: row.type as OtpIntent,
+          expiresAt: new Date(row.expiresAt).getTime(),
+          attempts: 0,
+          signupPayload: undefined,
+          userId: row.userId ?? undefined,
+        };
+        otpCodes.set(email, normalized);
+        restored.push(normalized);
+      }
+      return restored;
+    } catch (err) {
+      logger.warn({ err }, "[otp] failed to restore OTPs from Prisma");
+    }
+  }
+
+  return [];
 }
 
 export function _otpStoreSize(): number {
