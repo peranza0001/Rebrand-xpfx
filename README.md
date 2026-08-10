@@ -38,7 +38,7 @@ Rebranded-xpfx/
 ## Requirements
 
 - Node.js v20+
-- pnpm v10+
+- npm v10+
 - Railway account
 - GitHub repository connected to Railway project
 
@@ -52,21 +52,21 @@ git clone https://github.com/maxgiesingerofficialchat1-wq/Rebranded-xpfx.git
 cd Rebranded-xpfx
 
 # 2. Install dependencies
-pnpm install
+npm ci
 
 # 3. Copy and configure environment variables
 cp .env.example .env
 # Open .env and fill in all required values
 
 # 4. Build the TypeScript source
-pnpm build
+npm run build
 
 # 5. Verify build output
 ls artifacts/api-server/dist/
 # Confirm index.mjs exists before proceeding
 
 # 6. Start the production server
-pnpm start
+npm start
 ```
 
 ---
@@ -85,12 +85,12 @@ Copy it to `.env` and fill in every value before running locally or deploying to
 
 | Script | Description |
 |---|---|
-| `pnpm run build` | Compiles TypeScript source to `dist/` |
-| `pnpm start` | Runs the compiled production server |
-| `pnpm run predeploy` | Validates repo config and production readiness |
-| `pnpm run dev` | Runs server in development watch mode |
-| `pnpm test` | Runs the full test suite |
-| `pnpm audit` | Checks for known security vulnerabilities |
+| `npm run build` | Compiles TypeScript source to `dist/` |
+| `npm start` | Runs the compiled production server |
+| `npm run predeploy` | Validates repo config and production readiness |
+| `npm run dev` | Runs server in development watch mode |
+| `npm test` | Runs the full test suite |
+| `npm audit --audit-level=high` | Checks for known security vulnerabilities |
 
 ---
 
@@ -125,8 +125,8 @@ This project uses **Railpack** as the build system on **Railway**.
 
 ```bash
 # Before every deployment, verify build output locally
-pnpm install
-pnpm build
+npm ci
+npm run build
 ls artifacts/api-server/dist/
 # index.mjs must be present before proceeding
 ```
@@ -134,7 +134,7 @@ ls artifacts/api-server/dist/
 Push to your connected Railway branch to trigger automatic deployment.
 
 Railway will execute:
-1. Railpack build using `pnpm build`
+1. Railpack build using `npm run build`
 2. Start command: `node artifacts/api-server/dist/index.mjs`
 3. Health check against `/healthz`
 
@@ -146,12 +146,12 @@ The `.github/workflows/ci.yml` pipeline runs automatically on every push.
 
 | Stage | Description |
 |---|---|
-| Install dependencies | `pnpm install --frozen-lockfile --no-audit --no-fund` |
-| Predeploy validation | `pnpm run predeploy` |
-| Run lint | `pnpm lint` |
-| Run tests | `pnpm test` |
-| Build all workspaces | `pnpm build` |
-| Security audit | `pnpm audit --audit-level=high` |
+| Install dependencies | `npm ci --prefer-offline --no-audit --no-fund` |
+| Predeploy validation | `npm run predeploy` |
+| Run lint | `npm run lint` |
+| Run tests | `npm test` |
+| Build all workspaces | `npm run build` |
+| Security audit | `npm audit --audit-level=high` |
 
 ---
 
@@ -160,7 +160,7 @@ The `.github/workflows/ci.yml` pipeline runs automatically on every push.
 - All secrets and credentials must be stored as Railway environment variables — **never hardcoded**
 - CORS origin allowlist must be explicitly configured per environment
 - Rate limiting is active on authentication and live-chat routes
-- Run `pnpm audit --audit-level=high` before every production release
+- Run `npm audit --audit-level=high` before every production release
 - HTTPS and SSL/TLS are enforced at the Railway infrastructure level
 - `.env` must never be committed to version control
 

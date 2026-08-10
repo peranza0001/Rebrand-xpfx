@@ -2,7 +2,7 @@
 # XpressPro FX / NeXTrade — GitHub Actions Production Deployment Pipeline
 # ==============================================================================
 # Targets: VPS (Ubuntu 22.04/24.04) via SSH
-# Stack:   Node.js 20 + pnpm + PM2 + Nginx + Let's Encrypt
+# Stack:   Node.js 20 + npm + PM2 + Nginx + Let's Encrypt
 # Triggers: Push to main branch OR manual dispatch
 # ==============================================================================
 
@@ -144,19 +144,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: 📦 Setup pnpm ${{ env.PNPM_VERSION }}
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
-      - name: 💾 Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-store-${{ runner.os }}-
+      - name: 📦 Install dependencies
+        run: |
+          echo "=== Installing root dependencies ==="
+          npm ci --prefer-offline
 
       - name: 💾 Cache build artifacts
         uses: actions/cache@v4
@@ -167,17 +158,9 @@ jobs:
             artifacts/nextrade/dist
             artifacts/admin-portal/dist
             node_modules
-          key: build-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package.json') }}-${{ github.sha }}
+          key: build-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/package.json') }}-${{ github.sha }}
           restore-keys: |
-            build-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}-
-
-      - name: 📦 Install all workspace dependencies
-        run: |
-          echo "=== Installing root dependencies ==="
-          npm ci --prefer-offline
-
-          echo "=== Installing workspace dependencies via pnpm ==="
-          pnpm install --frozen-lockfile
+            build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
 
       - name: 🔎 TypeScript type check
         if: inputs.skip_tests != 'true'
@@ -237,8 +220,6 @@ jobs:
               lib/ \
               package.json \
               package-lock.json \
-              pnpm-lock.yaml \
-              pnpm-workspace.yaml \
               ecosystem.config.cjs \
               nginx.conf \
               .env.example

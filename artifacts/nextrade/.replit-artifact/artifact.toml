@@ -15,10 +15,10 @@ paths = [ "/" ]
 localPort = 25849
 
 [services.development]
-run = "pnpm --filter @workspace/nextrade run dev"
+run = "npm --workspace=artifacts/nextrade run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/nextrade", "run", "build" ]
+build = [ "npm", "--workspace=artifacts/nextrade", "run", "build" ]
 publicDir = "artifacts/nextrade/dist/public"
 serve = "static"
 

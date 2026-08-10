@@ -4,7 +4,7 @@ A crypto trading and P2P platform implementing the contract from `lib/api-spec/o
 
 ## Architecture
 
-Monorepo (pnpm workspaces) with two main artifacts and shared libs.
+Monorepo (npm workspaces) with two main artifacts and shared libs.
 
 ### Artifacts
 - **`artifacts/api-server`** (`@workspace/api-server`) — Express 5 + Pino server. Mounted under `/api`. Backed entirely by an in-memory store (no database). Routes are split per resource under `src/routes/{users,wallets,trades,managers,messages,p2p,assets,support,admin,admin-extended,admin-platform,admin-users,admin-p2p}.ts` and registered in `src/routes/index.ts`. All request/response shapes are validated against the generated Zod schemas from `@workspace/api-zod`.
@@ -22,7 +22,7 @@ The in-memory store in `artifacts/api-server/src/lib/store.ts` is seeded at boot
 
 ## Conventions
 
-- **Backend route naming.** All Zod schemas come from the generated names in `lib/api-zod/src/generated/api.ts` — never guess. Examples: `ConnectExternalWalletBody`, `SelectManagerBody`, `GetMessagesQueryParams`, `CreateP2PListingBody`, `PurchaseAssetBody`. After any spec change, re-run `pnpm --filter @workspace/api-spec run codegen` before touching server or client code.
+- **Backend route naming.** All Zod schemas come from the generated names in `lib/api-zod/src/generated/api.ts` — never guess. Examples: `ConnectExternalWalletBody`, `SelectManagerBody`, `GetMessagesQueryParams`, `CreateP2PListingBody`, `PurchaseAssetBody`. After any spec change, re-run `npm --workspace=lib/api-spec run codegen` before touching server or client code.
 - **Frontend hooks.** Always import hooks from `@workspace/api-client-react` (never relative paths). Hooks return `T` directly, not wrapped. After mutations, invalidate the matching `getXxxQueryKey()` so the UI refreshes.
 - **Routing.** The web app is mounted at `/` via the artifact preview path. The API is mounted at `/api`.
 - **Client-side preferences.** Per-user UI preferences that the backend does not model live in localStorage behind a typed hook (see `src/hooks/use-default-bank.ts`). Hooks dispatch a custom event after writing so all subscribers re-read the value within the same tab.
@@ -91,7 +91,7 @@ The platform uses an **in-memory store** — every collection (users, wallets, t
 
 ## Running
 
-- API: workflow `artifacts/api-server: API Server` (`pnpm dev`).
+- API: workflow `artifacts/api-server: API Server` (`npm --workspace=artifacts/api-server run dev`).
 - Web: workflow `artifacts/nextrade: web` (`vite dev`). Reads `PORT` and `BASE_PATH` from the env.
 - Admin portal: workflow `artifacts/admin-portal: web` (`vite dev`), served under `/xpadmin`.
 - Source code (`artifacts/` + `lib/`, excluding `node_modules`) totals under 10MB.

@@ -15,10 +15,10 @@ paths = [ "/xpadmin/" ]
 localPort = 25580
 
 [services.development]
-run = "pnpm --filter @workspace/admin-portal run dev"
+run = "npm --workspace=artifacts/admin-portal run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/admin-portal", "run", "build" ]
+build = [ "npm", "--workspace=artifacts/admin-portal", "run", "build" ]
 publicDir = "artifacts/admin-portal/dist/public"
 serve = "static"
 

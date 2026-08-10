@@ -30,8 +30,6 @@ deprecated/
 infrastructure/
 .local/
 .config/
-pnpm-lock.yaml
-pnpm-workspace.yaml
 nixpacks.toml
 docker-compose.yml
 certbot/
