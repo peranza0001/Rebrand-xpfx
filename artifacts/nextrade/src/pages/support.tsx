@@ -69,7 +69,7 @@ export function Support() {
                   </AccordionTrigger>
                   <AccordionContent className="pt-4 border-t">
                     <div className="space-y-4 mb-4 bg-muted/20 p-4 rounded-lg">
-                      {ticket.messages.map((msg, i) => (
+                      {ticket.messages.map((msg, _i) => (
                         <div key={msg.id} className={`flex flex-col ${msg.isFromUser ? 'items-end' : 'items-start'}`}>
                           <div className={`max-w-[80%] rounded-lg p-3 ${msg.isFromUser ? 'bg-primary/10 text-foreground' : 'bg-muted'}`}>
                             <div className="text-xs font-semibold mb-1 opacity-70">{msg.senderName}</div>

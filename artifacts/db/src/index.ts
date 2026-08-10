@@ -20,7 +20,7 @@ const pool = new Pool({
   },
 });
 
-const db = drizzle(pool);
+const _db = drizzle(pool);
 
 // 3. CREATE SERVER
 const app = express();
@@ -45,6 +45,6 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-  console.log("Database URL loaded:", !!process.env.DATABASE_URL);
+  process.stdout.write("Server running on port " + PORT + "\n");
+  process.stdout.write("Database URL loaded: " + (!!process.env.DATABASE_URL) + "\n");
 });

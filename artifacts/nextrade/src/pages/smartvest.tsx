@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Briefcase, TrendingUp, Sparkles, ShieldCheck } from "lucide-react";
+import { Briefcase, TrendingUp, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

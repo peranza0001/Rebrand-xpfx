@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { Loader2, Search, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import { useDecideWithdrawal } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
@@ -25,7 +24,6 @@ export function WithdrawalsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | WithdrawalRecord["status"]>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [, navigate] = useLocation();
   const decideWithdrawalMutation = useDecideWithdrawal();
 
   useEffect(() => {

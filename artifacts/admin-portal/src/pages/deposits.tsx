@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { Loader2, Search, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 
@@ -23,7 +22,6 @@ export function DepositsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | DepositRecord["status"]>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [, navigate] = useLocation();
 
   useEffect(() => {
     let active = true;

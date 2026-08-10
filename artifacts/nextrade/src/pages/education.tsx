@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams, useRoute } from "wouter";
+import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, CheckCircle, Lock, Play } from "lucide-react";
+import { ArrowLeft, CheckCircle, Play } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
 
 interface Course {
@@ -97,8 +97,7 @@ function EducationCoursesView() {
           const data = await statsRes.json();
           setStats(data.stats);
         }
-      } catch (error) {
-        console.error("Error fetching education data:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -251,8 +250,7 @@ function CourseLessonsView({ courseId }: { courseId: string }) {
           setCourse(data.course);
           setLessons(data.lessons || []);
         }
-      } catch (error) {
-        console.error("Error fetching course lessons:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -357,8 +355,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
           const data = await res.json();
           setLesson(data.lesson);
         }
-      } catch (error) {
-        console.error("Error fetching lesson:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -390,8 +387,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
           );
         }
       }
-    } catch (error) {
-      console.error("Error completing lesson:", error);
+    } catch {
     } finally {
       setCompleting(false);
     }

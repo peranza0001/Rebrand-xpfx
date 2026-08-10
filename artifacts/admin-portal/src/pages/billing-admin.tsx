@@ -1,5 +1,4 @@
 import { useGetAdminBilling } from "@workspace/api-client-react";
-import { CreditCard } from "lucide-react";
 
 export function BillingPage() {
   const { data, isLoading } = useGetAdminBilling();
