@@ -267,16 +267,17 @@ export function determineAccountTier(user: {
  * Get mandatory checklist items before user can trade at a given tier.
  */
 export function getMandatoryChecklist(currentTier: AccountTier, targetTier: AccountTier): string[] {
-  const spec = TIER_SPECS[targetTier];
+  const currentSpec = TIER_SPECS[currentTier];
+  const targetSpec = TIER_SPECS[targetTier];
   const checklist: string[] = [];
 
-  if (spec.emailRequired) {
+  if (targetSpec.emailRequired && !currentSpec.emailRequired) {
     checklist.push('verify_email');
   }
-  if (spec.kycRequired) {
+  if (targetSpec.kycRequired && !currentSpec.kycRequired) {
     checklist.push('complete_kyc');
   }
-  if (spec.bankAccountRequired) {
+  if (targetSpec.bankAccountRequired && !currentSpec.bankAccountRequired) {
     checklist.push('add_bank_account');
   }
 

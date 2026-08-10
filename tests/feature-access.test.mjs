@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { AccountTier, getMandatoryChecklist } from '../artifacts/api-server/src/lib/account-tiers.ts';
 import { getFeatureAccess } from '../artifacts/nextrade/src/lib/account-access.ts';
 
 const tier1 = {
@@ -39,4 +40,8 @@ assert.equal(tier8Access.canAccessP2P, true);
 assert.equal(tier8Access.canAccessSmartVest, true);
 assert.equal(tier8Access.requiresUpgradeForP2P, false);
 assert.equal(tier8Access.requiresUpgradeForSmartVest, false);
+
+const progressionChecklist = getMandatoryChecklist(AccountTier.TIER_2, AccountTier.TIER_3);
+assert.deepEqual(progressionChecklist, []);
+
 console.log('feature access test passed');
