@@ -440,16 +440,21 @@ const candidateRoots = [
   path.resolve(__dirname)
 ].filter((value, index, array) => array.indexOf(value) === index);
 
-const candidateStaticPaths = candidateRoots
-  .flatMap((root) => [
-    path.join(root, 'artifacts', 'nextrade', 'dist', 'public'),
-    path.join(root, 'artifacts', 'nextrade', 'public'),
-    path.join(root, 'public')
-  ])
-  .filter((value, index, array) => array.indexOf(value) === index);
+const nextradeStaticPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'nextrade', 'dist', 'public'))
+  .find((candidate) => fs.existsSync(candidate));
 
-const frontendStaticPath = candidateStaticPaths.find((candidate) => fs.existsSync(candidate)) || candidateStaticPaths[0];
+const adminPortalStaticPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'admin-portal', 'dist', 'public'))
+  .find((candidate) => fs.existsSync(candidate));
+
+const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artifacts', 'nextrade', 'dist', 'public');
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
+const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
+
+if (adminPortalStaticPath) {
+  app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
+}
 
 app.use(express.static(frontendStaticPath, { index: false }));
 
@@ -509,6 +514,14 @@ app.use('/api', (_req, res) => {
 });
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
+app.get('/xpadmin*', (_req: Request, res: Response) => {
+  if (adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)) {
+    return res.sendFile(adminPortalIndexPath);
+  }
+
+  return res.status(404).send('Admin portal build not found. Build the admin portal first.');
+});
+
 app.get('*', (req: Request, res: Response) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: 'Route not found.' });
