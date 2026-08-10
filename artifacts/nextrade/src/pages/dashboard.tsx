@@ -1,4 +1,5 @@
 // Authenticated user's dashboard — KYC, balances, quick actions, watchlist, P&L.
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
@@ -22,6 +23,7 @@ import { WalletRequiredBanner } from "@/components/wallet-required-banner";
 import { BuyCryptoDialog } from "@/components/BuyCryptoDialog";
 import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 import { Landmark } from "lucide-react";
+import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 
 export function Dashboard() {
   const { isDemo } = useAuth();
@@ -36,6 +38,13 @@ export function Dashboard() {
   const { data: referral } = useGetReferralInfo();
   const { data: connectedWallets } = useGetConnectedWallets();
   const { data: cards } = useGetCards();
+  const [featureAccess, setFeatureAccess] = useState<FeatureAccessState>(getFeatureAccess({}));
+
+  useEffect(() => {
+    void fetchFeatureAccess()
+      .then(setFeatureAccess)
+      .catch(() => setFeatureAccess(getFeatureAccess({})));
+  }, []);
 
   const watchlist = useLiveMarkets().slice(0, 6);
 
@@ -118,9 +127,15 @@ export function Dashboard() {
               Track a simulated portfolio using your existing account balance.
             </CardDescription>
           </div>
-          <Link href="/smartvest">
-            <Button size="sm" variant="outline">Open portfolio <ArrowRight className="h-3 w-3 ml-1" /></Button>
-          </Link>
+          {featureAccess.canAccessSmartVest ? (
+            <Link href="/smartvest">
+              <Button size="sm" variant="outline">Open portfolio <ArrowRight className="h-3 w-3 ml-1" /></Button>
+            </Link>
+          ) : (
+            <Link href="/kyc">
+              <Button size="sm" variant="secondary">Unlock with KYC</Button>
+            </Link>
+          )}
         </CardHeader>
         <CardContent className="pt-0 text-xs text-muted-foreground">
           SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.
@@ -318,7 +333,7 @@ export function Dashboard() {
           <ActionCard href="/trades" icon={Plus} label="New trade" />
           <ActionCard href="/wallets" icon={Repeat} label="Transfer" />
           <ActionCard href="/banks" icon={Wallet} label="Bank accounts" />
-          <ActionCard href="/p2p" icon={Users} label="P2P market" />
+          <ActionCard href="/p2p" icon={Users} label="P2P market" disabled={!featureAccess.canAccessP2P} altHref="/kyc" />
         </div>
       </section>
 
@@ -560,22 +575,26 @@ function Metric({ label, value, hint, icon: Icon, loading, tone }: MetricProps) 
 }
 
 function ActionCard({
-  href, icon: Icon, label, tone,
-}: { href: string; icon: React.ComponentType<{ className?: string }>; label: string; tone?: "primary" }) {
-  return (
-    <Link href={href} className="block">
-      <Card className={`hover-elevate cursor-pointer transition ${tone === "primary" ? "border-primary/40" : ""}`}>
-        <CardContent className="p-4 text-center">
-          <span className={`inline-flex h-10 w-10 items-center justify-center rounded-md mx-auto mb-2 ${
-            tone === "primary" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"
-          }`}>
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="text-sm font-medium">{label}</div>
-        </CardContent>
-      </Card>
-    </Link>
+  href, altHref, icon: Icon, label, tone, disabled,
+}: { href: string; altHref?: string; icon: React.ComponentType<{ className?: string }>; label: string; tone?: "primary"; disabled?: boolean }) {
+  const card = (
+    <Card className={`hover-elevate transition ${tone === "primary" ? "border-primary/40" : ""} ${disabled ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}>
+      <CardContent className="p-4 text-center">
+        <span className={`inline-flex h-10 w-10 items-center justify-center rounded-md mx-auto mb-2 ${
+          tone === "primary" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"
+        }`}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="text-sm font-medium">{label}</div>
+      </CardContent>
+    </Card>
   );
+
+  if (disabled) {
+    return altHref ? <Link href={altHref} className="block">{card}</Link> : <div className="block">{card}</div>;
+  }
+
+  return <Link href={href} className="block">{card}</Link>;
 }
 
 function ChecklistItem({ done, label, hint, href }: { done: boolean; label: string; hint?: string; href: string }) {

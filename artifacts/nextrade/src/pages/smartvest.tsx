@@ -3,6 +3,7 @@ import { Briefcase, TrendingUp, Sparkles, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 
 const DISCLAIMER =
   "SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.";
@@ -13,6 +14,7 @@ export function SmartVest() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [featureAccess, setFeatureAccess] = useState<FeatureAccessState>(getFeatureAccess({}));
 
   async function load() {
     const response = await fetch("/api/smartvest", { credentials: "include" });
@@ -22,6 +24,9 @@ export function SmartVest() {
 
   useEffect(() => {
     void load();
+    void fetchFeatureAccess()
+      .then(setFeatureAccess)
+      .catch(() => setFeatureAccess(getFeatureAccess({})));
   }, []);
 
   async function createAccount() {
@@ -37,6 +42,30 @@ export function SmartVest() {
   }
 
   const account = portfolio?.account;
+  if (!featureAccess.canAccessSmartVest) {
+    return (
+      <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
+        <header>
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold">SmartVest</h1>
+            <Badge variant="secondary">Simulation</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">A portfolio tracking view for learning and planning. It does not create, hold, or promise real investments.</p>
+        </header>
+
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="py-6 text-sm space-y-3">
+            <p>SmartVest is available once your account reaches the KYC-ready tier.</p>
+            <Button asChild>
+              <a href="/kyc">Complete KYC to unlock</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
       <header>
