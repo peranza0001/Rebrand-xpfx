@@ -86,11 +86,7 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
   return [
     {
       ...base,
-      firstName,
-      lastName,
-    },
-    {
-      ...base,
+      username: userData.username,
       fullName: userData.fullName,
     },
     {
@@ -101,8 +97,12 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     },
     {
       ...base,
-      username: userData.username,
       fullName: userData.fullName,
+    },
+    {
+      ...base,
+      firstName,
+      lastName,
     },
   ];
 }
