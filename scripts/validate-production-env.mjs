@@ -18,6 +18,21 @@ function isRealAlchemyKey(value) {
   return trimmed.length >= 16;
 }
 
+function resolveEnvValue(env, key, aliases = []) {
+  const candidates = [key, ...aliases];
+  for (const candidate of candidates) {
+    const raw = env[candidate];
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+}
+
+function isValidHexString(value, length) {
+  return typeof value === 'string' && /^[0-9a-fA-F]+$/.test(value.trim()) && value.trim().length === length;
+}
+
 function validateProductionEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
@@ -53,28 +68,19 @@ function validateProductionEnvironment(env = process.env) {
   }
 
   if (env.NODE_ENV === 'production') {
-    if (!env.SESSION_SECRET || env.SESSION_SECRET.trim().length < 32) {
-      if (!env.SESSION_SECRET) {
-        errors.push('SESSION_SECRET must be set to a strong value in production.');
-      } else {
-        errors.push('SESSION_SECRET must be set to a strong value in production.');
-      }
+    const sessionSecret = resolveEnvValue(env, 'SESSION_SECRET', ['COOKIE_SECRET', 'COOKIE_SIGNING_KEY']);
+    if (!sessionSecret || sessionSecret.length < 32) {
+      errors.push('SESSION_SECRET must be set to a strong value in production.');
     }
 
     if (!env.JWT_SECRET || env.JWT_SECRET.trim().length < 32) {
-      if (!env.JWT_SECRET) {
-        errors.push('JWT_SECRET must be set to a strong value in production.');
-      } else {
-        errors.push('JWT_SECRET must be set to a strong value in production.');
-      }
+      errors.push('JWT_SECRET must be set to a strong value in production.');
     }
 
-    if (!env.WALLET_ENCRYPTION_KEY || env.WALLET_ENCRYPTION_KEY.trim().length !== 64) {
-      if (!env.WALLET_ENCRYPTION_KEY) {
-        errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-      } else {
-        errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-      }
+    if (!env.WALLET_ENCRYPTION_KEY) {
+      errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
+    } else if (!isValidHexString(env.WALLET_ENCRYPTION_KEY, 64)) {
+      errors.push('WALLET_ENCRYPTION_KEY must be a 64-character hex key in production.');
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();

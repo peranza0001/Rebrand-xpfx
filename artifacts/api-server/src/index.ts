@@ -175,9 +175,14 @@ async function bootstrap() {
     }
 
     if (process.env.NODE_ENV === 'production') {
-      if (!process.env.SESSION_SECRET?.trim()) {
+      const resolvedSessionSecret = process.env.SESSION_SECRET?.trim()
+        || process.env.COOKIE_SECRET?.trim()
+        || process.env.COOKIE_SIGNING_KEY?.trim();
+      if (!resolvedSessionSecret) {
         throw new Error('SESSION_SECRET must be set to a strong value in production.');
       }
+      process.env.SESSION_SECRET = resolvedSessionSecret;
+
       if (!process.env.JWT_SECRET?.trim()) {
         throw new Error('JWT_SECRET must be set to a strong value in production.');
       }

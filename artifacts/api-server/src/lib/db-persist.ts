@@ -371,6 +371,35 @@ export async function deleteSessionsForUser(userId: string): Promise<void> {
   }
 }
 
+export async function deleteUser(userId: string): Promise<boolean> {
+  if (!isUuid(userId)) return true;
+
+  const db = getDb();
+  let deleted = false;
+  if (db) {
+    try {
+      await db.delete(usersTable).where(eq(usersTable.id, userId));
+      deleted = true;
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] deleteUser failed using Drizzle");
+    }
+  }
+
+  if (prismaClient) {
+    const userDelegate = getPrismaUserDelegate();
+    if (userDelegate?.delete) {
+      try {
+        await userDelegate.delete({ where: { id: userId } });
+        deleted = true;
+      } catch (err) {
+        logger.warn({ err, userId }, "[db-persist] deleteUser failed using Prisma");
+      }
+    }
+  }
+
+  return deleted;
+}
+
 /**
  * Persists a wallet to the database.
  */

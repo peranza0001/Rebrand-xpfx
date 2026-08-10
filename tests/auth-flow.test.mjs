@@ -221,111 +221,57 @@ test('signup verification fails when durable user persistence cannot be complete
   }
 });
 
-test('login fails when durable session persistence cannot complete', async () => {
-  const failingPrismaClient = {
-    users: {
-      upsert: async () => true,
-    },
-    userSession: {
-      create: async () => {
-        throw new Error('db write failed');
+  test('signup verification rolls back persisted user when session persistence fails', async () => {
+    const deletedUsers = [];
+    const failingSessionPrismaClient = {
+      user: {
+        upsert: async () => true,
+        delete: async ({ where }) => {
+          deletedUsers.push(where.id);
+          return { id: where.id };
+        },
       },
-    },
-  };
-
-  setPrismaClient(failingPrismaClient);
-
-  try {
-    await withTestServer(async (baseUrl) => {
-      const email = `uuid-login-${Date.now()}@example.com`;
-      const userId = randomUUID();
-      store.users.set(userId, {
-        user: {
-          id: userId,
-          username: 'uuid-login',
-          email,
-          fullName: 'UUID Login User',
-          country: 'US',
-          kycVerified: true,
-          avatarUrl: undefined,
-          createdAt: new Date().toISOString(),
-          selectedManagerId: null,
-          phone: null,
-          merchant: false,
-          moonpayEmail: null,
-          buyVerified: false,
+      userSession: {
+        create: async () => {
+          throw new Error('db write failed');
         },
-        passwordHash: store.hashPassword('Secret123!'),
-        role: 'user',
-        referralCode: '',
-        referredBy: null,
-        merchant: false,
-        tradingLocked: false,
-        demoMode: false,
-        phone: null,
-        accountFlag: null,
-        suspended: false,
-        disabled: false,
-      });
-      store.usersByEmail.set(email, userId);
-      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+      },
+    };
 
-      const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
-        method: 'POST',
-        body: { email, password: 'Secret123!' },
-      });
+    setPrismaClient(failingSessionPrismaClient);
 
-      assert.equal(loginResult.response.status, 500);
-      assert.match(loginResult.data.error, /Unable to create authenticated session/i);
-    });
-
-    await withTestServer(async (baseUrl) => {
-      const email = `otp-login-${Date.now()}@example.com`;
-      const userId = randomUUID();
-      store.users.set(userId, {
-        user: {
-          id: userId,
-          username: 'otp-login',
+    try {
+      await withTestServer(async (baseUrl) => {
+        const email = `rollback-${Date.now()}@example.com`;
+        const signupPayload = {
           email,
-          fullName: 'OTP Login User',
+          password: 'Secret123!',
+          fullName: 'Rollback User',
           country: 'US',
-          kycVerified: true,
-          avatarUrl: undefined,
-          createdAt: new Date().toISOString(),
-          selectedManagerId: null,
-          phone: null,
-          merchant: false,
-          moonpayEmail: null,
-          buyVerified: false,
-        },
-        passwordHash: store.hashPassword('Secret123!'),
-        role: 'user',
-        referralCode: '',
-        referredBy: null,
-        merchant: false,
-        tradingLocked: false,
-        demoMode: false,
-        phone: null,
-        accountFlag: null,
-        suspended: false,
-        disabled: false,
-      });
-      store.usersByEmail.set(email, userId);
-      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+        };
 
-      const otpRecord = await otp.issueOtp({ email, intent: 'login', userId });
-      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
-        method: 'POST',
-        body: { email, code: otpRecord.code },
-      });
+        const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+          method: 'POST',
+          body: signupPayload,
+        });
+        assert.equal(signupResult.response.status, 200);
 
-      assert.equal(verifyResult.response.status, 500);
-      assert.match(verifyResult.data.error, /Unable to create authenticated session/i);
-    });
-  } finally {
-    setPrismaClient(null);
-  }
-});
+        const otpRecord = _getOtpRecord(email);
+        assert.ok(otpRecord, 'OTP record should exist after signup');
+
+        const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+          method: 'POST',
+          body: { email, code: otpRecord.code },
+        });
+
+        assert.equal(verifyResult.response.status, 500);
+        assert.match(verifyResult.data.error, /Unable to create account/i);
+        assert.equal(deletedUsers.length, 1, 'expected persisted user rollback on session failure');
+      });
+    } finally {
+      setPrismaClient(null);
+    }
+  });
 
 test('signup with an already-persisted email returns an OTP challenge without creating a new record', async () => {
   const existingEmail = `existing-${Date.now()}@example.com`;

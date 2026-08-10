@@ -38,7 +38,10 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   }
   resolved.DATABASE_URL = databaseUrl;
 
-  const sessionSecret = normalizeString(env.SESSION_SECRET);
+  const sessionSecret =
+    normalizeString(env.SESSION_SECRET) ||
+    normalizeString(env.COOKIE_SECRET) ||
+    normalizeString(env.COOKIE_SIGNING_KEY);
   if (!sessionSecret) {
     missing.push('SESSION_SECRET');
   }

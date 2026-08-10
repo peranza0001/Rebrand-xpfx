@@ -41,7 +41,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser, deleteUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import {
@@ -464,6 +464,16 @@ router.post("/auth/verify-otp", async (req, res) => {
     const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
     const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false, meta);
     if (!sessionPersisted) {
+      await deleteUser(id);
+      users.delete(id);
+      usersByEmail.delete(email);
+      referralCodeIndex.delete(referralCode);
+      referrals.delete(id);
+      userData.delete(id);
+      if (referredBy) {
+        const list = referrals.get(referredBy) ?? [];
+        referrals.set(referredBy, list.filter((item) => item.referredId !== id));
+      }
       logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
       return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "session_persist_failed" });
     }
