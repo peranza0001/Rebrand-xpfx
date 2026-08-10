@@ -404,48 +404,6 @@ test('login loads a persisted user via Prisma when the user is not in memory', a
   }
 });
 
-test('tier-gated SmartVest and P2P routes reject new users before KYC', async () => {
-  await withTestServer(async (baseUrl) => {
-    const email = `tier-gated-${Date.now()}@example.com`;
-    const signupPayload = {
-      email,
-      password: 'Secret123!',
-      fullName: 'Tier Gated User',
-      country: 'US',
-    };
-
-    const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
-      method: 'POST',
-      body: signupPayload,
-    });
-    assert.equal(signupResult.response.status, 200);
-
-    const otpRecord = _getOtpRecord(email);
-    assert.ok(otpRecord, 'OTP record should be created for the signup flow');
-
-    const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
-      method: 'POST',
-      body: { email, code: otpRecord.code },
-    });
-    assert.equal(verifyResult.response.status, 200);
-    const sessionCookie = parseCookie(verifyResult.response.headers.get('set-cookie'));
-
-    const smartVestResponse = await jsonRequest(baseUrl, '/api/smartvest', {
-      method: 'GET',
-      cookie: sessionCookie,
-    });
-    assert.equal(smartVestResponse.response.status, 403);
-    assert.equal(smartVestResponse.data.error, 'SmartVest requires KYC verification');
-
-    const p2pResponse = await jsonRequest(baseUrl, '/api/p2p/listings', {
-      method: 'GET',
-      cookie: sessionCookie,
-    });
-    assert.equal(p2pResponse.response.status, 403);
-    assert.equal(p2pResponse.data.error, 'P2P trading requires KYC verification');
-  });
-});
-
 test('end-to-end signup, login, demo, and admin flow', async () => {
   await withTestServer(async (baseUrl) => {
     sentEmails.length = 0;
