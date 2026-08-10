@@ -74,7 +74,9 @@ async function initDatabase() {
   }
 
   try {
-    process.env.PGSSLMODE = 'require';
+    if (process.env.NODE_ENV === 'production') {
+      process.env.PGSSLMODE = 'require';
+    }
     const { PrismaClient } = await import('@prisma/client');
     const postgresConfig = buildPostgresConfig(rawDatabaseUrl);
     process.env.DATABASE_URL = postgresConfig.connectionString;
@@ -100,6 +102,11 @@ async function initDatabase() {
 }
 
 function ensureRuntimeSecrets() {
+  if (process.env.NODE_ENV === 'production') {
+    dotenv.config({ path: path.resolve(repoRoot, '.env'), override: false });
+    return;
+  }
+
   const possibleScriptPaths = [
     path.resolve(process.cwd(), 'scripts/generate-secrets.mjs'),
     path.resolve(process.cwd(), '../../scripts/generate-secrets.mjs'),
@@ -189,6 +196,9 @@ async function bootstrap() {
 
       if (!process.env.JWT_SECRET?.trim()) {
         throw new Error('JWT_SECRET must be set to a strong value in production.');
+      }
+      if (!process.env.CSRF_SECRET?.trim()) {
+        logger.warn('[SERVER] CSRF_SECRET is not set in production. SESSION_SECRET will be used as a fallback for CSRF protection.');
       }
       if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
         throw new Error('WALLET_ENCRYPTION_KEY must be set in production.');

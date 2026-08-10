@@ -129,45 +129,9 @@ app.get('/api/livez', (_req: Request, res: Response) => {
   res.status(200).json(buildHealthPayload());
 });
 
-app.get('/healthz/db', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ db: 'connected' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ db: 'connected' });
-  } catch (err) {
-    return res.status(503).json({ db: 'disconnected', error: (err as Error).message });
-  }
-});
-app.get('/readyz', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ status: 'ok' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    return res.status(503).json({ status: 'error', error: (err as Error).message });
-  }
-});
-app.get('/api/readyz', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ status: 'ok' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    return res.status(503).json({ status: 'error', error: (err as Error).message });
-  }
-});
+app.get('/healthz/db', _dbHealthHandler);
+app.get('/readyz', _readinessHandler);
+app.get('/api/readyz', _readinessHandler);
 
 // ─── LOGGING ──────────────────────────────────────────────────────────────────
 app.use((pinoHttp as unknown as any)({
@@ -236,13 +200,25 @@ const getAllowedOrigins = (): string[] => {
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
   const normalized = hostname.toLowerCase();
-  return ['localhost', '127.0.0.1', '::1'].includes(normalized)
-    || normalized.endsWith('.replit.app')
+  return normalized.endsWith('.replit.app')
     || normalized.endsWith('.replit.dev')
     || normalized.endsWith('.github.dev')
     || normalized.endsWith('.railway.app')
     || normalized.endsWith('.render.com')
     || normalized.endsWith('.vercel.app');
+}
+
+function isDevelopmentHost(hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  const normalized = hostname.toLowerCase();
+  return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(normalized) || normalized.endsWith('.localhost');
+}
+
+function isPreviewModeEnabled(): boolean {
+  return process.env.PREVIEW_MODE === 'true'
+    || process.env.PREVIEW_MODE === '1'
+    || Boolean(process.env.CODESPACE_NAME)
+    || Boolean(process.env.REPLIT_DOMAINS);
 }
 
 app.use(cors({
@@ -262,11 +238,22 @@ app.use(cors({
     })();
 
     const allowedOrigins = getAllowedOrigins();
-    if ((normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) || isPreviewHost(hostname)) {
+    if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
-    } else {
-      callback(null, false);
+      return;
     }
+
+    if (process.env.NODE_ENV !== 'production' && isDevelopmentHost(hostname)) {
+      callback(null, true);
+      return;
+    }
+
+    if (isPreviewModeEnabled() && isPreviewHost(hostname)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -290,11 +277,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   })();
 
   const allowedOrigins = getAllowedOrigins();
-  if (!(normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) && !isPreviewHost(hostname)) {
-    logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
-    return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
+  if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+    return next();
   }
-  next();
+
+  if (process.env.NODE_ENV !== 'production' && isDevelopmentHost(hostname)) {
+    return next();
+  }
+
+  if (isPreviewModeEnabled() && isPreviewHost(hostname)) {
+    return next();
+  }
+
+  logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
+  return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
 });
 
 // ─── METRICS (Prometheus) ───────────────────────────────────────────────────
