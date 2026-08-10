@@ -247,7 +247,7 @@ addTitle(slide8, 'Technology');
 addBullet(slide8, 'Frontend: React + Vite + Tailwind CSS + shadcn/ui', 2.5);
 addBullet(slide8, 'Backend: Node.js + Express', 3.1);
 addBullet(slide8, 'Database: PostgreSQL + Drizzle ORM', 3.7);
-addBullet(slide8, 'Monorepo: pnpm workspaces', 4.3);
+addBullet(slide8, 'Monorepo: npm workspaces', 4.3);
 addBullet(slide8, 'Infrastructure: VPS with Nginx + PM2, SSL/TLS', 4.9);
 addBullet(slide8, 'Security: Rate limiting, helmet, encrypted sessions, KYC', 5.5);
 slide8.addText('Enterprise-grade tech stack designed for scale and security.', {
