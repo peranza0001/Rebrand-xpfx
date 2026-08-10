@@ -242,7 +242,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
       const rows = await db.select().from(otpCodesTable).where(eq(otpCodesTable.used, false));
       const restored: OtpRecord[] = [];
       for (const row of rows) {
-        const email = row.email;
+        const email = (row as any).email ?? "";
         if (!email || !row.code || !row.type) continue;
         const normalized = {
           email,
@@ -269,7 +269,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
       const restored: OtpRecord[] = [];
       for (const row of rows) {
         if (!row?.code || !row?.type) continue;
-        const email = row.email ?? "";
+        const email = (row as any).email ?? "";
         if (!email) continue;
         const normalized = {
           email,

@@ -65,8 +65,12 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
 async function initDatabase() {
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    logger.error('[DB] DATABASE_URL is not configured — aborting startup');
-    throw new Error('DATABASE_URL is not configured');
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('[DB] DATABASE_URL is not configured — aborting startup');
+      throw new Error('DATABASE_URL is not configured');
+    }
+    logger.warn('[DB] DATABASE_URL is not configured — running without DB persistence');
+    return null;
   }
 
   try {
