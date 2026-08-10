@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { BarChart3, Clock3, Lock, PlayCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { BarChart3, Clock3, Lock, PlayCircle, ShieldCheck, Sparkles, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ type MarketItem = {
 };
 
 type Position = {
-  id: number;
+  id: string;
   symbol: string;
   side: "Long" | "Short";
   entry: number;
@@ -34,10 +34,7 @@ const initialMarkets: MarketItem[] = [
   { symbol: "XAU/USD", price: 2384.7, change: -0.64, bias: "bearish" },
 ];
 
-const initialPositions: Position[] = [
-  { id: 1, symbol: "EUR/USD", side: "Long", entry: 1.0842, size: 12000, pnl: 184.8 },
-  { id: 2, symbol: "BTC/USD", side: "Short", entry: 65200, size: 0.35, pnl: 144.2 },
-];
+const initialPositions: Position[] = [];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(value);
@@ -49,7 +46,8 @@ function DemoTradingContent() {
   const queryClient = useQueryClient();
   const demoMutation = useStartDemoSession();
   const [markets, setMarkets] = useState(initialMarkets);
-  const [positions, setPositions] = useState(initialPositions);
+  const [positions, setPositions] = useState<Position[]>(initialPositions);
+  const [demoBalance, setDemoBalance] = useState(0);
   const [selectedSymbol, setSelectedSymbol] = useState(initialMarkets[0]!.symbol);
   const [side, setSide] = useState<"Buy" | "Sell">("Buy");
   const [size, setSize] = useState("2500");
@@ -58,8 +56,23 @@ function DemoTradingContent() {
   const [demoRequested, setDemoRequested] = useState(false);
   const [demoStarted, setDemoStarted] = useState(false);
 
+  const refreshDemoState = async () => {
+    try {
+      const res = await fetch('/api/demo/account', { credentials: 'include' });
+      if (!res.ok) return;
+      const snapshot = await res.json() as { balance: number; positions: Position[]; openPositions: number; totalPnl: number };
+      setDemoBalance(snapshot.balance);
+      setPositions(snapshot.positions);
+      setMessage(snapshot.positions.length > 0 ? `Live account snapshot loaded with ${snapshot.openPositions} open position${snapshot.openPositions === 1 ? '' : 's'}.` : 'Live account snapshot loaded. Place a new paper order to begin.');
+    } catch {
+      // graceful fallback
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
+
+    void refreshDemoState();
 
     // Connect to Socket.IO demo-trading namespace for live prices
     const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
@@ -106,6 +119,11 @@ function DemoTradingContent() {
     }
   }, [isAuthenticated, demoRequested, isLoading]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void refreshDemoState();
+  }, [isAuthenticated]);
+
   const selectedMarket = useMemo(() => markets.find((item) => item.symbol === selectedSymbol) ?? markets[0]!, [markets, selectedSymbol]);
   const readiness = useMemo(() => {
     let score = 45;
@@ -136,6 +154,7 @@ function DemoTradingContent() {
         throw new Error(errorText || 'Order failed');
       }
       setMessage(`Demo order submitted for ${selectedMarket.symbol} — order queued.`);
+      await refreshDemoState();
     } catch (err: unknown) {
       const error = err as { message?: string };
       setMessage(error.message ?? 'Failed to submit demo order.');
@@ -195,8 +214,13 @@ function DemoTradingContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-muted p-4">
-              <div className="text-sm text-muted-foreground">Demo balance</div>
-              <div className="text-3xl font-semibold">{formatCurrency(50000)}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">Demo balance</div>
+                <button type="button" onClick={() => void refreshDemoState()} className="rounded-full border border-border p-2 text-muted-foreground hover:text-foreground">
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="text-3xl font-semibold">{formatCurrency(demoBalance || 0)}</div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg border border-border p-3">
@@ -204,8 +228,10 @@ function DemoTradingContent() {
                 <div className="text-xl font-semibold">{positions.length}</div>
               </div>
               <div className="rounded-lg border border-border p-3">
-                <div className="text-muted-foreground">Win rate</div>
-                <div className="text-xl font-semibold">72%</div>
+                <div className="text-muted-foreground">Live P&L</div>
+                <div className={`text-xl font-semibold ${positions.reduce((sum, position) => sum + position.pnl, 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {positions.reduce((sum, position) => sum + position.pnl, 0) >= 0 ? '+' : ''}{formatCurrency(positions.reduce((sum, position) => sum + position.pnl, 0))}
+                </div>
               </div>
             </div>
             <div className="flex gap-2">

@@ -5,6 +5,32 @@ import sim from '../lib/simulation-engine';
 
 const router = Router();
 
+export function getDemoAccountSnapshot(userId: string) {
+  const data = getUserData(userId);
+  const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  const positions = data.trades
+    .filter((trade) => trade.status === 'active')
+    .map((trade) => ({
+      id: trade.id,
+      symbol: trade.pair,
+      side: trade.type === 'long' ? 'Long' : 'Short',
+      entry: Number(trade.entryPrice ?? 0),
+      size: Number(trade.amount ?? 0),
+      pnl: Number(trade.profit ?? 0),
+    }));
+
+  return {
+    balance: Number(tradingWallet?.balance ?? 0),
+    positions,
+    openPositions: positions.length,
+    totalPnl: positions.reduce((sum, position) => sum + position.pnl, 0),
+  };
+}
+
+router.get('/demo/account', requireAuth, (req, res) => {
+  res.json(getDemoAccountSnapshot(req.userId!));
+});
+
 router.get('/demo/instruments', requireAuth, (_req, res) => {
   const list = assetCatalog.slice(0, 12).map((a) => ({ symbol: a.symbol, name: a.name, price: a.price }));
   res.json(list);
@@ -36,10 +62,8 @@ router.post('/demo/order', requireAuth, (req, res) => {
 router.post('/demo/reset-balance', requireAuth, (req, res) => {
   const data = getUserData(req.userId!);
   const defaultAmount = 10000;
-  // reset trading wallet balance only
   const trading = data.wallets.find((w) => w.type === 'trading');
   if (trading) trading.balance = defaultAmount;
-  // clear demo trades and transactions (soft reset)
   data.trades = [];
   data.transactions = [];
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
