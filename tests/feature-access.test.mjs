@@ -17,6 +17,14 @@ const tier2 = {
   },
 };
 
+const tier8 = {
+  currentTier: 'tier_8',
+  capabilities: {
+    p2pEnabled: false,
+    smartvest: false,
+  },
+};
+
 const tier1Access = getFeatureAccess(tier1);
 assert.equal(tier1Access.canAccessP2P, false);
 assert.equal(tier1Access.canAccessSmartVest, false);
@@ -25,4 +33,10 @@ assert.equal(tier1Access.requiresUpgradeForP2P, true);
 const tier2Access = getFeatureAccess(tier2);
 assert.equal(tier2Access.canAccessP2P, true);
 assert.equal(tier2Access.canAccessSmartVest, true);
+
+const tier8Access = getFeatureAccess(tier8);
+assert.equal(tier8Access.canAccessP2P, true);
+assert.equal(tier8Access.canAccessSmartVest, true);
+assert.equal(tier8Access.requiresUpgradeForP2P, false);
+assert.equal(tier8Access.requiresUpgradeForSmartVest, false);
 console.log('feature access test passed');

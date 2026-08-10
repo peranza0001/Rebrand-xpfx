@@ -42,6 +42,11 @@ router.get('/tier', requireAuth, (req: Request, res: Response) => {
     AccountTier.TIER_1,
     AccountTier.TIER_2,
     AccountTier.TIER_3,
+    AccountTier.TIER_4,
+    AccountTier.TIER_5,
+    AccountTier.TIER_6,
+    AccountTier.TIER_7,
+    AccountTier.TIER_8,
   ];
   const nextTierIndex = tierProgression.indexOf(currentTier) + 1;
   const nextTier = nextTierIndex < tierProgression.length ? tierProgression[nextTierIndex] : null;
@@ -77,6 +82,11 @@ router.get('/tier/requirements', requireAuth, (req: Request, res: Response) => {
       AccountTier.TIER_1,
       AccountTier.TIER_2,
       AccountTier.TIER_3,
+      AccountTier.TIER_4,
+      AccountTier.TIER_5,
+      AccountTier.TIER_6,
+      AccountTier.TIER_7,
+      AccountTier.TIER_8,
     ],
   });
 });

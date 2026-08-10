@@ -34,6 +34,11 @@ export enum AccountTier {
   TIER_1 = 'tier_1',
   TIER_2 = 'tier_2',
   TIER_3 = 'tier_3',
+  TIER_4 = 'tier_4',
+  TIER_5 = 'tier_5',
+  TIER_6 = 'tier_6',
+  TIER_7 = 'tier_7',
+  TIER_8 = 'tier_8',
 }
 
 export interface TierRequirements {
@@ -126,12 +131,108 @@ export const TIER_SPECS: Record<AccountTier, TierRequirements> = {
     smartvestEnabled: true,
     referralEnabled: true,
   },
+  [AccountTier.TIER_4]: {
+    name: 'Elite',
+    kycRequired: true,
+    emailRequired: true,
+    bankAccountRequired: true,
+    dailyTradingLimit: 50000,
+    dailyWithdrawalLimit: 20000,
+    liveTrading: true,
+    p2pEnabled: true,
+    fiatDepositsEnabled: true,
+    fiatWithdrawalsEnabled: true,
+    leverageEnabled: true,
+    smartvestEnabled: true,
+    referralEnabled: true,
+  },
+  [AccountTier.TIER_5]: {
+    name: 'Institutional',
+    kycRequired: true,
+    emailRequired: true,
+    bankAccountRequired: true,
+    dailyTradingLimit: Infinity,
+    dailyWithdrawalLimit: Infinity,
+    liveTrading: true,
+    p2pEnabled: true,
+    fiatDepositsEnabled: true,
+    fiatWithdrawalsEnabled: true,
+    leverageEnabled: true,
+    smartvestEnabled: true,
+    referralEnabled: true,
+  },
+  [AccountTier.TIER_6]: {
+    name: 'Executive',
+    kycRequired: true,
+    emailRequired: true,
+    bankAccountRequired: true,
+    dailyTradingLimit: Infinity,
+    dailyWithdrawalLimit: Infinity,
+    liveTrading: true,
+    p2pEnabled: true,
+    fiatDepositsEnabled: true,
+    fiatWithdrawalsEnabled: true,
+    leverageEnabled: true,
+    smartvestEnabled: true,
+    referralEnabled: true,
+  },
+  [AccountTier.TIER_7]: {
+    name: 'Enterprise',
+    kycRequired: true,
+    emailRequired: true,
+    bankAccountRequired: true,
+    dailyTradingLimit: Infinity,
+    dailyWithdrawalLimit: Infinity,
+    liveTrading: true,
+    p2pEnabled: true,
+    fiatDepositsEnabled: true,
+    fiatWithdrawalsEnabled: true,
+    leverageEnabled: true,
+    smartvestEnabled: true,
+    referralEnabled: true,
+  },
+  [AccountTier.TIER_8]: {
+    name: 'Platinum',
+    kycRequired: true,
+    emailRequired: true,
+    bankAccountRequired: true,
+    dailyTradingLimit: Infinity,
+    dailyWithdrawalLimit: Infinity,
+    liveTrading: true,
+    p2pEnabled: true,
+    fiatDepositsEnabled: true,
+    fiatWithdrawalsEnabled: true,
+    leverageEnabled: true,
+    smartvestEnabled: true,
+    referralEnabled: true,
+  },
 };
 
-/**
- * Determine account tier based on user verification status.
- * Uses available fields from in-memory User and StoredUser objects.
- */
+export const TIER_ORDER: AccountTier[] = [
+  AccountTier.TIER_0,
+  AccountTier.TIER_1,
+  AccountTier.TIER_2,
+  AccountTier.TIER_3,
+  AccountTier.TIER_4,
+  AccountTier.TIER_5,
+  AccountTier.TIER_6,
+  AccountTier.TIER_7,
+  AccountTier.TIER_8,
+];
+
+const ROLE_TIER_OVERRIDES: Record<string, AccountTier> = {
+  vip: AccountTier.TIER_3,
+  platinum: AccountTier.TIER_4,
+  institutional: AccountTier.TIER_5,
+  executive: AccountTier.TIER_6,
+  enterprise: AccountTier.TIER_7,
+  founder: AccountTier.TIER_8,
+};
+
+export function getTierRank(tier: AccountTier): number {
+  return TIER_ORDER.indexOf(tier);
+}
+
 export function determineAccountTier(user: {
   kycVerified: boolean;
   buyVerified?: boolean;  // Email verification proxy (buyVerified indicates email verified)
@@ -143,9 +244,9 @@ export function determineAccountTier(user: {
     return AccountTier.TIER_0;
   }
 
-  // TIER_3: VIP by role or admin assignment
-  if (user.role === 'vip') {
-    return AccountTier.TIER_3;
+  const override = ROLE_TIER_OVERRIDES[user.role?.toLowerCase()];
+  if (override) {
+    return override;
   }
 
   // TIER_2: Full KYC + bank account on file

@@ -11,12 +11,20 @@ export function getFeatureAccess(payload: { currentTier?: string; capabilities?:
   const p2pEnabled = Boolean(capabilities.p2pEnabled);
   const smartvestEnabled = Boolean(capabilities.smartvest);
 
+  const tierLevel = parseTierRank(tier);
+
   return {
-    canAccessP2P: p2pEnabled || tier === 'tier_2' || tier === 'tier_3',
-    canAccessSmartVest: smartvestEnabled || tier === 'tier_2' || tier === 'tier_3',
-    requiresUpgradeForP2P: !p2pEnabled && tier !== 'tier_2' && tier !== 'tier_3',
-    requiresUpgradeForSmartVest: !smartvestEnabled && tier !== 'tier_2' && tier !== 'tier_3',
+    canAccessP2P: p2pEnabled || tierLevel >= 2,
+    canAccessSmartVest: smartvestEnabled || tierLevel >= 2,
+    requiresUpgradeForP2P: !p2pEnabled && tierLevel < 2,
+    requiresUpgradeForSmartVest: !smartvestEnabled && tierLevel < 2,
   };
+}
+
+function parseTierRank(tier: string): number {
+  const match = /^tier_(\d+)$/.exec(tier.toLowerCase() || '');
+  if (!match) return 0;
+  return Number(match[1]);
 }
 
 export async function fetchFeatureAccess(): Promise<FeatureAccessState> {
