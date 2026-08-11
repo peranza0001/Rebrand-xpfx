@@ -71,7 +71,7 @@ export function KycPage() {
 
   const updateStatus = async (userId: string, action: "approve" | "reject") => {
     try {
-      await decideKycMutation.mutateAsync({ userId, data: { decision: action === "approve" ? "approved" : "rejected", reason: action === "reject" ? "Manual review" : undefined } });
+      await decideKycMutation.mutateAsync({ userId, data: { decision: action, reason: action === "reject" ? "Manual review" : undefined } });
       setRecords((rows) => rows.map((row) => (row.userId === userId ? { ...row, status: action === "approve" ? "approved" : "rejected", decidedAt: new Date().toISOString() } : row)));
       if (selected?.userId === userId) {
         setSelectedId(null);

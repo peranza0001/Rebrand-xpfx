@@ -56,7 +56,7 @@ export function WithdrawalsPage() {
 
   const updateStatus = async (withdrawalId: string, action: "approve" | "reject") => {
     try {
-      await decideWithdrawalMutation.mutateAsync({ withdrawalId, data: { decision: action === "approve" ? "approved" : "rejected", reason: action === "reject" ? "Manual review" : undefined } });
+      await decideWithdrawalMutation.mutateAsync({ withdrawalId, data: { decision: action, reason: action === "reject" ? "Manual review" : undefined } });
       setRecords((rows) => rows.map((row) => (row.id === withdrawalId ? { ...row, status: action === "approve" ? "completed" : "rejected" } : row)));
       if (selected?.id === withdrawalId) {
         setSelectedId(null);

@@ -93,7 +93,14 @@ export function SmartVest() {
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-base">{account.planLabel} allocation</CardTitle><CardDescription>{account.description}</CardDescription></CardHeader>
-            <CardContent className="space-y-3 text-sm">{Object.entries(account.allocation).map(([name, value]) => <div key={name} className="flex justify-between"><span className="capitalize">{name}</span><span className="font-medium">{value}%</span></div>)}</CardContent>
+            <CardContent className="space-y-3 text-sm">
+              {(Object.entries(account.allocation as Record<string, number>) as [string, number][]).map(([name, value]) => (
+                <div key={name} className="flex justify-between">
+                  <span className="capitalize">{name}</span>
+                  <span className="font-medium">{value}%</span>
+                </div>
+              ))}
+            </CardContent>
           </Card>
         </div>
       ) : (

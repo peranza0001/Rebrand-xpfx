@@ -349,8 +349,8 @@ function DemoTradingContent() {
               <span>{demoError ? demoError : message}</span>
             </div>
 
-            <Button className="w-full" onClick={placeDemoOrder} disabled={demoMutation.isLoading}>
-              {demoMutation.isLoading ? "Starting demo session..." : `Place ${side} order`}
+            <Button className="w-full" onClick={placeDemoOrder} disabled={demoMutation.isPending}>
+              {demoMutation.isPending ? "Starting demo session..." : `Place ${side} order`}
             </Button>
           </CardContent>
         </Card>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, CheckCircle, Play } from "lucide-react";
+import { ArrowLeft, CheckCircle, Lock, Play } from "lucide-react";
 import { Shell } from "@/components/layout/Shell";
 
 interface Course {
@@ -78,7 +78,7 @@ function EducationCoursesView() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState<EducationStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -239,7 +239,7 @@ function CourseLessonsView({ courseId }: { courseId: string }) {
   const [course, setCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -345,7 +345,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {

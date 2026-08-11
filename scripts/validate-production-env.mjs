@@ -124,8 +124,8 @@ function validateProductionEnvironment(env = process.env) {
     }
 
     const senderFrom = (env.SMTP_FROM || "").trim();
-    if (isRealSendGridKey(env.SENDGRID_API_KEY) && !senderFrom) {
-      errors.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set SMTP_FROM to a verified SendGrid sender email in production.');
+    if ((isRealSendGridKey(env.SENDGRID_API_KEY) || hasSmtpHost) && !senderFrom) {
+      errors.push('SMTP_FROM must be configured when email delivery is enabled in production. Use a verified sender address for SendGrid or the desired from address for SMTP.');
     }
 
     const hasBlockchainProvider = isRealAlchemyKey(env.ALCHEMY_API_KEY) || Boolean(env.INFURA_API_KEY?.trim());
