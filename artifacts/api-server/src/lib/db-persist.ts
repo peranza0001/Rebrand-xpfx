@@ -151,8 +151,8 @@ export async function persistUser(userId: string, userData: {
   const db = getDb();
   if (db) {
     try {
-      const existing = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.id, userId)), 3, 200);
-      if (existing.length > 0) {
+      const existingById = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.id, userId)), 3, 200);
+      if (existingById.length > 0) {
         await retryAsync(async () => db.update(usersTable)
           .set({
             email: userData.email,
@@ -166,16 +166,49 @@ export async function persistUser(userId: string, userData: {
         return true;
       }
 
-      await retryAsync(async () => db.insert(usersTable).values({
-        id: userId,
-        email: userData.email,
-        username: userData.username,
-        fullName: userData.fullName,
-        passwordHash: userData.passwordHash,
-        country: userData.country,
-        phone: userData.phone ?? "",
-      }), 3, 200);
-      return true;
+      // Try insert with explicit id first. Some deployments may use integer
+      // serial primary keys (non-UUID). If inserting with a UUID id fails,
+      // fall back to inserting without id and rely on email uniqueness.
+      try {
+        await retryAsync(async () => db.insert(usersTable).values({
+          id: userId,
+          email: userData.email,
+          username: userData.username,
+          fullName: userData.fullName,
+          passwordHash: userData.passwordHash,
+          country: userData.country,
+          phone: userData.phone ?? "",
+        }), 3, 200);
+        return true;
+      } catch (err) {
+        // If insertion with explicit id fails (e.g. DB expects numeric id),
+        // try finding by email and either update or insert without id.
+        logger.warn({ err, userId }, '[db-persist] insert with explicit id failed, falling back to email-based upsert');
+        const existingByEmail = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.email, userData.email)), 3, 200);
+        if (existingByEmail.length > 0) {
+          await retryAsync(async () => db.update(usersTable)
+            .set({
+              username: userData.username,
+              fullName: userData.fullName,
+              passwordHash: userData.passwordHash,
+              country: userData.country,
+              phone: userData.phone ?? "",
+            })
+            .where(eq(usersTable.email, userData.email)), 3, 200);
+          return true;
+        }
+
+        // Insert without id
+        await retryAsync(async () => db.insert(usersTable).values({
+          email: userData.email,
+          username: userData.username,
+          fullName: userData.fullName,
+          passwordHash: userData.passwordHash,
+          country: userData.country,
+          phone: userData.phone ?? "",
+        }), 3, 200);
+        return true;
+      }
     } catch (err) {
       logger.warn({ err, userId }, "[db-persist] persistUser failed using Drizzle");
       return await prismaFallback();
