@@ -87,11 +87,14 @@ test('production validation fails when SendGrid is configured without SMTP_FROM'
     WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
     ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
     SENDGRID_API_KEY: 'SG.1234567890abcdef0123456789abcdef',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
   };
 
   assert.throws(() => validateProductionEnvironment(env), {
-    message: /SENDGRID_API_KEY is configured but no verified sender address is set/,
+    message: /SMTP_FROM must be configured when email delivery is enabled in production\./,
   });
 });
 

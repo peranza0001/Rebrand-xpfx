@@ -17,6 +17,7 @@
     "react": ">=18"
   },
   "scripts": {
-    "build": "tsc -b"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --build"
   }
 }
