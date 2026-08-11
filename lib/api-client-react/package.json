@@ -11,5 +11,8 @@
   },
   "peerDependencies": {
     "react": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -b"
   }
 }
