@@ -16,7 +16,7 @@
     "lib/api-zod",
     "lib/db"
   ],
-  "packageManager": "npm@10",
+  "packageManager": "npm@10.8.2",
   "scripts": {
     "generate:secrets": "node scripts/generate-secrets.mjs",
     "generate:pitch-deck": "node scripts/generate-pitch-deck.mjs",
