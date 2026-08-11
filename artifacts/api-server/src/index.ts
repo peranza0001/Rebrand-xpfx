@@ -250,10 +250,10 @@ async function bootstrap() {
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 
     server.listen(resolvedPort, '0.0.0.0', () => {
-      logger.info({ port: resolvedPort, environment: process.env.NODE_ENV || 'development' }, '[SERVER] XpressPro FX API running');
+      console.log(`Running on ${resolvedPort}`);
     });
   } catch (error) {
-    logger.error({ err: error }, '[SERVER] Failed to start');
+    console.error('[SERVER] Failed to start', error);
     await prisma?.$disconnect();
     process.exit(1);
   }

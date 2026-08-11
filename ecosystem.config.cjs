@@ -6,8 +6,8 @@ module.exports = {
   apps: [{
     name: 'xpresspro-api',
     script: './dist/index.mjs',
-    instances: 1,
-    exec_mode: 'fork',
+    instances: 'max',
+    exec_mode: 'cluster',
     env_production: {
       NODE_ENV: 'production',
       PORT: 8080

@@ -24,7 +24,11 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
 
   const port = normalizeString(env.PORT);
   if (!port) {
-    warnings.push('PORT');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('PORT');
+    } else {
+      warnings.push('PORT');
+    }
   }
   resolved.PORT = port || '8080';
 
@@ -64,9 +68,23 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   resolved.ALLOWED_ORIGINS = allowedOrigins;
 
   const moonpayApiKey = normalizeString(env.MOONPAY_API_KEY);
+  if (!moonpayApiKey) {
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('MOONPAY_API_KEY');
+    } else {
+      warnings.push('MOONPAY_API_KEY');
+    }
+  }
   resolved.MOONPAY_API_KEY = moonpayApiKey;
 
   const coinbaseWebhookSecret = normalizeString(env.COINBASE_WEBHOOK_SECRET);
+  if (!coinbaseWebhookSecret) {
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('COINBASE_WEBHOOK_SECRET');
+    } else {
+      warnings.push('COINBASE_WEBHOOK_SECRET');
+    }
+  }
   resolved.COINBASE_WEBHOOK_SECRET = coinbaseWebhookSecret;
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
