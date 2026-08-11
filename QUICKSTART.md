@@ -26,9 +26,10 @@ cp .env.example .env
 #   And all other secrets in .env.example
 ```
 
-### 3. Apply database migrations (first time only)
+### 3. Apply database migrations (first time only, or after schema updates)
 ```bash
-# Only needed after initial clone or when schema changes
+# Only needed after initial clone, schema changes, or after pulling updates with migration files
+# (e.g., OTP persistence fix on 2026-08-11)
 DATABASE_URL="postgresql://..." npx prisma migrate deploy
 ```
 
