@@ -50,6 +50,8 @@ model User {
   transactions               Transaction[]
   notifications              Notification[]
   kycDocuments               KYCDocument[]
+  tradingAccounts            TradingAccount[]
+  auditLogs                  AuditLog[]
 
   @@map("users")
 }

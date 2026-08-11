@@ -96,6 +96,16 @@ async function initDatabase() {
     logger.info('[DB] PostgreSQL connected via Prisma');
     return client;
   } catch (error) {
+    const msg = (error && (error as any).message) || '';
+    const code = (error && (error as any).code) || '';
+    const isPrismaNotGenerated = typeof msg === 'string' && msg.includes('did not initialize yet');
+    const isDevConnectionFailure = process.env.NODE_ENV !== 'production' && (code === 'P1001' || code === 'P1008' || (typeof msg === 'string' && msg.includes("Can't reach database server")));
+
+    if (isPrismaNotGenerated || isDevConnectionFailure) {
+      logger.warn({ err: error }, '[DB] Starting without DB persistence due to development-stage DB initialization issue');
+      return null;
+    }
+
     logger.error({ err: error }, '[DB] Prisma failed to connect — aborting startup');
     throw error;
   }

@@ -10,6 +10,9 @@ import { logger } from "./logger";
 
 let prismaClient: any = null;
 
+// Cache for discovered columns to avoid repeated information_schema queries
+const hasColumnCache: Map<string, boolean> = new Map();
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isUuid(value: string): boolean {
@@ -535,30 +538,51 @@ export async function persistTransaction(
 ): Promise<void> {
   if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
   try {
+    const columnCacheKey = 'transactions.is_demo';
+    if (!hasColumnCache.has(columnCacheKey)) {
+      try {
+        const rows: any = await prismaClient.$queryRaw`
+          SELECT column_name FROM information_schema.columns
+          WHERE table_name = 'transactions' AND column_name = 'is_demo'
+        `;
+        hasColumnCache.set(columnCacheKey, Array.isArray(rows) && rows.length > 0);
+      } catch (err) {
+        hasColumnCache.set(columnCacheKey, false);
+      }
+    }
+
+    const includeIsDemo = hasColumnCache.get(columnCacheKey) === true;
+
+    const updateObj: any = {
+      type: transactionData.type,
+      amount: transactionData.amount,
+      currency: transactionData.currency,
+      status: transactionData.status,
+      description: transactionData.description,
+    };
+    const createObj: any = {
+      id: transactionId,
+      wallet_id: walletId,
+      user_id: userId,
+      type: transactionData.type,
+      amount: transactionData.amount,
+      currency: transactionData.currency,
+      status: transactionData.status,
+      description: transactionData.description,
+    };
+
+    if (includeIsDemo) {
+      updateObj.is_demo = transactionData.isDemo ?? false;
+      createObj.is_demo = transactionData.isDemo ?? false;
+    }
+
     await prismaClient.transactions.upsert({
       where: { id: transactionId },
-      update: {
-        type: transactionData.type,
-        amount: transactionData.amount,
-        currency: transactionData.currency,
-        status: transactionData.status,
-        description: transactionData.description,
-        is_demo: transactionData.isDemo ?? false,
-      },
-      create: {
-        id: transactionId,
-        wallet_id: walletId,
-        user_id: userId,
-        type: transactionData.type,
-        amount: transactionData.amount,
-        currency: transactionData.currency,
-        status: transactionData.status,
-        description: transactionData.description,
-        is_demo: transactionData.isDemo ?? false,
-      },
+      update: updateObj,
+      create: createObj,
     });
-  } catch {
-    // Silent fail
+  } catch (err) {
+    logger.warn({ err, transactionId }, '[db-persist] persistTransaction failed; continuing without DB persistence');
   }
 }
 
