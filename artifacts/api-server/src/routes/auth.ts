@@ -8,7 +8,7 @@ import {
   UpdateOwnProfileBody,
   VerifyOtpBody,
 } from "@workspace/api-zod";
-import { isDemoAuthEnabled, isDemoRouteAvailable } from "../lib/env";
+import { isDemoAuthEnabled, isDemoRouteAvailable, isProduction } from "../lib/env";
 import {
   ensureDemoUser,
   freshUserData,
@@ -47,6 +47,7 @@ import {
   issueOtp,
   resendOtp as resendOtpFn,
   verifyOtp as verifyOtpFn,
+  _getOtpRecord,
   OTP_TTL_MS,
 } from "../lib/otp";
 
@@ -565,6 +566,20 @@ router.post("/auth/resend-otp", async (req, res) => {
   const intent = result.record?.intent ?? "signup";
   return res.json(otpChallenge(parsed.data.email, intent));
 });
+
+if (!isProduction) {
+  router.get("/auth/dev-otp", (req, res) => {
+    const email = String(req.query.email ?? "").toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "Email query parameter is required." });
+    }
+    const record = _getOtpRecord(email);
+    if (!record) {
+      return res.status(404).json({ error: "OTP record not found." });
+    }
+    return res.json({ email: record.email, code: record.code, intent: record.intent });
+  });
+}
 
 router.post("/auth/skip-wallet", requireAuth, (req, res) => {
   const data = getUserData(req.userId!);

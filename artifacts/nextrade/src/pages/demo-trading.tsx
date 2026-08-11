@@ -10,6 +10,8 @@ import { PublicLayout } from "@/components/layout/PublicLayout";
 import { useAuth } from "@/lib/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetSessionQueryKey, useStartDemoSession } from "@workspace/api-client-react";
+import { ChartContainer, ChartTooltipContent, ChartLegendContent } from "@/components/ui/chart";
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 type MarketItem = {
   symbol: string;
@@ -25,6 +27,11 @@ type Position = {
   entry: number;
   size: number;
   pnl: number;
+};
+
+type MarketHistoryPoint = {
+  time: number;
+  price: number;
 };
 
 const initialMarkets: MarketItem[] = [
@@ -49,6 +56,14 @@ function DemoTradingContent() {
   const [positions, setPositions] = useState<Position[]>(initialPositions);
   const [demoBalance, setDemoBalance] = useState(0);
   const [selectedSymbol, setSelectedSymbol] = useState(initialMarkets[0]!.symbol);
+  const [marketHistory, setMarketHistory] = useState<Record<string, MarketHistoryPoint[]>>(() =>
+    Object.fromEntries(
+      initialMarkets.map((item) => [
+        item.symbol,
+        [{ time: Date.now() - 5 * 60 * 1000, price: item.price }],
+      ])
+    )
+  );
   const [side, setSide] = useState<"Buy" | "Sell">("Buy");
   const [size, setSize] = useState("2500");
   const [message, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
@@ -87,6 +102,15 @@ function DemoTradingContent() {
         }
         return item;
       }));
+
+      setMarketHistory((prev) => {
+        const existing = prev[payload.symbol] ?? [];
+        const nextPoints = [...existing, { time: Date.now(), price: Number(payload.price) }];
+        return {
+          ...prev,
+          [payload.symbol]: nextPoints.slice(-40),
+        };
+      });
     });
 
     return () => { socket.disconnect(); };
@@ -125,6 +149,19 @@ function DemoTradingContent() {
   }, [isAuthenticated]);
 
   const selectedMarket = useMemo(() => markets.find((item) => item.symbol === selectedSymbol) ?? markets[0]!, [markets, selectedSymbol]);
+  const selectedMarketHistory = useMemo(
+    () => marketHistory[selectedMarket.symbol] ?? [{ time: Date.now(), price: selectedMarket.price }],
+    [marketHistory, selectedMarket.symbol, selectedMarket.price]
+  );
+  const chartData = useMemo(
+    () =>
+      selectedMarketHistory.map((point) => ({
+        time: new Date(point.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        price: point.price,
+      })),
+    [selectedMarketHistory]
+  );
+
   const readiness = useMemo(() => {
     let score = 45;
     if (user?.kycVerified) score += 20;
@@ -318,6 +355,36 @@ function DemoTradingContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Selected market price chart</CardTitle>
+          <CardDescription>Track price action in your live demo environment as the market moves.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted p-4 text-sm">
+            <div>
+              <div className="font-medium">{selectedMarket.symbol}</div>
+              <div className="text-muted-foreground">Latest trade price</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-semibold">{selectedMarket.price}</div>
+              <div className={`text-sm ${selectedMarket.change >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{selectedMarket.change >= 0 ? "+" : ""}{selectedMarket.change}%</div>
+            </div>
+          </div>
+
+          <ChartContainer config={{ price: { label: `${selectedMarket.symbol} price`, color: '#0ea5e9' } }}>
+            <LineChart data={chartData} margin={{ top: 12, right: 24, bottom: 12, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.35} />
+              <XAxis dataKey="time" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} interval={chartData.length > 8 ? 3 : 0} />
+              <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} domain={[dataMin => Math.min(dataMin, selectedMarket.price * 0.995), dataMax => Math.max(dataMax, selectedMarket.price * 1.005)]} />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Legend verticalAlign="top" content={<ChartLegendContent />} />
+              <Line type="monotone" dataKey="price" name="price" stroke="var(--color-price)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

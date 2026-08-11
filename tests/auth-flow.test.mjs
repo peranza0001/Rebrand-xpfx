@@ -423,6 +423,12 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
     assert.equal(sentEmails[0].to, email);
     assert.equal(sentEmails[0].kind, 'otp.signup');
 
+    const devOtpResponse = await fetch(`${baseUrl}/api/auth/dev-otp?email=${encodeURIComponent(email)}`);
+    assert.equal(devOtpResponse.status, 200);
+    const devOtpData = await devOtpResponse.json();
+    assert.equal(devOtpData.code, otpRecord.code);
+    assert.equal(devOtpData.email, email);
+
     const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
       method: 'POST',
       body: { email, code: otpRecord.code },

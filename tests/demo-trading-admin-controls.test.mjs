@@ -13,11 +13,14 @@ const adminUserDetailFile = path.join(repoRoot, 'artifacts/admin-portal/src/page
 
 const appSource = fs.readFileSync(appFile, 'utf8');
 const shellSource = fs.readFileSync(shellFile, 'utf8');
+const demoTradingPageFile = path.join(repoRoot, 'artifacts/nextrade/src/pages/demo-trading.tsx');
+const demoTradingPageSource = fs.readFileSync(demoTradingPageFile, 'utf8');
 const adminSource = fs.readFileSync(adminUserDetailFile, 'utf8');
 
 test('demo trading route and sidebar entry are wired into the client experience', () => {
   assert.match(appSource, /path="\/demo-trading"/, 'demo trading route should be registered');
   assert.match(shellSource, /Demo Trading/, 'sidebar should expose the demo trading entry');
+  assert.match(demoTradingPageSource, /<ChartContainer/, 'demo trading page should render the chart container');
 });
 
 test('admin user detail page exposes explicit access-control controls', () => {
