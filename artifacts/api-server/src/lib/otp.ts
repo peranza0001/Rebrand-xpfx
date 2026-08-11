@@ -55,6 +55,19 @@ function toDbOtpRecord(record: OtpRecord, userId?: string) {
   };
 }
 
+function toPrismaOtpRecord(record: OtpRecord) {
+  return {
+    email: record.email,
+    user_id: record.userId ?? "00000000-0000-0000-0000-000000000000",
+    code: record.code,
+    type: record.intent,
+    expires_at: new Date(record.expiresAt),
+    used: false,
+    signup_payload: record.signupPayload ?? null,
+    created_at: new Date(),
+  };
+}
+
 async function persistOtpRecord(record: OtpRecord): Promise<void> {
   const db = getDb();
   if (db) {
@@ -67,10 +80,10 @@ async function persistOtpRecord(record: OtpRecord): Promise<void> {
   }
 
   const prisma = getPrismaClient();
-  if (prisma?.otpCode?.create) {
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.create) {
     try {
-      await prisma.otpCode.create({ data: { ...toDbOtpRecord(record), id: undefined } });
-      return;
+      await prismaOtpDelegate.create({ data: toPrismaOtpRecord(record) });
     } catch (err) {
       logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Prisma");
     }
@@ -263,19 +276,21 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
       const rows = await db
         .select()
         .from(otpCodesTable)
-        .where(eq(otpCodesTable.used, false));
+        .where(eq(otpCodesTable.used, false))
+        .orderBy(otpCodesTable.createdAt, 'desc');
       const restored: OtpRecord[] = [];
       for (const row of rows) {
         const email = (row as any).email ?? "";
         if (!email || !row.code || !row.type) continue;
+        if (otpCodes.has(email)) continue;
         const normalized = {
           email,
           code: row.code,
           intent: row.type as OtpIntent,
           expiresAt: new Date(row.expiresAt).getTime(),
           attempts: 0,
-          signupPayload: (row as any).signupPayload ?? (row as any).payload ?? undefined,
-          userId: row.userId && row.userId !== "00000000-0000-0000-0000-000000000000" ? row.userId : undefined,
+          signupPayload: (row as any).signupPayload ?? undefined,
+          userId: row.userId ?? undefined,
         };
         if (!otpCodes.has(email)) {
           otpCodes.set(email, normalized);
@@ -289,22 +304,23 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
   }
 
   const prisma = getPrismaClient();
-  if (prisma?.otpCode?.findMany) {
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.findMany) {
     try {
-      const rows = await prisma.otpCode.findMany({ orderBy: { createdAt: 'desc' } });
+      const rows = await prismaOtpDelegate.findMany({ where: { used: false }, orderBy: { created_at: 'desc' } });
       const restored: OtpRecord[] = [];
       for (const row of rows) {
-        if (!row?.code || !row?.type) continue;
         const email = (row as any).email ?? "";
-        if (!email) continue;
+        if (!email || !row?.code || !row?.type) continue;
+        if (otpCodes.has(email)) continue;
         const normalized = {
           email,
           code: row.code,
           intent: row.type as OtpIntent,
-          expiresAt: new Date(row.expiresAt).getTime(),
+          expiresAt: new Date((row as any).expires_at ?? (row as any).expiresAt).getTime(),
           attempts: 0,
-          signupPayload: (row as any).signupPayload ?? (row as any).payload ?? undefined,
-          userId: row.userId && row.userId !== "00000000-0000-0000-0000-000000000000" ? row.userId : undefined,
+          signupPayload: (row as any).signup_payload ?? (row as any).signupPayload ?? undefined,
+          userId: (row as any).user_id ?? (row as any).userId ?? undefined,
         };
         if (!otpCodes.has(email)) {
           otpCodes.set(email, normalized);
