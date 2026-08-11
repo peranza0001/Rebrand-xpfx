@@ -1,8 +1,8 @@
 {
   "provider": "node",
-  "install": "NPM_CONFIG_PRODUCTION=false npm install --no-audit --no-fund && NPM_CONFIG_PRODUCTION=false npm run predeploy && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/api-server && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/nextrade && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/admin-portal",
-  "build": "NPM_CONFIG_PRODUCTION=false npm run predeploy && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/api-server && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/nextrade && NPM_CONFIG_PRODUCTION=false npm run build --workspace=artifacts/admin-portal",
-  "start": "NPM_CONFIG_PRODUCTION=false npm run prepare:runtime-secrets && npm run build --workspace=artifacts/api-server && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
+  "install": "NPM_CONFIG_PRODUCTION=false npm ci --no-audit --no-fund",
+  "build": "npm run predeploy -- --skip-env-check && npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && npm run build --workspace=artifacts/admin-portal",
+  "start": "NPM_CONFIG_PRODUCTION=false npm run prepare:runtime-secrets && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
   "env": {
     "PORT": "3000"
   }
