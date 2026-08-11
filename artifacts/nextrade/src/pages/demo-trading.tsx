@@ -386,6 +386,11 @@ function DemoTradingContent() {
         </CardContent>
       </Card>
 
+      {/* Professional live trading panel shown when there are open positions or recent orders */}
+      {positions.length > 0 && (
+        <LiveTradingPanel symbol={selectedMarket.symbol} price={selectedMarket.price} history={selectedMarketHistory} positions={positions} />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Open positions</CardTitle>
@@ -427,5 +432,89 @@ export function DemoTradingPage() {
     <PublicLayout>
       <DemoTradingContent />
     </PublicLayout>
+  );
+}
+
+/* --------------------- Live trading subcomponents ------------------------ */
+
+function LiveTradingPanel({ symbol, price, history, positions }: { symbol: string; price: number; history: MarketHistoryPoint[]; positions: Position[] }) {
+  // build a lightweight synthetic order book around current price
+  const book = useMemo(() => {
+    const mid = price;
+    const step = mid * 0.0005 || 0.0001;
+    const bids = Array.from({ length: 6 }).map((_, i) => ({ price: +(mid - step * (i + 1)).toFixed(5), size: Math.round(100 + Math.random() * 900) }));
+    const asks = Array.from({ length: 6 }).map((_, i) => ({ price: +(mid + step * (i + 1)).toFixed(5), size: Math.round(100 + Math.random() * 900) }));
+    return { bids, asks };
+  }, [price]);
+
+  const ticks = history.slice(-40).map((p) => ({ time: new Date(p.time).toLocaleTimeString(), price: p.price }));
+
+  const totalPnl = positions.reduce((acc, pos) => acc + pos.pnl, 0);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-lg">Live trading — {symbol}</CardTitle>
+          <CardDescription>Chart, order book and live trades for your demo position.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-muted-foreground">Last</div>
+              <div className="text-2xl font-semibold">{price}</div>
+            </div>
+            <div className="text-right">
+              <div className={`text-lg font-semibold ${totalPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}</div>
+              <div className="text-xs text-muted-foreground">Unrealised P&L</div>
+            </div>
+          </div>
+
+          <ChartContainer config={{ price: { label: `${symbol} price`, color: '#34d399' } }}>
+            <LineChart data={history.map((d) => ({ time: new Date(d.time).toLocaleTimeString(), price: d.price }))} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.25} />
+              <XAxis dataKey="time" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} interval={history.length > 8 ? 3 : 0} />
+              <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="price" stroke="#34d399" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">Order book (asks)</div>
+              <div className="space-y-1">
+                {book.asks.map((a) => (
+                  <div key={a.price} className="flex items-center justify-between text-sm font-mono text-rose-600"><span>{a.price}</span><span>{a.size}</span></div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">Order book (bids)</div>
+              <div className="space-y-1">
+                {book.bids.map((b) => (
+                  <div key={b.price} className="flex items-center justify-between text-sm font-mono text-emerald-600"><span>{b.price}</span><span>{b.size}</span></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Time & Sales</CardTitle>
+          <CardDescription>Recent trade prints</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 max-h-96 overflow-auto">
+          {ticks.map((t, i) => (
+            <div key={`${t.time}-${i}`} className="flex items-center justify-between text-sm">
+              <div className="text-muted-foreground">{t.time}</div>
+              <div className="font-mono">{t.price}</div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
