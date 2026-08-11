@@ -43,3 +43,5 @@ replit.nix
 replit.md
 attached_assets/
 
+
+*.tsbuildinfo
