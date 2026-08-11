@@ -294,7 +294,6 @@ for (const configFile of jsonConfigFiles) {
 console.log("[predeploy] Checking for conflicting platform build configs...");
 
 const conflictingConfigs = [
-  "nixpacks.toml",
   "fly.toml",
   "Procfile.backup",
 ];

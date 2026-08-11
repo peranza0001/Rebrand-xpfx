@@ -30,7 +30,6 @@ deprecated/
 infrastructure/
 .local/
 .config/
-nixpacks.toml
 docker-compose.yml
 certbot/
 attached_assets/

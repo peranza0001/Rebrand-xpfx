@@ -11,7 +11,7 @@ Monorepo with three workspaces:
 
 Deployment targets:
   PRIMARY (permanent): VPS via SSH, PM2, Nginx, Ubuntu/Debian
-  SECONDARY (staging):  Railway via Nixpacks
+  SECONDARY (staging):  Railway
 CI/CD: GitHub Actions (deploy.yml)
 Database: PostgreSQL via Prisma ORM
 Session: Cookie-based with signed session secret
@@ -62,7 +62,6 @@ SECTION 2 — RAILWAY DEPLOYMENT CONFIG
    {
      "$schema": "https://railway.app/railway-schema.json",
      "build": {
-       "builder": "NIXPACKS",
        "buildCommand": "npm install && npm run build --workspace=artifacts/api-server"
      },
      "deploy": {
