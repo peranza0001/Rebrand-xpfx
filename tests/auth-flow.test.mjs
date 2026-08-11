@@ -85,6 +85,7 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
         type: item.type,
         expiresAt: item.expiresAt,
         used: item.used,
+        signupPayload: item.signupPayload,
         createdAt: item.createdAt,
       })),
     },
@@ -109,7 +110,9 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
     assert.equal(hydrated[0].email, record.email);
     assert.equal(hydrated[0].code, record.code);
     assert.equal(hydrated[0].intent, 'signup');
+    assert.deepEqual(hydrated[0].signupPayload, record.signupPayload);
     assert.equal(persisted[0].email, 'durable-otp@example.com');
+    assert.deepEqual(persisted[0].signupPayload, record.signupPayload);
   } finally {
     setPrismaClient(null);
   }

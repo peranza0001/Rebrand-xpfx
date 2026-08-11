@@ -17,7 +17,7 @@ import { otpCodesTable } from "@workspace/db/schema";
 
 interface SignupPayload {
   email: string;
-  password: string;
+  passwordHash: string;
   fullName: string;
   country: string;
   referralCode?: string | null;
@@ -50,6 +50,7 @@ function toDbOtpRecord(record: OtpRecord, userId?: string) {
     type: record.intent,
     expiresAt: new Date(record.expiresAt),
     used: false,
+    signupPayload: record.signupPayload ?? null,
     createdAt: new Date(),
   };
 }
@@ -69,8 +70,39 @@ async function persistOtpRecord(record: OtpRecord): Promise<void> {
   if (prisma?.otpCode?.create) {
     try {
       await prisma.otpCode.create({ data: { ...toDbOtpRecord(record), id: undefined } });
+      return;
     } catch (err) {
       logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Prisma");
+    }
+  }
+}
+
+async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
+  const email = emailRaw.toLowerCase();
+  const db = getDb();
+  if (db) {
+    try {
+      await db.update(otpCodesTable)
+        .set({ used: true })
+        .where(
+          eq(otpCodesTable.email, email),
+          eq(otpCodesTable.code, code),
+          eq(otpCodesTable.used, false),
+        );
+    } catch (err) {
+      logger.warn({ err, email, code }, "[otp] failed to mark OTP record as used in Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.otpCode?.updateMany) {
+    try {
+      await prisma.otpCode.updateMany({
+        where: { email, code, used: false },
+        data: { used: true },
+      });
+    } catch (err) {
+      logger.warn({ err, email, code }, "[otp] failed to mark OTP record as used in Prisma");
     }
   }
 }
@@ -228,7 +260,10 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
   const db = getDb();
   if (db) {
     try {
-      const rows = await db.select().from(otpCodesTable).where(eq(otpCodesTable.used, false));
+      const rows = await db
+        .select()
+        .from(otpCodesTable)
+        .where(eq(otpCodesTable.used, false));
       const restored: OtpRecord[] = [];
       for (const row of rows) {
         const email = (row as any).email ?? "";
@@ -239,10 +274,12 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
           intent: row.type as OtpIntent,
           expiresAt: new Date(row.expiresAt).getTime(),
           attempts: 0,
-          signupPayload: undefined,
-          userId: row.userId ?? undefined,
+          signupPayload: (row as any).signupPayload ?? (row as any).payload ?? undefined,
+          userId: row.userId && row.userId !== "00000000-0000-0000-0000-000000000000" ? row.userId : undefined,
         };
-        otpCodes.set(email, normalized);
+        if (!otpCodes.has(email)) {
+          otpCodes.set(email, normalized);
+        }
         restored.push(normalized);
       }
       return restored;
@@ -254,7 +291,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
   const prisma = getPrismaClient();
   if (prisma?.otpCode?.findMany) {
     try {
-      const rows = await prisma.otpCode.findMany({});
+      const rows = await prisma.otpCode.findMany({ orderBy: { createdAt: 'desc' } });
       const restored: OtpRecord[] = [];
       for (const row of rows) {
         if (!row?.code || !row?.type) continue;
@@ -266,10 +303,12 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
           intent: row.type as OtpIntent,
           expiresAt: new Date(row.expiresAt).getTime(),
           attempts: 0,
-          signupPayload: undefined,
-          userId: row.userId ?? undefined,
+          signupPayload: (row as any).signupPayload ?? (row as any).payload ?? undefined,
+          userId: row.userId && row.userId !== "00000000-0000-0000-0000-000000000000" ? row.userId : undefined,
         };
-        otpCodes.set(email, normalized);
+        if (!otpCodes.has(email)) {
+          otpCodes.set(email, normalized);
+        }
         restored.push(normalized);
       }
       return restored;
@@ -283,6 +322,11 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
 
 export function _otpStoreSize(): number {
   return otpCodes.size;
+}
+
+export function _clearOtpStore(): void {
+  otpCodes.clear();
+  lastSentAt.clear();
 }
 
 export function _getOtpRecord(email: string): OtpRecord | undefined {
