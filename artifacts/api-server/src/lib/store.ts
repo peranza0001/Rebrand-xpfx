@@ -253,7 +253,7 @@ export const users = new Map<string, StoredUser>();
 /** Email -> userId index for login. */
 export const usersByEmail = new Map<string, string>();
 /** sessionId -> session record (userId + optional metadata). */
-export const sessions = new Map<string, { userId: string; metadata?: { ip?: string; userAgent?: string; createdAt: string } }>();
+export const sessions = new Map<string, { userId: string; expiresAt?: Date; metadata?: { ip?: string; userAgent?: string; createdAt: string } }>();
 /** Per-user data store. */
 export const userData = new Map<string, UserData>();
 

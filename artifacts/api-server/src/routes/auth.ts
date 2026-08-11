@@ -32,6 +32,7 @@ import {
 import { logger } from "../lib/logger";
 import {
   clearSessionCookie,
+  getSessionId,
   requireAuth,
   setSessionCookie,
   SESSION_COOKIE,
@@ -328,7 +329,7 @@ router.post("/auth/login", async (req, res) => {
     logger.error({ userId: stored.user.id }, "[auth] login.session_persist_failed");
     return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
   }
-  sessions.set(sid, { userId: stored.user.id, metadata: meta });
+  sessions.set(sid, { userId: stored.user.id, expiresAt: sessionExpiresAt, metadata: meta });
   setSessionCookie(res, sid);
   // Successful login — reset any failure counters
   try { resetLoginFailures(emailLower); } catch { /* best-effort */ }
@@ -477,7 +478,7 @@ router.post("/auth/verify-otp", async (req, res) => {
       logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
       return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "session_persist_failed" });
     }
-    sessions.set(sid, { userId: id, metadata: meta });
+    sessions.set(sid, { userId: id, expiresAt: sessionExpiresAt, metadata: meta });
     setSessionCookie(res, sid);
     logActivity({
       actorId: id,
@@ -516,7 +517,7 @@ router.post("/auth/verify-otp", async (req, res) => {
     logger.error({ userId: stored.user.id, email: stored.user.email }, "[auth] verify-otp.login.session_persist_failed");
     return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
   }
-  sessions.set(sid, { userId: stored.user.id, metadata: meta });
+  sessions.set(sid, { userId: stored.user.id, expiresAt: sessionExpiresAt, metadata: meta });
   setSessionCookie(res, sid);
   try { resetLoginFailures(stored.user.email.toLowerCase()); } catch { /* best-effort */ }
   logActivity({
@@ -594,9 +595,7 @@ router.post("/auth/skip-wallet", requireAuth, (req, res) => {
 });
 
 router.post("/auth/logout", async (req, res) => {
-  const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as
-    | string
-    | undefined;
+  const sid = getSessionId(req);
   if (sid) {
     sessions.delete(sid);
     // best-effort remove persisted session if present
@@ -621,7 +620,7 @@ router.get("/auth/sessions", requireAuth, async (req, res) => {
   const userId = req.userId!;
   try {
     const persisted = await listSessionsForUser(userId);
-    const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as string | undefined;
+    const sid = getSessionId(req);
     const inMemory = [...sessions.entries()].filter(([, rec]) => rec.userId === userId).map(([id]) => id);
     const combined = persisted.map((p) => ({ id: p.id, expiresAt: p.expiresAt, isAdmin: p.isAdmin, isCurrent: sid === p.id || inMemory.includes(p.id), metadata: (p as any).metadata ?? undefined }));
     // Include any in-memory-only sessions not present in persisted rows
@@ -736,7 +735,7 @@ router.post("/auth/demo", async (req, res) => {
     logger.error({ userId, sid }, "[auth] demo.session_persist_failed");
     return res.status(500).json({ error: "Unable to create demo session. Please try again later.", code: "session_persist_failed" });
   }
-  sessions.set(sid, { userId, metadata: meta });
+  sessions.set(sid, { userId, expiresAt, metadata: meta });
   setSessionCookie(res, sid);
 
   logActivity({

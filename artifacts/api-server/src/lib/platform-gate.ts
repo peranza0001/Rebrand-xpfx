@@ -12,7 +12,7 @@
  */
 import type { NextFunction, Request, Response } from "express";
 import { platformSettings, sessions, users } from "./store";
-import { SESSION_COOKIE, clearSessionCookie } from "./session";
+import { clearSessionCookie, getSessionId } from "./session";
 import { deleteSession } from "./db-persist";
 
 const MAINTENANCE_ALLOW_PREFIXES = [
@@ -34,9 +34,7 @@ export function platformGate(req: Request, res: Response, next: NextFunction): v
 
     // Disabled accounts: kill the session and reject everything except logout.
     if (stored?.disabled) {
-      const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as
-        | string
-        | undefined;
+      const sid = getSessionId(req);
       if (sid) {
         sessions.delete(sid);
         // best-effort delete persisted session

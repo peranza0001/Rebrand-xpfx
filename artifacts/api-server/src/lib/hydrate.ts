@@ -377,13 +377,15 @@ export async function hydrateFromDb(): Promise<void> {
     for (const s of dbSessions) {
       const sessionId = getHydratedRowValue<string>(s, "id");
       const userId = getHydratedRowValue<string>(s, "userId", "user_id");
+      const expiresAtRaw = getHydratedRowValue<string | Date>(s, "expiresAt", "expires_at");
+      const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : undefined;
       if (!sessionId || !userId) {
         continue;
       }
 
       // Only restore sessions for users we have in memory
       if (users.has(userId)) {
-        sessions.set(sessionId, { userId });
+        sessions.set(sessionId, { userId, expiresAt });
         sessionsLoaded++;
       }
     }

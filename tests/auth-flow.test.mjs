@@ -4,6 +4,7 @@ process.env.ALLOWED_ORIGINS = 'https://example.com';
 process.env.ADMIN_EMAIL = 'admin@example.com';
 process.env.ADMIN_PASSWORD = 'AdminPass123!';
 process.env.ENABLE_DEMO_AUTH = 'true';
+process.env.DATABASE_URL = '';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -106,6 +107,7 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
       },
     });
 
+    otp._clearOtpStore();
     const hydrated = await otp.restoreOtpCodesFromStorage();
     assert.equal(hydrated.length, 1);
     assert.equal(hydrated[0].email, record.email);
@@ -113,7 +115,7 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
     assert.equal(hydrated[0].intent, 'signup');
     assert.deepEqual(hydrated[0].signupPayload, record.signupPayload);
     assert.equal(persisted[0].email, 'durable-otp@example.com');
-    assert.deepEqual(persisted[0].signupPayload, record.signupPayload);
+    assert.deepEqual(persisted[0].signup_payload, record.signupPayload);
   } finally {
     setPrismaClient(null);
   }

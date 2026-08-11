@@ -279,10 +279,11 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
         .where(eq(otpCodesTable.used, false))
         .orderBy(otpCodesTable.createdAt, 'desc');
       const restored: OtpRecord[] = [];
+      const restoredEmails = new Set<string>();
       for (const row of rows) {
         const email = (row as any).email ?? "";
         if (!email || !row.code || !row.type) continue;
-        if (otpCodes.has(email)) continue;
+        if (restoredEmails.has(email)) continue;
         const normalized = {
           email,
           code: row.code,
@@ -292,6 +293,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
           signupPayload: (row as any).signupPayload ?? undefined,
           userId: row.userId ?? undefined,
         };
+        restoredEmails.add(email);
         if (!otpCodes.has(email)) {
           otpCodes.set(email, normalized);
         }
@@ -308,6 +310,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
   if (prismaOtpDelegate?.findMany) {
     try {
       const rows = await prismaOtpDelegate.findMany({ where: { used: false }, orderBy: { created_at: 'desc' } });
+      logger.info({ rowCount: rows.length, sample: rows[0] }, '[otp] restoring OTPs from Prisma');
       const restored: OtpRecord[] = [];
       for (const row of rows) {
         const email = (row as any).email ?? "";
@@ -322,6 +325,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
           signupPayload: (row as any).signup_payload ?? (row as any).signupPayload ?? undefined,
           userId: (row as any).user_id ?? (row as any).userId ?? undefined,
         };
+        logger.info({ normalized, row }, '[otp] restored OTP row');
         if (!otpCodes.has(email)) {
           otpCodes.set(email, normalized);
         }
