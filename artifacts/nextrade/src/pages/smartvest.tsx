@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 
 const DISCLAIMER =
-  "SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.";
+  "SmartVest is an investment program that lets you create and manage a diversified portfolio. Access is subject to eligibility and KYC verification.";
 type Plan = "conservative" | "balanced" | "growth";
 
 export function SmartVest() {
@@ -49,9 +49,9 @@ export function SmartVest() {
           <div className="flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-primary" />
             <h1 className="text-2xl font-bold">SmartVest</h1>
-            <Badge variant="secondary">Simulation</Badge>
+            <Badge variant="secondary">Investment</Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">A portfolio tracking view for learning and planning. It does not create, hold, or promise real investments.</p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">A managed investment program to help you plan and grow a diversified portfolio. Access requires KYC and eligibility.</p>
         </header>
 
         <Card className="border-amber-500/40 bg-amber-500/5">

@@ -124,12 +124,12 @@ export function Dashboard() {
               <Briefcase className="h-4 w-4 text-primary" /> SmartVest
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              Track a simulated portfolio using your existing account balance.
+              SmartVest is our investment program — manage allocations, contributions, and performance from one place.
             </CardDescription>
           </div>
           {featureAccess.canAccessSmartVest ? (
             <Link href="/smartvest">
-              <Button size="sm" variant="outline">Open portfolio <ArrowRight className="h-3 w-3 ml-1" /></Button>
+              <Button size="sm" variant="outline">Open SmartVest <ArrowRight className="h-3 w-3 ml-1" /></Button>
             </Link>
           ) : (
             <Link href="/kyc">
@@ -138,9 +138,46 @@ export function Dashboard() {
           )}
         </CardHeader>
         <CardContent className="pt-0 text-xs text-muted-foreground">
-          SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.
+          SmartVest is an on-platform investment program. Performance and holdings are managed on your account and subject to platform terms.
           </CardContent>
         </Card>
+
+      {/* Live trading view — compact, updates with live market data */}
+      <Card className="lg:col-span-2">
+        <CardHeader className="flex items-center justify-between pb-3">
+          <CardTitle className="text-base">Live market feed</CardTitle>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/trades">Full trading view <ArrowRight className="h-3 w-3 ml-1" /></Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border">
+            {useLiveMarkets().slice(0, 8).map((m) => {
+              const up = m.changePct >= 0;
+              return (
+                <div key={m.symbol} className="flex items-center justify-between px-4 py-3 hover:bg-accent/40">
+                  <div>
+                    <div className="font-mono font-semibold text-sm">{m.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{m.name}</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-mono text-sm">{formatPrice(m.bid)}</div>
+                      <div className={`text-xs font-mono inline-flex items-center gap-1 ${up ? "text-primary" : "text-destructive"}`}>
+                        {up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                        {up ? "+" : ""}{m.changePct.toFixed(2)}%
+                      </div>
+                    </div>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/trades">Trade</Link>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
