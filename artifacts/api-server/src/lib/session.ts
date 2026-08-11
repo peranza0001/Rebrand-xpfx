@@ -30,7 +30,7 @@ function isExpired(expiresAt: Date | undefined): boolean {
   return expiresAt.getTime() <= Date.now();
 }
 
-export async function cleanupExpiredSession(req: Request, res: Response, sid: string, record: { userId: string; expiresAt?: Date }): Promise<void> {
+export async function cleanupExpiredSession(req: Request, res: Response, sid: string): Promise<void> {
   sessions.delete(sid);
   // best-effort remove persisted session if present
   void deleteSession(sid).catch(() => undefined);

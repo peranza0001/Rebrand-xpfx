@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const fetch = require('node-fetch');
 (async () => {
   const base = 'http://127.0.0.1:3000';

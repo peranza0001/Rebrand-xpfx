@@ -35,7 +35,6 @@ import {
   getSessionId,
   requireAuth,
   setSessionCookie,
-  SESSION_COOKIE,
   requireAdmin,
 } from "../lib/session";
 import { getDb } from "../lib/db-client";

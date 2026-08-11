@@ -102,8 +102,8 @@ async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
           eq(otpCodesTable.code, code),
           eq(otpCodesTable.used, false),
         );
-    } catch (err) {
-      logger.warn({ err, email, code }, "[otp] failed to mark OTP record as used in Drizzle");
+    } catch (_err) {
+      logger.warn({ err: _err, email, code }, "[otp] failed to mark OTP record as used in Drizzle");
     }
   }
 
@@ -114,8 +114,8 @@ async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
         where: { email, code, used: false },
         data: { used: true },
       });
-    } catch (err) {
-      logger.warn({ err, email, code }, "[otp] failed to mark OTP record as used in Prisma");
+    } catch (_err) {
+      logger.warn({ err: _err, email, code }, "[otp] failed to mark OTP record as used in Prisma");
     }
   }
 }
@@ -241,7 +241,7 @@ export interface VerifyResult {
   record?: OtpRecord;
 }
 
-export function verifyOtp(emailRaw: string, code: string): VerifyResult {
+export async function verifyOtp(emailRaw: string, code: string): Promise<VerifyResult> {
   const email = emailRaw.toLowerCase();
   const record = otpCodes.get(email);
   if (!record) {
@@ -264,6 +264,7 @@ export function verifyOtp(emailRaw: string, code: string): VerifyResult {
   if (record.code !== code) {
     return { ok: false, reason: "Incorrect code. Please try again." };
   }
+  await markOtpUsed(email, code);
   otpCodes.delete(email);
   lastSentAt.delete(email);
   return { ok: true, record };

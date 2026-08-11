@@ -546,7 +546,8 @@ export async function persistTransaction(
           WHERE table_name = 'transactions' AND column_name = 'is_demo'
         `;
         hasColumnCache.set(columnCacheKey, Array.isArray(rows) && rows.length > 0);
-      } catch (err) {
+      } catch (_err) {
+        void _err;
         hasColumnCache.set(columnCacheKey, false);
       }
     }
