@@ -43,7 +43,7 @@ export async function attachSession(req: Request, res: Response, next: NextFunct
     const rec = sessions.get(sid);
     if (rec) {
       if (isExpired(rec.expiresAt)) {
-        await cleanupExpiredSession(req, res, sid, rec);
+        await cleanupExpiredSession(req, res, sid);
         return next();
       }
 

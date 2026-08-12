@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
+// Validate production environment via script at runtime (loaded dynamically below).
 import { logger } from './lib/logger';
 import { restoreOtpCodesFromStorage } from './lib/otp';
 
@@ -241,6 +241,7 @@ async function bootstrap() {
       }
     }
 
+    const { validateProductionEnvironment } = (await import('../../../' + 'scripts/validate-production-env.mjs')) as { validateProductionEnvironment: (env?: NodeJS.ProcessEnv) => boolean };
     validateProductionEnvironment(process.env);
     prisma = await initDatabase();
     setPrismaClient?.(prisma);

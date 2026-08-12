@@ -84,6 +84,10 @@ jobs:
             pm2 reload ecosystem.config.cjs --env production || pm2 start ecosystem.config.cjs --env production
             sudo nginx -t && sudo systemctl reload nginx
           timeout: 20m
+      - name: Verify Health Check
+        run: |
+          sleep 10
+          curl --fail --retry 5 --retry-delay 5 https://${{ secrets.DOMAIN }}/healthz
 
   notify:
     name: Notify on Failure

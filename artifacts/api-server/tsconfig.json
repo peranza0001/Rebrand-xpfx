@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../..",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -27,6 +27,11 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "../../lib/api-zod/src/**/*",
+    "../../lib/db/src/**/*",
+    "../../scripts/**/*.d.ts"
+  ],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -49,6 +49,7 @@ export const usersTable = pgTable("users", {
 
 export const otpCodesTable = pgTable("otp_codes", {
   id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
   userId: uuid("user_id").notNull(),
   code: text("code").notNull(),
   type: text("type").notNull(),

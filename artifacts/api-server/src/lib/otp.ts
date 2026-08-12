@@ -12,12 +12,12 @@ import { isSendGridConfigured } from "./integration-config";
 import { sendEmail } from "./email";
 import { getPrismaClient } from "./db-persist";
 import { getDb } from "./db-client";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { otpCodesTable } from "@workspace/db/schema";
 
 interface SignupPayload {
   email: string;
-  passwordHash: string;
+  password: string;
   fullName: string;
   country: string;
   referralCode?: string | null;
@@ -98,9 +98,11 @@ async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
       await db.update(otpCodesTable)
         .set({ used: true })
         .where(
-          eq(otpCodesTable.email, email),
-          eq(otpCodesTable.code, code),
-          eq(otpCodesTable.used, false),
+          and(
+            eq(otpCodesTable.email, email),
+            eq(otpCodesTable.code, code),
+            eq(otpCodesTable.used, false),
+          ),
         );
     } catch (_err) {
       logger.warn({ err: _err, email, code }, "[otp] failed to mark OTP record as used in Drizzle");
@@ -278,7 +280,7 @@ export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
         .select()
         .from(otpCodesTable)
         .where(eq(otpCodesTable.used, false))
-        .orderBy(otpCodesTable.createdAt, 'desc');
+        .orderBy(desc(otpCodesTable.createdAt));
       const restored: OtpRecord[] = [];
       const restoredEmails = new Set<string>();
       for (const row of rows) {

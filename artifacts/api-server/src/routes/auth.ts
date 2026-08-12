@@ -362,7 +362,7 @@ router.post("/auth/verify-otp", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid verification request" });
   }
-  const result = verifyOtpFn(parsed.data.email, parsed.data.code);
+  const result = await verifyOtpFn(parsed.data.email, parsed.data.code);
   if (!result.ok || !result.record) {
     // Always return the same generic message regardless of internal reason
     // (missing record, wrong code, expired, too many attempts). Exposing
