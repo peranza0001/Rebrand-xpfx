@@ -90,6 +90,16 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
         signup_payload: item.signup_payload ?? item.signupPayload,
         user_id: item.user_id ?? item.userId,
       })),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const item of persisted) {
+          if (item.email === where.email && item.code === where.code && item.used === where.used) {
+            item.used = data.used;
+            count += 1;
+          }
+        }
+        return { count };
+      },
     },
   };
 
@@ -116,6 +126,93 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
     assert.deepEqual(hydrated[0].signupPayload, record.signupPayload);
     assert.equal(persisted[0].email, 'durable-otp@example.com');
     assert.deepEqual(persisted[0].signup_payload, record.signupPayload);
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('verify-otp loads persisted OTP from durable storage when in-memory cache is cleared', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    otpCode: {
+      create: async ({ data }) => {
+        persisted.push({ ...data, used: false });
+        return data;
+      },
+      findMany: async ({ where }) => persisted
+        .filter((item) => item.email === where.email && item.used === where.used)
+        .sort((a, b) => new Date(b.created_at ?? b.createdAt).getTime() - new Date(a.created_at ?? a.createdAt).getTime()),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const item of persisted) {
+          if (item.email === where.email && item.code === where.code && item.used === where.used) {
+            item.used = data.used;
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    },
+    users: {
+      findUnique: async ({ where }) => {
+        if (where?.email === email) {
+          return {
+            id: randomUUID(),
+            email: where.email,
+            username: 'persisted-user',
+            firstName: 'Persisted',
+            lastName: 'User',
+            country: 'US',
+            kycVerified: false,
+            avatarUrl: null,
+            createdAt: new Date(),
+            selectedManagerId: null,
+            phone: null,
+            moonpayEmail: null,
+            buyVerified: false,
+            passwordHash: 'Secret123!'
+          };
+        }
+        return null;
+      },
+    },
+    userSession: {
+      create: async () => ({})
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const email = `verify-persisted-${Date.now()}@example.com`;
+      const password = 'Secret123!';
+      const signupPayload = {
+        email,
+        password,
+        fullName: 'Persisted OTP User',
+        country: 'US',
+      };
+
+      const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+        method: 'POST',
+        body: signupPayload,
+      });
+      assert.equal(signupResult.response.status, 200);
+
+      const otpRecord = await otp._getOtpRecord(email);
+      assert.ok(otpRecord, 'OTP record should exist after signup');
+
+      otp._clearOtpStore();
+      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, code: otpRecord.code },
+      });
+
+      assert.equal(verifyResult.response.status, 200);
+      assert.equal(verifyResult.data.user.email, email);
+      assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
+    });
   } finally {
     setPrismaClient(null);
   }

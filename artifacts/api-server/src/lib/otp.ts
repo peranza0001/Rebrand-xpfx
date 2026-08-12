@@ -122,6 +122,68 @@ async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
   }
 }
 
+function normalizeOtpRow(row: any): OtpRecord | undefined {
+  const email = String(row?.email ?? "").toLowerCase();
+  if (!email || !row?.code || !row?.type) return undefined;
+  const expiresAtValue = row.expiresAt ?? row.expires_at;
+  const expiresAt = expiresAtValue ? new Date(expiresAtValue).getTime() : Date.now();
+  return {
+    email,
+    code: String(row.code),
+    intent: row.type as OtpIntent,
+    expiresAt,
+    attempts: 0,
+    signupPayload: row.signup_payload ?? row.signupPayload ?? undefined,
+    userId: row.user_id ?? row.userId ?? undefined,
+  };
+}
+
+async function loadOtpRecordFromStorage(emailRaw: string): Promise<OtpRecord | undefined> {
+  const email = emailRaw.toLowerCase();
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db
+        .select()
+        .from(otpCodesTable)
+        .where(and(eq(otpCodesTable.email, email), eq(otpCodesTable.used, false)))
+        .orderBy(desc(otpCodesTable.createdAt));
+      if (rows.length > 0) {
+        const record = normalizeOtpRow(rows[0]);
+        if (record) {
+          otpCodes.set(email, record);
+          return record;
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, email }, "[otp] failed to load OTP record from Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.findMany) {
+    try {
+      const rows = await prismaOtpDelegate.findMany({
+        where: { email, used: false },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      });
+      if (rows.length > 0) {
+        const record = normalizeOtpRow(rows[0]);
+        if (record) {
+          otpCodes.set(email, record);
+          return record;
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, email }, "[otp] failed to load OTP record from Prisma");
+    }
+  }
+
+  return undefined;
+}
+
 function generateCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }
@@ -211,7 +273,10 @@ export interface ResendResult {
 
 export async function resendOtp(emailRaw: string): Promise<ResendResult> {
   const email = emailRaw.toLowerCase();
-  const existing = otpCodes.get(email);
+  let existing = otpCodes.get(email);
+  if (!existing) {
+    existing = await loadOtpRecordFromStorage(email);
+  }
   if (!existing) {
     return { ok: false, reason: "No pending verification for that email." };
   }
@@ -245,7 +310,10 @@ export interface VerifyResult {
 
 export async function verifyOtp(emailRaw: string, code: string): Promise<VerifyResult> {
   const email = emailRaw.toLowerCase();
-  const record = otpCodes.get(email);
+  let record = otpCodes.get(email);
+  if (!record) {
+    record = await loadOtpRecordFromStorage(email);
+  }
   if (!record) {
     // Return the same generic message as an incorrect code to prevent callers
     // from probing whether an OTP record (and therefore an account) exists.

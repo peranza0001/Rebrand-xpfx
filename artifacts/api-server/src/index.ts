@@ -251,10 +251,10 @@ async function bootstrap() {
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 
     server.listen(resolvedPort, '0.0.0.0', () => {
-      console.log(`Running on ${resolvedPort}`);
+      logger.info({ port: resolvedPort }, 'Server is running');
     });
   } catch (error) {
-    console.error('[SERVER] Failed to start', error);
+    logger.error({ err: error }, '[SERVER] Failed to start');
     await prisma?.$disconnect();
     process.exit(1);
   }
