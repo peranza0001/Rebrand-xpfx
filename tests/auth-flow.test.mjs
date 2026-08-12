@@ -101,6 +101,17 @@ test('OTP codes are persisted and rehydrated from durable storage', async () => 
         return { count };
       },
     },
+    user: {
+      findUnique: async ({ where }) => null,
+      upsert: async ({ create, update }) => {
+        // A minimal mock for Prisma upsert called by persistUser.
+        // It should accept either user object shape and return the created/updated row.
+        return create ?? update;
+      },
+    },
+    userSession: {
+      create: async ({ data }) => ({ ...data }),
+    },
   };
 
   setPrismaClient(fakePrismaClient);
@@ -155,9 +166,10 @@ test('verify-otp loads persisted OTP from durable storage when in-memory cache i
     },
     users: {
       findUnique: async ({ where }) => null,
+      upsert: async ({ create, update }) => ({ ...create ?? update }),
     },
     userSession: {
-      create: async () => ({})
+      create: async ({ data }) => ({ ...data }),
     },
   };
 
