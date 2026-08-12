@@ -1,7 +1,7 @@
 {
   "provider": "node",
-  "install": "npm install --legacy-peer-deps --no-audit --no-fund",
-  "build": "npm run predeploy --skip-env-check && npm run build --workspace=artifacts/api-server",
+  "install": "npm install --legacy-peer-deps --no-audit --no-fund --omit=dev",
+  "build": "rm -rf artifacts/nextrade/node_modules artifacts/admin-portal/node_modules artifacts/mockup-sandbox/node_modules && npm run predeploy --skip-env-check && npm run build --workspace=artifacts/api-server",
   "start": "npm run prepare:runtime-secrets && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
   "env": {
     "PORT": "3000"
