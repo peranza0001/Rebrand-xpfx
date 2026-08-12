@@ -122,7 +122,7 @@ async function deliverViaSmtp(input: SendEmailInput, from: string): Promise<Prov
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465,
+      secure: env.SMTP_SECURE === true || env.SMTP_SECURE === false ? env.SMTP_SECURE : port === 465,
       auth: env.SMTP_USER
         ? { user: env.SMTP_USER, pass: env.SMTP_PASS ?? "" }
         : undefined,

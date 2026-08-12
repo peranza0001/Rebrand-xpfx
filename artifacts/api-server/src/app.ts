@@ -157,12 +157,18 @@ app.use(helmet({
       upgradeInsecureRequests: []
     }
   },
+  referrerPolicy: { policy: 'no-referrer-when-downgrade' },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'same-site' },
   strictTransportSecurity: process.env.NODE_ENV === 'production'
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false
 }));
+
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+  next();
+});
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 function normalizeOrigin(origin: string | undefined): string | null {
@@ -257,7 +263,10 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token', 'Set-Cookie'],
+  exposedHeaders: ['X-Request-Id'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
 
 // ─── CORS REJECTION HANDLER ───────────────────────────────────────────────────
