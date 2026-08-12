@@ -154,22 +154,7 @@ test('verify-otp loads persisted OTP from durable storage when in-memory cache i
       },
     },
     users: {
-      findUnique: async ({ where }) => ({
-        id: randomUUID(),
-        email: where.email,
-        username: 'persisted-user',
-        firstName: 'Persisted',
-        lastName: 'User',
-        country: 'US',
-        kycVerified: false,
-        avatarUrl: null,
-        createdAt: new Date(),
-        selectedManagerId: null,
-        phone: null,
-        moonpayEmail: null,
-        buyVerified: false,
-        passwordHash: 'Secret123!'
-      }),
+      findUnique: async ({ where }) => null,
     },
     userSession: {
       create: async () => ({})
