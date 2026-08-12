@@ -1,0 +1,29 @@
+export function normalizeOrigin(origin: string | undefined): string | null {
+  if (!origin) return null;
+  try {
+    const url = new URL(origin.trim());
+    return `${url.protocol}//${url.hostname}${url.port ? `:${url.port}` : ''}`;
+  } catch {
+    const trimmed = origin.trim().replace(/\/+$|^\s+|\s+$/g, '');
+    try {
+      const url = new URL(trimmed);
+      return `${url.protocol}//${url.hostname}${url.port ? `:${url.port}` : ''}`;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export function normalizeAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin)
+    .filter((origin): origin is string => Boolean(origin));
+}
+
+export function getAllowedOrigins(): string[] {
+  const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
+  return normalizeAllowedOrigins(raw);
+}

@@ -16,6 +16,7 @@ import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
 import { logger } from './lib/logger';
+import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -171,37 +172,6 @@ app.use((req, res, next) => {
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-function normalizeOrigin(origin: string | undefined): string | null {
-  if (!origin) return null;
-  try {
-    const url = new URL(origin);
-    const port = url.port ? `:${url.port}` : '';
-    return `${url.protocol}//${url.hostname}${port}`;
-  } catch {
-    const trimmed = origin.trim().replace(/\/+$/, '');
-    try {
-      const url = new URL(trimmed);
-      const port = url.port ? `:${url.port}` : '';
-      return `${url.protocol}//${url.hostname}${port}`;
-    } catch {
-      return null;
-    }
-  }
-}
-
-function normalizeAllowedOrigins(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
-    .map(normalizeOrigin)
-    .filter(Boolean) as string[];
-}
-
-const getAllowedOrigins = (): string[] => {
-  const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
-  return normalizeAllowedOrigins(raw);
-};
 
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;

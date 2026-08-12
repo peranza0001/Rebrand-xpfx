@@ -4,11 +4,26 @@ import cookieParser from 'cookie-parser';
 import { sessions, users, userData } from './store';
 import { SESSION_COOKIE } from './session';
 import { logger } from './logger';
+import { getAllowedOrigins, normalizeOrigin } from './cors';
 
 export async function initRealtime(server: http.Server) {
   const io = new IOServer(server, {
     cors: {
-      origin: (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+      origin: (origin, callback) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        const normalizedOrigin = normalizeOrigin(origin);
+        const allowedOrigins = getAllowedOrigins();
+        if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error('Origin not allowed by CORS'));
+      },
       credentials: true,
     },
     path: '/socket.io',
