@@ -153,20 +153,6 @@ model OtpCode {
 
   @@map("otp_codes")
 }
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id        String   @db.Uuid
-  code           String
-  type           String
-  expires_at     DateTime @db.Timestamp(6)
-  used           Boolean  @default(false)
-  signup_payload Json?
-  created_at     DateTime @default(now()) @db.Timestamp(6)
-<<<<<<< HEAD
-=======
-
-  @@map("otp_codes")
->>>>>>> 4a4ee28 (fix(otp): persist signup_payload in DB and restore on startup; handle Prisma snake_case; update tests)
-}
 
 model p2p_chat {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
