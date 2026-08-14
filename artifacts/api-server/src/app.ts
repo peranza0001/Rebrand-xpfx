@@ -144,15 +144,25 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https:'],
-      fontSrc: ["'self'", 'https:'],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://cdn.chatway.app",
+        "https://*.chatway.app",
+        "https:"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com"
+      ],
+      imgSrc: ["'self'", 'data:', 'https:', 'https://cdn.chatway.app', 'https://*.chatway.app'],
+      connectSrc: ["'self'", 'https:', 'wss:', 'https://cdn.chatway.app', 'https://*.chatway.app'],
+      fontSrc: ["'self'", 'data:', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
-      baseSrc: ["'self'"],
-      baseUri: ["'self'"],
+      frameSrc: ["'self'", 'https://cdn.chatway.app', 'https://*.chatway.app'],
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
