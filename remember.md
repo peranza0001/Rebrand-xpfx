@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-14 17:47:41 UTC
+- Last sync: 2026-08-14 17:50:29 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M package.json |  M remember.md | ?? .husky/pre-commit
+- Current working tree: M  package.json | M  remember.md | A  scripts/install-git-hooks.mjs
 <!-- AUTO-UPDATE:END -->
 
 ---
