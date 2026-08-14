@@ -16,6 +16,21 @@ function fail(message) {
   process.exit(1);
 }
 
+function warn(message) {
+  console.warn(`[db-ready] ${message}`);
+}
+
+// Skip DB checks during build/install phases unless explicitly required.
+// Railway runs these scripts during install and postinstall while the build
+// container does not yet have the production database attached, so we must not
+// try to run Prisma migrations during package installation.
+const installLifecycleEvents = new Set(['install', 'postinstall']);
+const isBuildPhase = installLifecycleEvents.has(process.env.npm_lifecycle_event || '') && !process.env.FORCE_DB_CHECK;
+if (isBuildPhase) {
+  log(`Install-time lifecycle (${process.env.npm_lifecycle_event || 'unknown'}) detected; deferring database checks to runtime. Migrations will run at app startup.`);
+  process.exit(0);
+}
+
 if ((process.env.NODE_ENV || '').trim() !== 'production') {
   log('Development mode detected; skipping production DB enforcement.');
   process.exit(0);
