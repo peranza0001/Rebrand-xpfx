@@ -48,13 +48,14 @@ SMTP_FROM=noreply@xpressprofx.com
 # Alchemy (get free key at alchemy.com)
 ALCHEMY_API_KEY=your-alchemy-api-key-here
 
-# MoonPay (optional - for fiat on/off ramps)
+# MoonPay (optional - for fiat on/off ramps; leave empty for sandbox mode)
 MOONPAY_API_KEY=your-moonpay-api-key-here
 MOONPAY_SECRET_KEY=your-moonpay-secret-key-here
 
-# Coinbase (optional - for crypto payments)
+# Coinbase (optional - for crypto payments; leave empty for permissive webhook mode)
 COINBASE_API_KEY=your-coinbase-api-key-here
 COINBASE_SECRET_KEY=your-coinbase-secret-key-here
+COINBASE_WEBHOOK_SECRET=your-coinbase-webhook-secret-here
 
 # Paystack (optional - for African payments)
 PAYSTACK_PUBLIC_KEY=your-paystack-public-key-here
