@@ -5,6 +5,7 @@
   "framework": null,
   "env": {
     "NODE_ENV": "production",
-    "VITE_API_URL": "https://rebrand-xpfx-production.up.railway.app"
-  }
+    "VITE_API_URL": "@vite_api_url"
+  },
+  "envContent": "Environment variable. Set VITE_API_URL to your API endpoint (e.g., https://api.yourdomain.com or https://your-railway-app.up.railway.app)"
 }
