@@ -83,9 +83,9 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('WALLET_ENCRYPTION_KEY must be a 64-character hex key in production.');
     }
 
-    const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();
+    const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
     if (!databaseUrl) {
-      errors.push('DATABASE_URL or DATABASE_PUBLIC_URL must be configured for production persistence.');
+      errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured for production persistence. User accounts and session data will be lost across redeploys without a real PostgreSQL database.');
     }
 
     if (!env.ALLOWED_ORIGINS && !env.REPLIT_DOMAINS) {

@@ -101,10 +101,13 @@ async function initDatabase() {
     const isPrismaNotGenerated = typeof msg === 'string' && msg.includes('did not initialize yet');
     const isDevConnectionFailure = process.env.NODE_ENV !== 'production' && (code === 'P1001' || code === 'P1008' || (typeof msg === 'string' && msg.includes("Can't reach database server")));
 
-    const allowNoDbInProd = process.env.ALLOW_NO_DB_IN_PROD === 'true';
+    if (process.env.NODE_ENV === 'production') {
+      logger.error({ err: error }, '[DB] Prisma failed to connect in production — aborting startup so auth data is never silently lost');
+      throw error;
+    }
 
-    if (isPrismaNotGenerated || isDevConnectionFailure || (process.env.NODE_ENV === 'production' && allowNoDbInProd)) {
-      logger.warn({ err: error }, '[DB] Starting without DB persistence due to DB initialization issue (ALLOW_NO_DB_IN_PROD enabled)');
+    if (isPrismaNotGenerated || isDevConnectionFailure) {
+      logger.warn({ err: error }, '[DB] Starting without DB persistence due to DB initialization issue (development mode only)');
       return null;
     }
 
