@@ -20,6 +20,13 @@ This is a quick reference. For complete development rules, see the main file abo
 - **NEVER** log passwords, tokens, or API keys
 - **NEVER** hardcode secrets in code
 - **✅ USE**: Environment variables, platform vaults, GitHub Secrets
+- **✅ BOOTSTRAP SAFE DEFAULTS**: build secure fallback secrets for missing local or first-build deployments, but replace them with real deployment secrets before public launch
+
+### ✅ Production-Ready Deployment Rules
+- Use `ENABLE_DEMO_AUTH=false` by default in production.
+- Keep `ALLOWED_ORIGINS` aligned to the live host plus local and preview hosts used by the deployment platform.
+- Prefer request-host-based reset links for custom domains and multi-origin hosting.
+- Validate local/VPS/Railway/Vercel readiness with startup checks before public launch.
 
 ### 🚫 Database Changes
 - **ALL schema changes** via Prisma migrations

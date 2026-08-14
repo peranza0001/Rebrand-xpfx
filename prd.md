@@ -18,6 +18,18 @@ This is a quick link file. For the complete PRD, see the main file above.
 - ✅ Payment processing (Moonpay, Paystack, Coinbase)
 - ✅ P2P trading and messaging
 - ✅ Demo trading with simulated funds
+- ✅ Production-safe defaults for local, VPS, Railway, Vercel, and custom-domain deployments
+
+### Secure Production Defaults
+
+```bash
+NODE_ENV=production
+PORT=8080
+ENABLE_DEMO_AUTH=false
+ALLOWED_ORIGINS=https://xpressprofx.com,https://www.xpressprofx.com,https://rebrand-xpfx-production-1988.up.railway.app,http://localhost:3000,http://localhost:5173,http://localhost:5174
+```
+
+These values are the default bootstrap set used to keep the app stable when a platform does not yet expose the real production secrets.
 
 ### Key Features
 1. **Trading** - Spot trading, demo accounts, order management

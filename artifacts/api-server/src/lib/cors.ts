@@ -15,12 +15,19 @@ export function normalizeOrigin(origin: string | undefined): string | null {
 }
 
 export function normalizeAllowedOrigins(raw: string): string[] {
-  return raw
+  const origins = raw
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean)
     .map(normalizeOrigin)
     .filter((origin): origin is string => Boolean(origin));
+
+  const deduped = new Set<string>();
+  for (const origin of origins) {
+    deduped.add(origin);
+  }
+
+  return [...deduped];
 }
 
 export function getAllowedOrigins(): string[] {

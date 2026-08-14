@@ -8,6 +8,25 @@ This is a quick reference. For complete tech stack details, see the main file ab
 
 ## Technology Stack Summary
 
+### Production Deployment Defaults
+
+The project is configured to boot safely even when the platform does not expose the production secret set yet. The default runtime bootstrap is:
+
+```bash
+NODE_ENV=production
+PORT=8080
+ENABLE_DEMO_AUTH=false
+ALLOWED_ORIGINS=https://xpressprofx.com,https://www.xpressprofx.com,https://rebrand-xpfx-production-1988.up.railway.app,http://localhost:3000,http://localhost:5173,http://localhost:5174
+SESSION_SECRET=<generated-secret>
+JWT_SECRET=<generated-secret>
+WALLET_ENCRYPTION_KEY=<generated-secret>
+COOKIE_SECRET=<generated-secret>
+CSRF_SECRET=<generated-secret>
+JWT_REFRESH_SECRET=<generated-secret>
+```
+
+The app also supports local and platform-specific overrides, and the bootstrapping script will generate missing secrets automatically when needed.
+
 ### Backend
 - **Runtime**: Node.js 20+
 - **Framework**: Express.js 4.x

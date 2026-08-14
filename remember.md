@@ -1,11 +1,42 @@
 # XpressPro FX — AI Model Memory & Quick Reference
 
-**Last Updated**: 2026-08-13  
+**Last Updated**: 2026-08-14  
 **For**: Any AI model continuing work on this project
 
 ---
 
 ## 🎯 PROJECT ESSENCE (Read First!)
+
+**Production-safe deployment posture**:
+- Demo auth is disabled by default in production and only enabled explicitly when a controlled, non-public environment requires it.
+- The app accepts local, custom-domain, Railway, VPS, and preview host origins through `ALLOWED_ORIGINS` and the secure fallback logic.
+- Reset links are generated from the active request host, so `xpressprofx.com`, `www.xpressprofx.com`, and local development hosts all resolve correctly.
+- If local or platform secrets are missing, the app can still bootstrap with generated secure defaults and local-safe fallback values so deployments do not fail on first boot.
+
+---
+
+## 🚀 SAFE DEFAULT DEPLOYMENT VALUES
+
+Use the following defaults for instant bootstrap across supported platforms:
+
+```bash
+NODE_ENV=production
+PORT=8080
+ENABLE_DEMO_AUTH=false
+ALLOWED_ORIGINS=https://xpressprofx.com,https://www.xpressprofx.com,https://rebrand-xpfx-production-1988.up.railway.app,http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174
+SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
+WALLET_ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+COOKIE_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+CSRF_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+JWT_REFRESH_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=ChangeMe123!
+```
+
+These values are meant to be replaced with your real deployment secrets when available, but they are safe bootstrapping defaults that prevent immediate deployment failures.
+
+---
 
 **XpressPro FX** is an **enterprise-grade forex trading platform** with:
 - Real-time trading engine (forex, crypto, commodities)

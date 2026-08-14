@@ -69,12 +69,32 @@ function clearResetTokensForUser(userId: string): void {
   }
 }
 
-function getAppOrigin(): string {
+export function resolveAppOriginFromRequest(req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> } | undefined): string {
+  const headers = req?.headers ?? {};
+  const headerHost = req?.get?.("host") || (typeof headers.host === "string" ? headers.host : Array.isArray(headers.host) ? headers.host[0] : undefined);
+  const forwardedHost = req?.get?.("x-forwarded-host") || (typeof headers["x-forwarded-host"] === "string"
+    ? headers["x-forwarded-host"]
+    : Array.isArray(headers["x-forwarded-host"])
+      ? headers["x-forwarded-host"][0]
+      : undefined);
+  const origin = typeof headers.origin === "string" ? headers.origin : undefined;
+  const protocolHeader = req?.get?.("x-forwarded-proto") || (typeof headers["x-forwarded-proto"] === "string" ? headers["x-forwarded-proto"] : undefined);
+  const protocol = protocolHeader?.split(",")[0]?.trim() || (origin ? new URL(origin).protocol.replace(":", "") : "https");
+
+  const preferredHost = forwardedHost || headerHost || (origin ? new URL(origin).host : undefined);
+  if (preferredHost) {
+    return `${protocol}://${preferredHost.replace(/\/+$/, "")}`;
+  }
+
   const allowed = env.ALLOWED_ORIGINS?.split(",")[0]?.trim();
-  if (allowed) return allowed;
+  if (allowed) return allowed.replace(/\/+$/, "");
   const replit = env.REPLIT_DOMAINS?.split(",")[0]?.trim();
-  if (replit) return `https://${replit}`;
-  return "https://xpressprofx.app";
+  if (replit) return `https://${replit.replace(/\/+$/, "")}`;
+  return "https://xpressprofx.com";
+}
+
+function getAppOrigin(): string {
+  return resolveAppOriginFromRequest(undefined);
 }
 
 /**
@@ -101,7 +121,7 @@ router.post("/auth/forgot-password", async (req, res) => {
         expiresAt,
       });
       void persistResetPasswordToken(userId, token, new Date(expiresAt));
-      const resetUrl = `${getAppOrigin()}/reset-password?token=${token}`;
+      const resetUrl = `${resolveAppOriginFromRequest(req)}/reset-password?token=${token}`;
       try {
         await sendEmail({
           to: normalized,

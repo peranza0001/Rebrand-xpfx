@@ -8,6 +8,15 @@ This is a quick reference. For complete architecture details, see the main file 
 
 ## System Architecture Overview
 
+### Deployment-Safe Architecture
+
+The API is intentionally designed to fail safe rather than fail hard when a deployment environment is missing non-essential production values. Local bootstrapping is covered by generated secrets, while core security and auth values remain required in production.
+
+- Demo auth is off by default in production.
+- Allowed origins are normalized and deduplicated to support custom domains plus local and preview hosts.
+- Reset-password links resolve from the active request host, which keeps the live custom domain working correctly.
+- Health and readiness checks are separated so `/readyz` remains platform-safe while deeper DB checks live at `/healthz/db`.
+
 ### 3-Tier Architecture
 ```
 Frontend Layer (React + Vite)

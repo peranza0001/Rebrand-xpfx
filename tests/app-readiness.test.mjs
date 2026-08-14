@@ -7,6 +7,7 @@ process.env.SESSION_SECRET = 'test-session-secret';
 process.env.ALLOWED_ORIGINS = 'https://example.com,http://127.0.0.1';
 
 import appModule from '../artifacts/api-server/src/app.ts';
+import { resolveAppOriginFromRequest } from '../artifacts/api-server/src/routes/auth-password.ts';
 
 // Handle both direct export and ESM wrapper
 const app = appModule.default?.default ?? appModule.default ?? appModule;
@@ -214,4 +215,20 @@ test('GET /api/csrf-token issues a fresh token on each request even when the pre
     assert.equal(typeof secondBody.csrfToken, 'string');
     assert.notEqual(secondBody.csrfToken, firstBody.csrfToken, 'CSRF token should be refreshed on each GET issuance');
   });
+});
+
+test('resolveAppOriginFromRequest prefers the live custom-domain host over the default Railway origin', () => {
+  const req = {
+    headers: {
+      host: 'xpressprofx.com',
+      origin: 'https://xpressprofx.com',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'xpressprofx.com',
+    },
+    get(name) {
+      return this.headers[name] ?? undefined;
+    },
+  };
+
+  assert.equal(resolveAppOriginFromRequest(req), 'https://xpressprofx.com');
 });
