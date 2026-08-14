@@ -1,9 +1,10 @@
 {
-  "buildCommand": "npm install && npm run prepare:runtime-secrets && npm run build --workspace=artifacts/nextrade",
+  "buildCommand": "npm ci --no-audit --no-fund && npm run prepare:runtime-secrets && npm run build --workspace=artifacts/nextrade",
   "outputDirectory": "artifacts/nextrade/dist/public",
-  "installCommand": "npm install",
+  "installCommand": "npm ci --no-audit --no-fund",
   "framework": null,
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VITE_API_URL": "https://api.yourdomain.com"
   }
 }
