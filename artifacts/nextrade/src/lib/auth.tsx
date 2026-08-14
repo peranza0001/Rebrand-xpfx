@@ -55,6 +55,15 @@ const WALLET_GATE_EXEMPT_PATHS = new Set<string>([
   "/verify-otp",
 ]);
 
+function RedirectingScreen({ message }: { message: string }) {
+  return (
+    <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-background dark">
+      <Skeleton className="h-12 w-12 rounded-full" />
+      <div className="text-muted-foreground text-sm text-center">{message}</div>
+    </div>
+  );
+}
+
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, walletSkipped, isDemo } = useAuth();
   const [location, setLocation] = useLocation();
@@ -93,16 +102,16 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   ]);
 
   if (isLoading || (isAuthenticated && isLoadingWallets)) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 dark">
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <div className="text-muted-foreground text-sm">Loading session...</div>
-      </div>
-    );
+    return <RedirectingScreen message="Loading your session..." />;
   }
 
-  if (!isAuthenticated) return null;
-  if (needsWalletGate) return null;
+  if (!isAuthenticated) {
+    return <RedirectingScreen message="Redirecting to sign in..." />;
+  }
+
+  if (needsWalletGate) {
+    return <RedirectingScreen message="Redirecting to wallet setup..." />;
+  }
 
   return <>{children}</>;
 }
@@ -118,11 +127,11 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   }, [isLoading, isAdmin, setLocation]);
 
   if (isLoading) {
-    return <div className="h-screen w-screen flex items-center justify-center dark"><Skeleton className="h-12 w-12 rounded-full" /></div>;
+    return <RedirectingScreen message="Loading admin access..." />;
   }
 
   if (!isAdmin) {
-    return null;
+    return <RedirectingScreen message="Redirecting to the dashboard..." />;
   }
 
   return <>{children}</>;
