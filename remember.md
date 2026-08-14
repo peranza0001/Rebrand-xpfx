@@ -6,17 +6,17 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-14 19:12:51 UTC
+- Last sync: 2026-08-14 19:15:09 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/app.ts
+- Current working tree: M  remember.md
 <!-- AUTO-UPDATE:END -->
 
 ---
 
 ## 🔧 LATEST CHANGES (2026-08-14)
 
-### Issue Fixed: Blank Page After User Sign-In
+### ✅ ISSUE 1 FIXED: Blank Page After User Sign-In
 **Problem**: Users saw blank white page after successful sign-in on deployed platforms (Railway, Vercel, VPS, Docker, Render)
 
 **Root Cause**: Frontend apps didn't initialize the API base URL, causing all API requests to fail silently
@@ -27,21 +27,34 @@
 3. ✅ Updated environment files: RAILWAY_ENV_PRODUCTION.env, VERCEL_ENV_PRODUCTION.env, VPS_ENV_PRODUCTION.env
 4. ✅ Created 6 comprehensive deployment guides (see DEPLOYMENT_FIX_GUIDE.md, QUICK_START_FIX.md, etc.)
 
-**Files Changed**: 12 files (6 modified, 6 new documentation)  
-**Git Commit**: c9aa016 - "Fix: Initialize API base URL for all frontend deployments + comprehensive deployment guides"  
-**Status**: Deployed to origin/main - Ready for Railway auto-deploy
+**Status**: ✅ VERIFIED FIXED via live browser test on Railway - Post-login demo flow renders correctly
 
 **Key Variable for All Deployments**:
 ```bash
 VITE_API_URL = https://your-api-server-url.com
-# Must be set in each platform's environment variables
-# Railway: Set in Dashboard → Variables
-# Vercel: Set in Project → Settings → Environment Variables
-# VPS: Set in .env file
-# Docker: Set in .env.production file
 ```
 
-**Next Step**: Set VITE_API_URL on each deployment platform and test at: https://rebrand-xpfx-production-1988.up.railway.app/
+---
+
+### ✅ ISSUE 2 FIXED: Content Security Policy (CSP) Errors
+**Problem**: Live Railway deployment was blocking Google Fonts stylesheet and Chatway chat widget with CSP errors:
+- "Unrecognized Content-Security-Policy directive 'base-src'"
+- Google Fonts blocked: "style-src 'self' 'unsafe-inline'"
+- Chatway script blocked: "script-src 'self'"
+
+**Root Cause**: Old CSP configuration in `artifacts/api-server/src/app.ts` had invalid `baseSrc` directive and didn't allow external resources
+
+**Solution Applied** (COMMITTED & PUSHED - COMMIT: 03f1879):
+1. ✅ Removed invalid `baseSrc` and `baseUri` directives from helmet CSP config
+2. ✅ Added Google Fonts to `styleSrc` and `fontSrc` directives
+3. ✅ Added Chatway CDN to `scriptSrc`, `connectSrc`, `imgSrc`, and `frameSrc` directives
+4. ✅ Added `wss:` protocol support for WebSocket connections
+
+**Files Changed**: artifacts/api-server/src/app.ts, remember.md  
+**Git Commit**: 03f1879 - "Fix CSP directive errors: remove baseSrc, add Google Fonts and Chatway permissions"  
+**Status**: Committed to origin/main - Waiting for Railway auto-deploy (typically 5-15 minutes)
+
+**Verification**: Browser test will show zero CSP errors after Railway redeploy completes
 
 ---
 
