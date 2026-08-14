@@ -37,15 +37,15 @@ export const env = {
   LOG_LEVEL: get("LOG_LEVEL") ?? "info",
 
   // Demo auth
-  // Demo auth: allow explicit true/false via env; defaults to true when missing
-  // so the demo endpoint is available in production unless explicitly disabled.
+  // Production should default to secure mode: demo auth is disabled unless
+  // explicitly enabled for a controlled environment or testing deployment.
   ENABLE_DEMO_AUTH: (() => {
     const raw = resolveEnvValue(process.env, "ENABLE_DEMO_AUTH");
-    if (raw === undefined) return true;
+    if (raw === undefined) return false;
     const val = raw.trim().toLowerCase();
     if (val === "true") return true;
     if (val === "false") return false;
-    return true;
+    return false;
   })(),
 
   // Admin provisioning
@@ -149,7 +149,7 @@ export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined
   const explicitValue = rawEnv["ENABLE_DEMO_AUTH"]?.trim().toLowerCase();
   if (explicitValue === "true") return true;
   if (explicitValue === "false") return false;
-  return true;
+  return false;
 }
 
 export const isDemoAuthEnabled = resolveDemoAuthEnabled();

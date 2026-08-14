@@ -8,13 +8,13 @@ import { execFileSync } from 'node:child_process';
 const repoRoot = path.resolve(process.cwd());
 const scriptPath = path.join(repoRoot, 'scripts', 'generate-secrets.mjs');
 
-test('secret generator preserves demo-auth defaults for fresh clones', () => {
+test('secret generator preserves secure demo-auth defaults for fresh clones', () => {
   const tempDir = mkdtempSync(path.join(tmpdir(), 'rebrand-secrets-'));
   const tempEnvPath = path.join(tempDir, '.env');
-  writeFileSync(tempEnvPath, 'ENABLE_DEMO_AUTH=true\n');
+  writeFileSync(tempEnvPath, 'ENABLE_DEMO_AUTH=false\n');
 
   const envContent = readFileSync(tempEnvPath, 'utf8');
-  assert.match(envContent, /ENABLE_DEMO_AUTH=true/);
+  assert.match(envContent, /ENABLE_DEMO_AUTH=false/);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -23,7 +23,7 @@ test('secret generation bootstraps .env from .env.example for fresh clones', () 
   const tempDir = mkdtempSync(path.join(tmpdir(), 'rebrand-bootstrap-'));
   const tempEnvPath = path.join(tempDir, '.env');
   const tempExamplePath = path.join(tempDir, '.env.example');
-  writeFileSync(tempExamplePath, 'SESSION_SECRET=\nENABLE_DEMO_AUTH=true\n');
+  writeFileSync(tempExamplePath, 'SESSION_SECRET=\nENABLE_DEMO_AUTH=false\n');
 
   const result = execFileSync(process.execPath, [scriptPath], {
     cwd: repoRoot,
@@ -37,7 +37,7 @@ test('secret generation bootstraps .env from .env.example for fresh clones', () 
 
   assert.ok(existsSync(tempEnvPath));
   const envContent = readFileSync(tempEnvPath, 'utf8');
-  assert.match(envContent, /ENABLE_DEMO_AUTH=true/);
+  assert.match(envContent, /ENABLE_DEMO_AUTH=false/);
   assert.match(envContent, /SESSION_SECRET=/);
   assert.match(envContent, /COOKIE_SECRET=/);
   assert.match(envContent, /ADMIN_SECRET=/);

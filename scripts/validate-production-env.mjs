@@ -104,8 +104,8 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('ADMIN_PASSWORD must be set to a strong production credential.');
     }
 
-    if (demoAuth !== 'false' && demoAuth !== '0') {
-      warnings.push('ENABLE_DEMO_AUTH remains enabled; consider disabling it in production to reduce public exposure.');
+    if (demoAuth === 'true' || demoAuth === '1') {
+      warnings.push('ENABLE_DEMO_AUTH is enabled in production; this is a public exposure and should be disabled unless intentionally required.');
     }
 
     if (env.MOONPAY_API_KEY && !env.MOONPAY_SECRET_KEY) {

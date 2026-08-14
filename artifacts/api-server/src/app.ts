@@ -88,22 +88,21 @@ async function _dbHealthHandler(_req: Request, res: Response) {
 }
 
 async function _readinessHandler(_req: Request, res: Response) {
+  // Platform health checks must remain reachable even when the database is
+  // temporarily unavailable or intentionally isolated from a worker. The deep
+  // database probe is handled by /healthz/db, which is where DB outages should
+  // surface as degraded or failed conditions.
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
   }
 
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(200).json({ ready: true, reason: 'no-db-client' });
-    }
-
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ ready: true, reason: 'database-ok' });
-  } catch (err) {
-    return res.status(503).json({ ready: false, error: String(err) });
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ ready: true, reason: 'no-db-client' });
   }
+
+  return res.status(200).json({ ready: true, reason: 'app-ready' });
 }
 
 app.get('/health', (_req: Request, res: Response) => {
