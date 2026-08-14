@@ -22,17 +22,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, isLoading } = useGetSession();
+  const { data: session, isLoading, isError } = useGetSession();
+  const resolvedSession = isError ? undefined : session;
 
   const value: AuthContextType = {
-    session,
-    user: session?.user ?? null,
-    role: session?.role ?? "guest",
-    isDemo: session?.isDemo ?? false,
+    session: resolvedSession,
+    user: resolvedSession?.user ?? null,
+    role: resolvedSession?.role ?? "guest",
+    isDemo: resolvedSession?.isDemo ?? false,
     isLoading,
-    isAuthenticated: !!session?.user,
-    isAdmin: session?.role === "admin",
-    walletSkipped: session?.walletSkipped ?? false,
+    isAuthenticated: !!resolvedSession?.user,
+    isAdmin: resolvedSession?.role === "admin",
+    walletSkipped: resolvedSession?.walletSkipped ?? false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

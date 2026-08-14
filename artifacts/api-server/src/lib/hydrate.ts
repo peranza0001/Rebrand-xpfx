@@ -110,7 +110,8 @@ export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, exi
     return null;
   }
 
-  if (existingEmails.has(email.toLowerCase())) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (existingEmails.has(normalizedEmail)) {
     return null;
   }
 
@@ -118,7 +119,7 @@ export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, exi
     user: {
       id,
       username: getHydratedRowValue<string>(row, "username") ?? "",
-      email,
+      email: normalizedEmail,
       fullName: getHydratedRowValue<string>(row, "fullName", "full_name") ?? "",
       country: getHydratedRowValue<string>(row, "country") ?? "US",
       kycVerified: Boolean(getHydratedRowValue<boolean>(row, "kycVerified", "kyc_verified")),
@@ -197,9 +198,10 @@ export async function hydrateFromDb(): Promise<void> {
         continue;
       }
 
+      const normalizedEmail = rowEmail.trim().toLowerCase();
       const referralCode = getHydratedRowValue<string>(row, "referralCode", "referral_code");
       users.set(rowId, stored);
-      usersByEmail.set(rowEmail.toLowerCase(), rowId);
+      usersByEmail.set(normalizedEmail, rowId);
       if (referralCode) referralCodeIndex.set(referralCode, rowId);
       if (!referrals.has(rowId)) referrals.set(rowId, []);
       if (!userData.has(rowId)) {

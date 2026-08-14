@@ -105,7 +105,13 @@ function ProtectedShell() {
  */
 function RootRoute() {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <PublicLayout>
+        <PublicHome />
+      </PublicLayout>
+    );
+  }
   if (isAuthenticated) return <ProtectedShell />;
   return (
     <PublicLayout>
