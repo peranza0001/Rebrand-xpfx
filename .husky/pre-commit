@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+set -eu
+
+# Refresh project memory before commit
+node scripts/update-remember.mjs
+
+git add remember.md
