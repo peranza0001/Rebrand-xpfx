@@ -196,7 +196,7 @@ export function AdvancedAnalyticsDashboard({
             <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3 mt-4">
               <div className="text-sm font-semibold text-blue-600 mb-1">📊 Interpretation Guide</div>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• Sharpe Ratio > 1.0 indicates good risk-adjusted returns</li>
+                <li>• Sharpe Ratio &gt; 1.0 indicates good risk-adjusted returns</li>
                 <li>• Sortino Ratio emphasizes downside risk management</li>
                 <li>• Calmar Ratio measures return relative to max drawdown</li>
               </ul>
