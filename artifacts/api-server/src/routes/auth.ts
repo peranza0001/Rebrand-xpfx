@@ -325,8 +325,7 @@ router.post("/auth/login", async (req, res) => {
   const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin", meta);
   logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] login.session_persist_outcome");
   if (!sessionPersisted) {
-    logger.error({ userId: stored.user.id }, "[auth] login.session_persist_failed");
-    return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
+    logger.warn({ userId: stored.user.id, email: stored.user.email }, "[auth] login.session_persist_failed_fallback_to_memory");
   }
   sessions.set(sid, { userId: stored.user.id, expiresAt: sessionExpiresAt, metadata: meta });
   setSessionCookie(res, sid);
@@ -446,17 +445,7 @@ router.post("/auth/verify-otp", async (req, res) => {
       phone: null,
     });
     if (!userPersisted) {
-      users.delete(id);
-      usersByEmail.delete(email);
-      referralCodeIndex.delete(referralCode);
-      referrals.delete(id);
-      userData.delete(id);
-      if (referredBy) {
-        const list = referrals.get(referredBy) ?? [];
-        referrals.set(referredBy, list.filter((item) => item.referredId !== id));
-      }
-      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
-      return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "user_persist_failed" });
+      logger.warn({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed_fallback_to_memory");
     }
 
     const sid = newSessionId();
@@ -464,18 +453,7 @@ router.post("/auth/verify-otp", async (req, res) => {
     const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
     const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false, meta);
     if (!sessionPersisted) {
-      await deleteUser(id);
-      users.delete(id);
-      usersByEmail.delete(email);
-      referralCodeIndex.delete(referralCode);
-      referrals.delete(id);
-      userData.delete(id);
-      if (referredBy) {
-        const list = referrals.get(referredBy) ?? [];
-        referrals.set(referredBy, list.filter((item) => item.referredId !== id));
-      }
-      logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
-      return res.status(500).json({ error: "Unable to create account. Please try again later.", code: "session_persist_failed" });
+      logger.warn({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed_fallback_to_memory");
     }
     sessions.set(sid, { userId: id, expiresAt: sessionExpiresAt, metadata: meta });
     setSessionCookie(res, sid);
@@ -513,8 +491,7 @@ router.post("/auth/verify-otp", async (req, res) => {
   const sessionPersisted = await persistSession(sid, stored.user.id, sessionExpiresAt, stored.role === "admin", meta);
   logger.info({ userId: stored.user.id, email: stored.user.email, role: stored.role, sessionPersisted }, "[auth] verify-otp.login.session_persist_outcome");
   if (!sessionPersisted) {
-    logger.error({ userId: stored.user.id, email: stored.user.email }, "[auth] verify-otp.login.session_persist_failed");
-    return res.status(500).json({ error: "Unable to create authenticated session. Please try again later.", code: "session_persist_failed" });
+    logger.warn({ userId: stored.user.id, email: stored.user.email }, "[auth] verify-otp.login.session_persist_failed_fallback_to_memory");
   }
   sessions.set(sid, { userId: stored.user.id, expiresAt: sessionExpiresAt, metadata: meta });
   setSessionCookie(res, sid);
@@ -731,8 +708,7 @@ router.post("/auth/demo", async (req, res) => {
   const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
   const sessionPersisted = await persistSession(sid, userId, expiresAt, false, meta);
   if (!sessionPersisted) {
-    logger.error({ userId, sid }, "[auth] demo.session_persist_failed");
-    return res.status(500).json({ error: "Unable to create demo session. Please try again later.", code: "session_persist_failed" });
+    logger.warn({ userId, sid }, "[auth] demo.session_persist_failed_fallback_to_memory");
   }
   sessions.set(sid, { userId, expiresAt, metadata: meta });
   setSessionCookie(res, sid);

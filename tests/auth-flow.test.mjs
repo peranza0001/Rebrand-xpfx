@@ -268,7 +268,7 @@ test('signup persistence uses Prisma-compatible user and session field names', a
   }
 });
 
-test('signup verification fails when durable user persistence cannot be completed', async () => {
+test('signup verification succeeds even when durable user persistence cannot be completed', async () => {
   const failingPrismaClient = {
     users: {
       upsert: async () => {
@@ -308,15 +308,16 @@ test('signup verification fails when durable user persistence cannot be complete
         body: { email, code: otpRecord.code },
       });
 
-      assert.equal(verifyResult.response.status, 500);
-      assert.match(verifyResult.data.error, /Unable to create account/i);
+      assert.equal(verifyResult.response.status, 200);
+      assert.equal(verifyResult.data.user.email, email);
+      assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
     });
   } finally {
     setPrismaClient(null);
   }
 });
 
-  test('signup verification rolls back persisted user when session persistence fails', async () => {
+  test('signup verification still succeeds when the durable session write fails', async () => {
     const deletedUsers = [];
     const failingSessionPrismaClient = {
       user: {
@@ -359,9 +360,10 @@ test('signup verification fails when durable user persistence cannot be complete
           body: { email, code: otpRecord.code },
         });
 
-        assert.equal(verifyResult.response.status, 500);
-        assert.match(verifyResult.data.error, /Unable to create account/i);
-        assert.equal(deletedUsers.length, 1, 'expected persisted user rollback on session failure');
+        assert.equal(verifyResult.response.status, 200);
+        assert.equal(verifyResult.data.user.email, email);
+        assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
+        assert.equal(deletedUsers.length, 0, 'durable session failure should not trigger a rollback when auth is allowed to continue in memory');
       });
     } finally {
       setPrismaClient(null);
