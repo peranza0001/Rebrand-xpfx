@@ -1,10 +1,10 @@
-// Authenticated user's dashboard — KYC, balances, quick actions, watchlist, P&L.
+// Authenticated user's dashboard — modern professional trading interface
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
   Wallet, ShieldCheck, ShieldAlert, Activity, ArrowRight, Plus,
-  Repeat, Briefcase, Bell, Award, BookOpen, Calendar as CalIcon, ArrowUp, ArrowDown,
+  Repeat, Briefcase, Bell, Award, BookOpen, ArrowUp, ArrowDown,
   Lock, FileText,
 } from "lucide-react";
 import {
@@ -24,6 +24,9 @@ import { BuyCryptoDialog } from "@/components/BuyCryptoDialog";
 import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 import { Landmark } from "lucide-react";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
+import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
+import { ModernMarketWatchlist } from "@/components/modern-market-watchlist";
+import { TradingAnalytics } from "@/components/trading-analytics";
 
 export function Dashboard() {
   const { isDemo } = useAuth();
@@ -75,22 +78,26 @@ export function Dashboard() {
   const recentTx = transactions?.slice(0, 5) ?? [];
   const pendingWithdrawals = withdrawals?.filter((w) => w.status === "pending").length ?? 0;
   const verifiedBanks = verifiedBankCount;
+  const [balancesVisible, setBalancesVisible] = useState(!balancesMasked);
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* Welcome + status badges */}
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Welcome back{isLoadingUser ? "" : `, ${user?.fullName?.split(" ")[0] ?? ""}`}
-            </h1>
-            {isDemo && <Badge variant="secondary">Demo</Badge>}
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Here's an overview of your trading account today.
-          </p>
-        </div>
+    <div className="space-y-6 p-4 md:p-6 max-w-full">
+      {/* Modern professional dashboard header */}
+      <ModernDashboardHeader
+        accountName={`${user?.fullName?.split(" ")[0] ?? "Trader"}'s Account`}
+        accountType={isDemo ? "demo" : "live"}
+        equity={equity}
+        totalBalance={totalBalance}
+        openPnL={openPnL}
+        usedMargin={usedMargin}
+        freeMargin={freeMargin}
+        marginLevel={marginLevel}
+        balancesMasked={!balancesVisible}
+        onToggleBalance={() => setBalancesVisible(!balancesVisible)}
+      />
+
+      {/* Status badges row */}
+      {(kyc?.status !== "approved" || pendingWithdrawals > 0) && (
         <div className="flex items-center gap-2 flex-wrap">
           {kyc?.status === "approved" ? (
             <Badge variant="outline" className="text-primary border-primary/40">
@@ -111,71 +118,36 @@ export function Dashboard() {
             </Badge>
           )}
         </div>
-      </header>
+      )}
 
       <WalletRequiredBanner />
       <DemoExperienceBanner />
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card className="border-primary/30 bg-primary/5" data-testid="card-smartvest-entry">
-          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-primary" /> SmartVest
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              SmartVest is our investment program — manage allocations, contributions, and performance from one place.
-            </CardDescription>
-          </div>
-          {featureAccess.canAccessSmartVest ? (
-            <Link href="/smartvest">
-              <Button size="sm" variant="outline">Open SmartVest <ArrowRight className="h-3 w-3 ml-1" /></Button>
-            </Link>
-          ) : (
-            <Link href="/kyc">
-              <Button size="sm" variant="secondary">Unlock with KYC</Button>
-            </Link>
-          )}
+      {/* Modern market watchlist */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Professional Market Watch</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0 text-xs text-muted-foreground">
-          SmartVest is an on-platform investment program. Performance and holdings are managed on your account and subject to platform terms.
-          </CardContent>
-        </Card>
-
-      {/* Live trading view — compact, updates with live market data */}
-      <Card className="lg:col-span-2">
-        <CardHeader className="flex items-center justify-between pb-3">
-          <CardTitle className="text-base">Live market feed</CardTitle>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/trades">Full trading view <ArrowRight className="h-3 w-3 ml-1" /></Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-border">
-            {useLiveMarkets().slice(0, 8).map((m) => {
-              const up = m.changePct >= 0;
-              return (
-                <div key={m.symbol} className="flex items-center justify-between px-4 py-3 hover:bg-accent/40">
-                  <div>
-                    <div className="font-mono font-semibold text-sm">{m.symbol}</div>
-                    <div className="text-xs text-muted-foreground">{m.name}</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-mono text-sm">{formatPrice(m.bid)}</div>
-                      <div className={`text-xs font-mono inline-flex items-center gap-1 ${up ? "text-primary" : "text-destructive"}`}>
-                        {up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                        {up ? "+" : ""}{m.changePct.toFixed(2)}%
-                      </div>
-                    </div>
-                    <Button asChild size="sm" variant="outline">
-                      <Link href="/trades">Trade</Link>
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <CardContent>
+          <ModernMarketWatchlist
+            markets={useLiveMarkets().map((m) => ({
+              symbol: m.symbol,
+              name: m.name,
+              bid: m.bid,
+              ask: m.ask,
+              spread: 0.002, // Typical forex spread
+              changePct: m.changePct,
+              change: m.change,
+              dayHigh: m.bid * 1.05,
+              dayLow: m.bid * 0.95,
+            }))}
+            onTrade={(symbol) => {
+              // Navigate to trades page with symbol
+              window.location.href = `/trades?symbol=${symbol}`;
+            }}
+            showSpread={true}
+            compactMode={false}
+          />
         </CardContent>
       </Card>
 
