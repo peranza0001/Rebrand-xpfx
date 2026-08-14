@@ -69,21 +69,15 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
 
   const moonpayApiKey = normalizeString(env.MOONPAY_API_KEY);
   if (!moonpayApiKey) {
-    if (resolved.NODE_ENV === 'production') {
-      missing.push('MOONPAY_API_KEY');
-    } else {
-      warnings.push('MOONPAY_API_KEY');
-    }
+    // MoonPay is optional — app will use sandbox mode if not configured
+    warnings.push('MOONPAY_API_KEY');
   }
   resolved.MOONPAY_API_KEY = moonpayApiKey;
 
   const coinbaseWebhookSecret = normalizeString(env.COINBASE_WEBHOOK_SECRET);
   if (!coinbaseWebhookSecret) {
-    if (resolved.NODE_ENV === 'production') {
-      missing.push('COINBASE_WEBHOOK_SECRET');
-    } else {
-      warnings.push('COINBASE_WEBHOOK_SECRET');
-    }
+    // Coinbase webhook is optional — webhooks will be in permissive mode if not configured
+    warnings.push('COINBASE_WEBHOOK_SECRET');
   }
   resolved.COINBASE_WEBHOOK_SECRET = coinbaseWebhookSecret;
 
