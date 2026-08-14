@@ -1,10 +1,10 @@
 {
   "$schema": "https://railway.app/railway-schema.json",
   "build": {
-    "buildCommand": "npm ci --no-audit --no-fund && npm run build"
+    "buildCommand": "npm install --legacy-peer-deps --no-audit --no-fund && rm -rf artifacts/nextrade/node_modules/.vite artifacts/admin-portal/node_modules/.vite artifacts/mockup-sandbox/node_modules/.vite && npm run predeploy --skip-env-check && npm run build --workspace=artifacts/api-server"
   },
   "deploy": {
-    "startCommand": "node artifacts/api-server/dist/index.mjs",
+    "startCommand": "NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "healthcheckPath": "/healthz",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
