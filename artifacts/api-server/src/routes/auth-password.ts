@@ -69,26 +69,33 @@ function clearResetTokensForUser(userId: string): void {
   }
 }
 
+function normalizeHostHeader(value?: string): string | undefined {
+  if (!value) return undefined;
+  const first = value.split(",")[0]?.trim();
+  if (!first) return undefined;
+  return first.replace(/\/+$/, "");
+}
+
 export function resolveAppOriginFromRequest(req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> } | undefined): string {
   const headers = req?.headers ?? {};
-  const headerHost = req?.get?.("host") || (typeof headers.host === "string" ? headers.host : Array.isArray(headers.host) ? headers.host[0] : undefined);
-  const forwardedHost = req?.get?.("x-forwarded-host") || (typeof headers["x-forwarded-host"] === "string"
+  const headerHost = normalizeHostHeader(req?.get?.("host") || (typeof headers.host === "string" ? headers.host : Array.isArray(headers.host) ? headers.host[0] : undefined));
+  const forwardedHost = normalizeHostHeader(req?.get?.("x-forwarded-host") || (typeof headers["x-forwarded-host"] === "string"
     ? headers["x-forwarded-host"]
     : Array.isArray(headers["x-forwarded-host"])
       ? headers["x-forwarded-host"][0]
-      : undefined);
+      : undefined));
   const origin = typeof headers.origin === "string" ? headers.origin : undefined;
   const protocolHeader = req?.get?.("x-forwarded-proto") || (typeof headers["x-forwarded-proto"] === "string" ? headers["x-forwarded-proto"] : undefined);
   const protocol = protocolHeader?.split(",")[0]?.trim() || (origin ? new URL(origin).protocol.replace(":", "") : "https");
 
-  const preferredHost = forwardedHost || headerHost || (origin ? new URL(origin).host : undefined);
+  const preferredHost = forwardedHost || headerHost || (origin ? normalizeHostHeader(new URL(origin).host) : undefined);
   if (preferredHost) {
-    return `${protocol}://${preferredHost.replace(/\/+$/, "")}`;
+    return `${protocol}://${preferredHost}`;
   }
 
-  const allowed = env.ALLOWED_ORIGINS?.split(",")[0]?.trim();
+  const allowed = env.ALLOWED_ORIGINS?.split(",").map((candidate) => candidate.trim()).find(Boolean);
   if (allowed) return allowed.replace(/\/+$/, "");
-  const replit = env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  const replit = env.REPLIT_DOMAINS?.split(",").map((candidate) => candidate.trim()).find(Boolean);
   if (replit) return `https://${replit.replace(/\/+$/, "")}`;
   return "https://xpressprofx.com";
 }

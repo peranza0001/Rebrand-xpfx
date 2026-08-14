@@ -232,3 +232,19 @@ test('resolveAppOriginFromRequest prefers the live custom-domain host over the d
 
   assert.equal(resolveAppOriginFromRequest(req), 'https://xpressprofx.com');
 });
+
+test('resolveAppOriginFromRequest uses the first forwarded host when a proxy provides a comma-separated host list', () => {
+  const req = {
+    headers: {
+      host: 'internal-service:3000',
+      origin: 'https://xpressprofx.com',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'xpressprofx.com, internal-service:3000',
+    },
+    get(name) {
+      return this.headers[name] ?? undefined;
+    },
+  };
+
+  assert.equal(resolveAppOriginFromRequest(req), 'https://xpressprofx.com');
+});
