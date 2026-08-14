@@ -1,0 +1,20 @@
+# Vercel Frontend Production Environment
+# Generated: 2026-08-14
+# How to use:
+#   1. Go to vercel.com dashboard
+#   2. Select your project (Rebrand-xpfx)
+#   3. Settings → Environment Variables
+#   4. Add these variables with values below
+#   5. Make sure "Production" is selected
+#   6. Re-deploy to apply changes
+
+# ========== VITE BUILD SETTINGS ==========
+# CRITICAL: Set to your backend API URL
+# Examples:
+#   - Railway: https://xpressprofx-api.up.railway.app
+#   - VPS: https://api.xpressprofx.com
+#   - Local dev: http://localhost:3000
+VITE_API_URL=https://api.xpressprofx.com
+
+# Node environment
+NODE_ENV=production
