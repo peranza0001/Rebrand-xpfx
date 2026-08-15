@@ -60,7 +60,7 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.14.9",
     "@types/uuid": "^10.0.0",
-    "esbuild": "0.25.8",
+    "esbuild": "0.28.1",
     "esbuild-plugin-pino": "^2.2.0",
     "typescript": "^5.5.2"
   }
