@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { once } from 'node:events';
 
 process.env.NODE_ENV = 'production';
@@ -138,6 +139,13 @@ test('preview-host POST requests are not blocked by CSRF middleware before auth 
     const body = await response.json();
     assert.equal(body.error, 'Not authenticated');
   });
+});
+
+test('first-party live chat is the only chat widget loaded in the frontend', async () => {
+  const html = await fs.promises.readFile(new URL('../artifacts/nextrade/index.html', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(html, /chatway|cdn\.chatway\.app|widget\.js\?id=/i, 'Chatway script should not be embedded alongside the first-party live chat stack');
+  assert.match(html, /src="\/src\/main\.tsx"/i, 'Frontend entry should still load normally');
 });
 
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {

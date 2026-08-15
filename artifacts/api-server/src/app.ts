@@ -147,8 +147,6 @@ app.use(helmet({
       scriptSrc: [
         "'self'",
         "'unsafe-inline'",
-        "https://cdn.chatway.app",
-        "https://*.chatway.app",
         "https:"
       ],
       styleSrc: [
@@ -157,12 +155,12 @@ app.use(helmet({
         "https://fonts.googleapis.com",
         "https://fonts.gstatic.com"
       ],
-      imgSrc: ["'self'", 'data:', 'https:', 'https://cdn.chatway.app', 'https://*.chatway.app'],
-      connectSrc: ["'self'", 'https:', 'wss:', 'https://cdn.chatway.app', 'https://*.chatway.app'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https:', 'wss:'],
       fontSrc: ["'self'", 'data:', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
-      frameSrc: ["'self'", 'https://cdn.chatway.app', 'https://*.chatway.app'],
+      frameSrc: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
