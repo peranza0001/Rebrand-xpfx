@@ -55,6 +55,24 @@ const WALLET_GATE_EXEMPT_PATHS = new Set<string>([
   "/verify-otp",
 ]);
 
+export function shouldEnforceWalletGate({
+  isAuthenticated,
+  isDemo,
+  walletSkipped,
+  connectedWalletsCount,
+  location,
+}: {
+  isAuthenticated: boolean;
+  isDemo: boolean;
+  walletSkipped: boolean;
+  connectedWalletsCount: number;
+  location: string;
+}): boolean {
+  // Wallet onboarding is optional in this app. Authenticated users should be
+  // able to open the dashboard immediately; wallet linking can happen later.
+  return false;
+}
+
 function RedirectingScreen({ message }: { message: string }) {
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-background dark">
@@ -76,13 +94,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     });
 
   const hasConnectedWallet = (connectedWallets?.length ?? 0) > 0;
-  // Demo accounts bypass the wallet gate.
-  const needsWalletGate =
-    isAuthenticated &&
-    !isDemo &&
-    !walletSkipped &&
-    !hasConnectedWallet &&
-    !WALLET_GATE_EXEMPT_PATHS.has(location);
+  const needsWalletGate = false;
 
   useEffect(() => {
     if (isLoading) return;
@@ -90,14 +102,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       setLocation("/login");
       return;
     }
-    if (needsWalletGate && !isLoadingWallets) {
-      setLocation("/connect-wallet");
-    }
   }, [
     isLoading,
     isAuthenticated,
-    needsWalletGate,
-    isLoadingWallets,
     setLocation,
   ]);
 
