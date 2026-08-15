@@ -46,6 +46,8 @@ import statementsRouter from "./statements";
 import demoRouter from "./demo";
 import demoTradingRouter from "./demo-trading";
 import webhooksRouter from "./webhooks";
+import forexRouter from "./forex";
+import calendarAlertsRouter from "./calendar-alerts";
 
 const router: IRouter = Router();
 
@@ -93,5 +95,7 @@ router.use(demoRouter);
 router.use(demoTradingRouter);
 router.use('/account', accountTierRouter);
 router.use(statementsRouter);
+router.use('/forex', forexRouter);
+router.use('/calendar', calendarAlertsRouter);
 
 export default router;

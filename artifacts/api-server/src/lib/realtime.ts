@@ -139,7 +139,16 @@ export async function initRealtime(server: http.Server) {
     logger.warn({ err }, '[realtime] Failed to initialize simulation engine');
   }
 
-  logger.info('[realtime] Socket.IO initialized with /demo-trading and /live-chat namespaces');
+  // Initialize price feed for forex, stocks, commodities
+  try {
+    const { initPriceFeed } = await import('./price-feed');
+    initPriceFeed(io);
+    logger.info('[realtime] Price feed initialized for forex, stocks, commodities');
+  } catch (err) {
+    logger.warn({ err }, '[realtime] Failed to initialize price feed');
+  }
+
+  logger.info('[realtime] Socket.IO initialized with /demo-trading, /live-chat, and /prices namespaces');
   return io;
 }
 
