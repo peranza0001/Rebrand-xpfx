@@ -68,21 +68,29 @@ export function ForexTradingTerminal() {
   const [leverage, setLeverage] = useState('1');
   const [loading, setLoading] = useState(false);
 
-  // Initialize WebSocket connection
+  // Initialize WebSocket connection to /prices namespace
   useEffect(() => {
-    const newSocket = io(`${window.location.origin}`, {
+    const newSocket = io(`${window.location.origin}/prices`, {
       path: '/socket.io',
-      transports: ['websocket']
+      withCredentials: true,
+      transports: ['websocket', 'polling']
     });
 
     newSocket.on('connect', () => {
       console.log('[Trading] Connected to price feed');
-      // Subscribe to common forex pairs
+      // Subscribe to common forex pairs, stocks, and commodities
       newSocket.emit('subscribe', [
-        'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF',
-        'AAPL', 'MSFT', 'GOOGL', 'TSLA',
-        'XAUUSD', 'WTIUSD'
+        'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD',
+        'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'META', 'AMZN',
+        'XAUUSD', 'XAGUSD', 'WTIUSD', 'NGAS'
       ]);
+    });
+
+    newSocket.on('subscribed', (data: any) => {
+      console.log('[Trading] Subscribed to symbols:', data.symbols);
+      if (data.prices) {
+        setPrices(data.prices);
+      }
     });
 
     newSocket.on('price_update', (data: Price) => {
@@ -96,8 +104,19 @@ export function ForexTradingTerminal() {
       console.log('[Trading] Disconnected from price feed');
     });
 
+    newSocket.on('connect_error', (error: any) => {
+      console.error('[Trading] Connection error:', error);
+    });
+
     setSocket(newSocket);
-    return () => newSocket.close();
+    return () => {
+      newSocket.off('connect');
+      newSocket.off('subscribed');
+      newSocket.off('price_update');
+      newSocket.off('disconnect');
+      newSocket.off('connect_error');
+      newSocket.close();
+    };
   }, []);
 
   const currentPrice = prices[selectedSymbol];
