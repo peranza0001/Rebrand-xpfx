@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-15 03:19:53 UTC
+- Last sync: 2026-08-15 08:48:00 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/nextrade/src/components/advanced-analytics-dashboard.tsx | M  artifacts/nextrade/src/components/mobile-trading-view.tsx | M  artifacts/nextrade/src/components/real-time-alerts.tsx
+- Current working tree: M  DEPLOYMENT/RAILWAY_ENV_PRODUCTION.env | A  prisma/migrations/20260815000000_add_is_demo_columns/migration.sql |  M remember.md
 <!-- AUTO-UPDATE:END -->
 
 ---

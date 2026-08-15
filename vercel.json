@@ -7,5 +7,18 @@
     "NODE_ENV": "production",
     "VITE_API_URL": "@vite_api_url"
   },
-  "envContent": "Environment variable. Set VITE_API_URL to your API endpoint (e.g., https://api.yourdomain.com or https://your-railway-app.up.railway.app)"
+  "envContent": "Environment variable. Set VITE_API_URL to your API endpoint (e.g., https://api.yourdomain.com or https://your-railway-app.up.railway.app)",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://rebrand-xpfx-production-1988.up.railway.app/api/:path*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html",
+      "statusCode": 200
+    }
+  ]
 }
