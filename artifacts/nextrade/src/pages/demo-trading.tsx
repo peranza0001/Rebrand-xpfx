@@ -26,10 +26,14 @@ type MarketItem = {
 type Position = {
   id: string;
   symbol: string;
-  side: "Long" | "Short";
-  entry: number;
+  side: "long" | "short";
+  entryPrice: number;
+  currentPrice: number;
   size: number;
   pnl: number;
+  pnlPercent: number;
+  openTime: Date;
+  leverage?: number;
 };
 
 type MarketHistoryPoint = {
@@ -168,36 +172,46 @@ function DemoTradingContent() {
   // Calculate professional metrics for trading analytics
   const performanceMetrics = useMemo(() => {
     const totalPnL = positions.reduce((sum, p) => sum + p.pnl, 0);
-    const winningPositions = positions.filter(p => p.pnl > 0).length;
+    const winningPositions = positions.filter((p) => p.pnl > 0);
+    const losingPositions = positions.filter((p) => p.pnl < 0);
     const totalPositions = positions.length || 1;
+    const averageWin = winningPositions.length ? (winningPositions.reduce((sum, p) => sum + p.pnl, 0) / winningPositions.length) : 0;
+    const averageLoss = losingPositions.length ? (Math.abs(losingPositions.reduce((sum, p) => sum + p.pnl, 0)) / losingPositions.length) : 0;
     return {
-      winRate: ((winningPositions / totalPositions) * 100) || 0,
+      totalTrades: positions.length,
+      winningTrades: winningPositions.length,
+      losingTrades: losingPositions.length,
+      winRate: ((winningPositions.length / totalPositions) * 100) || 0,
+      averageWin,
+      averageLoss,
       profitFactor: totalPnL > 0 ? 2.0 : (totalPnL < 0 ? 0.5 : 1.0),
       sharpeRatio: totalPositions > 0 ? 1.2 : 0,
-      maxDrawdown: totalPnL > 0 ? -5 : -15,
+      maxDrawdown: totalPnL > 0 ? 5 : 15,
+      returnPercent: demoBalance > 0 ? (totalPnL / demoBalance) * 100 : 0,
+      totalPnL,
     };
-  }, [positions]);
+  }, [positions, demoBalance]);
 
   const equityHistory = useMemo(() => {
     const baseEquity = 50000;
     const totalPnL = positions.reduce((sum, p) => sum + p.pnl, 0);
     return [
-      { time: 'Start', equity: baseEquity },
-      { time: 'Day 1', equity: baseEquity + totalPnL * 0.3 },
-      { time: 'Day 2', equity: baseEquity + totalPnL * 0.5 },
-      { time: 'Day 3', equity: baseEquity + totalPnL * 0.7 },
-      { time: 'Now', equity: baseEquity + totalPnL },
+      { timestamp: Date.now() - 4 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity },
+      { timestamp: Date.now() - 3 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity + totalPnL * 0.3 },
+      { timestamp: Date.now() - 2 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity + totalPnL * 0.5 },
+      { timestamp: Date.now() - 1 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity + totalPnL * 0.7 },
+      { timestamp: Date.now(), balance: baseEquity, equity: baseEquity + totalPnL },
     ];
   }, [positions]);
 
   const dailyPnLData = useMemo(() => {
     const totalPnL = positions.reduce((sum, p) => sum + p.pnl, 0);
     return [
-      { day: 'Mon', pnl: totalPnL * 0.1 },
-      { day: 'Tue', pnl: totalPnL * 0.05 },
-      { day: 'Wed', pnl: totalPnL * -0.02 },
-      { day: 'Thu', pnl: totalPnL * 0.15 },
-      { day: 'Fri', pnl: totalPnL * 0.2 },
+      { date: 'Mon', pnl: totalPnL * 0.1, trades: positions.length || 1 },
+      { date: 'Tue', pnl: totalPnL * 0.05, trades: positions.length || 1 },
+      { date: 'Wed', pnl: totalPnL * -0.02, trades: positions.length || 1 },
+      { date: 'Thu', pnl: totalPnL * 0.15, trades: positions.length || 1 },
+      { date: 'Fri', pnl: totalPnL * 0.2, trades: positions.length || 1 },
     ];
   }, [positions]);
 

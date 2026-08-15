@@ -124,7 +124,7 @@ export function AdvancedAnalyticsDashboard({
                     border: "1px solid var(--border)",
                     borderRadius: "6px",
                   }}
-                  formatter={(value) => `$${value.toLocaleString()}`}
+                  formatter={(value) => `$${Number(value ?? 0).toLocaleString()}`}
                 />
                 <Area
                   type="monotone"
@@ -159,7 +159,7 @@ export function AdvancedAnalyticsDashboard({
                     border: "1px solid var(--border)",
                     borderRadius: "6px",
                   }}
-                  formatter={(value) => `${value.toFixed(2)}%`}
+                  formatter={(value) => `${Number(value ?? 0).toFixed(2)}%`}
                 />
                 <Bar dataKey="return" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>

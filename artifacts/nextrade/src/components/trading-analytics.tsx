@@ -228,7 +228,7 @@ export function TradingAnalytics({
                   <Bar
                     dataKey="pnl"
                     fill={chartColors.positive}
-                    radius={[4, 4, 0, 0]}
+                    radius={4}
                     shape={<BarShape />}
                   />
                 </BarChart>
@@ -301,7 +301,8 @@ function BarShape(props: any) {
       width={width}
       height={height}
       fill={payload.pnl >= 0 ? "#10b981" : "#ef4444"}
-      radius={[4, 4, 0, 0]}
+      rx={4}
+      ry={4}
     />
   );
 }

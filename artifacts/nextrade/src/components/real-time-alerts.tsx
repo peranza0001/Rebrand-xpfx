@@ -174,7 +174,7 @@ function formatTime(date: Date): string {
 const defaultAlerts: Alert[] = [
   {
     id: "1",
-    type: "critical",
+    type: "economic",
     title: "⚠️ High Impact Economic Event",
     message: "US Non-Farm Payroll report in 30 minutes. Expect high volatility.",
     severity: "critical",

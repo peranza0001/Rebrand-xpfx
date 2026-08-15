@@ -5,7 +5,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
   Wallet, ShieldCheck, ShieldAlert, Activity, ArrowRight, Plus,
   Repeat, Briefcase, Bell, Award, BookOpen, ArrowUp, ArrowDown,
-  Lock, FileText,
+  Lock, FileText, Calendar as CalIcon,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetWallets, useGetSocialTradingWallet,
@@ -67,11 +67,11 @@ export function Dashboard() {
 
   const totalBalance = wallets?.reduce((acc, w) => acc + w.balance, 0) || 0;
   const activeTrades = trades?.filter((t) => t.status === "active") ?? [];
-  const openPnl = activeTrades.reduce(
+  const openPnL = activeTrades.reduce(
     (acc, t) => acc + ((t.currentPrice - t.entryPrice) * t.amount * (t.type === "long" ? 1 : -1)),
     0,
   );
-  const equity = totalBalance + openPnl;
+  const equity = totalBalance + openPnL;
   const usedMargin = activeTrades.reduce((acc, t) => acc + t.amount * t.entryPrice * 0.1, 0);
   const freeMargin = Math.max(equity - usedMargin, 0);
   const marginLevel = usedMargin > 0 ? (equity / usedMargin) * 100 : 0;
@@ -137,7 +137,7 @@ export function Dashboard() {
               ask: m.ask,
               spread: 0.002, // Typical forex spread
               changePct: m.changePct,
-              change: m.change,
+              change: m.changePct,
               dayHigh: m.bid * 1.05,
               dayLow: m.bid * 0.95,
             }))}
@@ -272,9 +272,9 @@ export function Dashboard() {
         <Metric label="Account equity" icon={Activity} loading={isLoadingWallets}
           value={fmtMoney(equity)}
           hint={`${activeTrades.length} open position${activeTrades.length === 1 ? "" : "s"}`} />
-        <Metric label="Open P&L" icon={openPnl >= 0 ? TrendingUp : TrendingDown}
-          value={fmtSignedMoney(openPnl)}
-          tone={balancesMasked ? undefined : (openPnl >= 0 ? "pos" : "neg")} />
+        <Metric label="Open P&L" icon={openPnL >= 0 ? TrendingUp : TrendingDown}
+          value={fmtSignedMoney(openPnL)}
+          tone={balancesMasked ? undefined : (openPnL >= 0 ? "pos" : "neg")} />
         <Metric label="Free margin" icon={Briefcase}
           value={fmtMoney(freeMargin)}
           hint={balancesMasked ? "Connect a wallet to view" : (usedMargin > 0 ? `Used $${usedMargin.toFixed(2)}` : "No margin in use")} />

@@ -134,7 +134,7 @@ export function MobileTradingView({
                   border: "1px solid var(--border)",
                   borderRadius: "6px",
                 }}
-                formatter={(value) => value.toFixed(4)}
+                formatter={(value) => Number(value ?? 0).toFixed(4)}
                 labelFormatter={(label) => `Time: ${label}`}
               />
               <Line type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} dot={false} />
