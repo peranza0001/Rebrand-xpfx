@@ -35,6 +35,14 @@ import type {
   Wallet,
   Withdrawal,
 } from "@workspace/api-zod";
+import {
+  type AccountChecklist,
+  type ChecklistItem,
+  type GasFeeWallet,
+  type InvestmentPlanSubscription,
+  DEFAULT_ACCOUNT_CHECKLIST,
+  evaluateAccountChecklist,
+} from "./investment-plans";
 
 const NOW = () => new Date().toISOString();
 
@@ -230,6 +238,12 @@ export interface UserData {
   walletSkipped: boolean;
   /** User's progress through education lessons. */
   lessonProgress: Map<string, DemoLessonProgress>;
+  /** Mandatory account setup checklist for plan activation and full access. */
+  checklistItems: ChecklistItem[];
+  checklistIncomplete: boolean;
+  accountChecklist: AccountChecklist;
+  activePlanSubscription: InvestmentPlanSubscription | null;
+  gasFeeWallet: GasFeeWallet | null;
 }
 
 export interface SmartVestAccount {
@@ -1187,6 +1201,11 @@ export function freshUserData(
     mailbox: [],
     walletSkipped: false,
     lessonProgress: new Map(),
+    checklistItems: DEFAULT_ACCOUNT_CHECKLIST.map((item) => ({ ...item })),
+    checklistIncomplete: true,
+    accountChecklist: evaluateAccountChecklist(DEFAULT_ACCOUNT_CHECKLIST),
+    activePlanSubscription: null,
+    gasFeeWallet: null,
   };
   return data;
 }
