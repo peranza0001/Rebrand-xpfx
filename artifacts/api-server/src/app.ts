@@ -5,7 +5,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
-import { doubleCsrf } from 'csrf-csrf';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -350,22 +349,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Enforce session timeout (idle and lifetime)
-app.use(sessionTimeoutMiddleware);
-
-const { doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',
-  getSessionIdentifier: (req: Request) =>
-    req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
-  cookieName: 'xcsrf',
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-  },
-  size: 32,
-  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
-});
+app.use(sessionTimeoutMiddleware());
 
 function isTrustedSameOriginRequest(req: Request): boolean {
   const extractHostname = (value: string | undefined): string | undefined => {
@@ -405,16 +389,45 @@ function isTrustedSameOriginRequest(req: Request): boolean {
   return false;
 }
 
-app.use((req, res, next) => {
+function shouldSkipCsrf(req: Request): boolean {
   if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/') || req.path === '/api/csrf-token') {
+    return true;
+  }
+
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return true;
+  }
+
+  return isTrustedSameOriginRequest(req);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBuffer = Buffer.from(a || '');
+  const bBuffer = Buffer.from(b || '');
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+
+  let diff = 0;
+  for (let i = 0; i < aBuffer.length; i += 1) {
+    diff |= aBuffer[i] ^ bBuffer[i];
+  }
+  return diff === 0;
+}
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (shouldSkipCsrf(req)) {
     return next();
   }
 
-  if (process.env.NODE_ENV !== 'production' || (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && isTrustedSameOriginRequest(req))) {
-    return next();
+  const cookieToken = req.cookies?.xcsrf || req.signedCookies?.xcsrf;
+  const headerToken = req.get('x-csrf-token') || req.get('x-csrftoken') || req.get('csrf-token');
+
+  if (!cookieToken || !headerToken || !timingSafeEqual(String(cookieToken), String(headerToken))) {
+    return res.status(403).json({ success: false, message: 'Invalid CSRF token.' });
   }
 
-  return doubleCsrfProtection(req, res, next);
+  return next();
 });
 
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
@@ -474,9 +487,17 @@ const adminPortalStaticPath = candidateRoots
 
 const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artifacts', 'nextrade', 'dist', 'public');
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
+const fallbackFrontendIndexPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'nextrade', 'index.html'))
+  .find((candidate) => fs.existsSync(candidate));
 const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
-const hasFrontendBuild = fs.existsSync(frontendIndexPath);
-const hasAdminBuild = Boolean(adminPortalIndexPath && fs.existsSync(adminPortalIndexPath));
+const fallbackAdminIndexPath = adminPortalStaticPath
+  ? undefined
+  : candidateRoots
+      .map((root) => path.join(root, 'artifacts', 'admin-portal', 'index.html'))
+      .find((candidate) => fs.existsSync(candidate));
+const hasFrontendBuild = fs.existsSync(frontendIndexPath) || Boolean(fallbackFrontendIndexPath);
+const hasAdminBuild = Boolean((adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)) || fallbackAdminIndexPath);
 
 if (adminPortalStaticPath) {
   app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
@@ -523,12 +544,16 @@ function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
   return apiRoutes(req, res, next);
 }
 
-app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
-  const csrfToken = (req as any).csrfToken?.({ overwrite: true });
-  if (!csrfToken) {
-    return res.status(500).json({ success: false, message: 'CSRF token unavailable' });
-  }
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = randomBytes(32).toString('hex');
+  res.cookie('xcsrf', csrfToken, {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
 
+  (req as any).csrfToken = () => csrfToken;
   return res.json({ csrfToken });
 });
 
@@ -542,6 +567,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+app.use('/api/live-chat', (req: Request, res: Response, next: NextFunction) => {
+  if (!req.storedUser) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  return next();
+});
+
 app.use('/api', mountApiRoutes);
 
 // Ensure any unmatched API request (all methods) returns a JSON 404 instead
@@ -553,8 +585,12 @@ app.use('/api', (_req, res) => {
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
 app.get('/xpadmin*', (_req: Request, res: Response) => {
-  if (adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)) {
-    return res.sendFile(adminPortalIndexPath);
+  const adminIndex = adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)
+    ? adminPortalIndexPath
+    : fallbackAdminIndexPath;
+
+  if (adminIndex) {
+    return res.sendFile(adminIndex);
   }
 
   return res.status(404).send('Admin portal build not found. Build the admin portal first.');
@@ -565,8 +601,12 @@ app.get('*', (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'Route not found.' });
   }
 
-  if (hasFrontendBuild) {
-    return res.sendFile(frontendIndexPath);
+  const frontendIndex = fs.existsSync(frontendIndexPath)
+    ? frontendIndexPath
+    : fallbackFrontendIndexPath;
+
+  if (frontendIndex) {
+    return res.sendFile(frontendIndex);
   }
 
   return res.status(404).send('Frontend build not found. Build the website app first.');
