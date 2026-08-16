@@ -182,7 +182,7 @@ const defaultAlerts: Alert[] = [
     read: false,
     action: {
       label: "View Calendar",
-      onClick: () => console.log("Navigate to calendar"),
+      onClick: () => undefined,
     },
   },
   {
@@ -195,7 +195,7 @@ const defaultAlerts: Alert[] = [
     read: false,
     action: {
       label: "Close Trade",
-      onClick: () => console.log("Close position"),
+      onClick: () => undefined,
     },
   },
   {
@@ -208,7 +208,7 @@ const defaultAlerts: Alert[] = [
     read: false,
     action: {
       label: "Manage Positions",
-      onClick: () => console.log("Navigate to positions"),
+      onClick: () => undefined,
     },
   },
   {
@@ -221,7 +221,7 @@ const defaultAlerts: Alert[] = [
     read: false,
     action: {
       label: "View Signal",
-      onClick: () => console.log("View AI analysis"),
+      onClick: () => undefined,
     },
   },
   {

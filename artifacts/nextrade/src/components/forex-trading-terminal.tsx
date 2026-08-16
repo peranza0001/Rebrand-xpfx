@@ -6,14 +6,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { 
-  Plus, Minus, TrendingUp, TrendingDown, Bell, Calendar, Settings,
-  Target, AlertCircle, CheckCircle, Clock, Zap
+  Plus, TrendingUp, TrendingDown, Bell, Settings
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -52,11 +50,11 @@ interface Order {
 }
 
 export function ForexTradingTerminal() {
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [, setSocket] = useState<Socket | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('EUR/USD');
   const [prices, setPrices] = useState<Record<string, Price>>({});
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [positions] = useState<Position[]>([]);
+  const [orders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState('chart');
   const [orderTicketOpen, setOrderTicketOpen] = useState(false);
 
@@ -77,7 +75,6 @@ export function ForexTradingTerminal() {
     });
 
     newSocket.on('connect', () => {
-      console.log('[Trading] Connected to price feed');
       // Subscribe to common forex pairs, stocks, and commodities
       newSocket.emit('subscribe', [
         'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD',
@@ -87,7 +84,6 @@ export function ForexTradingTerminal() {
     });
 
     newSocket.on('subscribed', (data: any) => {
-      console.log('[Trading] Subscribed to symbols:', data.symbols);
       if (data.prices) {
         setPrices(data.prices);
       }
@@ -101,11 +97,11 @@ export function ForexTradingTerminal() {
     });
 
     newSocket.on('disconnect', () => {
-      console.log('[Trading] Disconnected from price feed');
+      // Connection state intentionally silent in production UI.
     });
 
-    newSocket.on('connect_error', (error: any) => {
-      console.error('[Trading] Connection error:', error);
+    newSocket.on('connect_error', () => {
+      // Connection issues are handled by the UI state and retry behavior.
     });
 
     setSocket(newSocket);
@@ -157,8 +153,7 @@ export function ForexTradingTerminal() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log('Order placed:', data);
+        await response.json();
         setOrderTicketOpen(false);
         // Reset form
         setQuantity('1');

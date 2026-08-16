@@ -206,6 +206,12 @@ export interface UserData {
   socialLocked: boolean;
   cards: BrokerCard[];
   joinedPromotions: Set<string>;
+  /** Trading account tier used by the live trading flows. */
+  accountTier: number;
+  /** Pending non-market orders created by the trading engine. */
+  pendingOrders: any[];
+  /** User-defined market alerts for price monitoring. */
+  priceAlerts: any[];
   /** Per-user override for monthly billing rates. `null` = use defaults. */
   billingRatesOverride: BillingRates | null;
   /** Past settled cycles (most recent first). */
@@ -1167,6 +1173,9 @@ export function freshUserData(
     socialLocked: false,
     cards: [],
     joinedPromotions: new Set(),
+    accountTier: 0,
+    pendingOrders: [],
+    priceAlerts: [],
     billingRatesOverride: null,
     billingHistory: [],
     currentBillingCycle: null,

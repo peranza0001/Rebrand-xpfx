@@ -4,12 +4,11 @@
  * Supports forex, stocks, commodities with configurable intervals
  */
 
-import { Server as HTTPServer } from "http";
 import { Socket as IOSocket, Server as SocketIOServer } from "socket.io";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST } from "./instruments";
 import { logger } from "./logger";
 
-let priceNamespace: SocketIOServer | null = null;
+let priceNamespace: ReturnType<SocketIOServer["of"]> | null = null;
 
 // Simulated price data (in production, connect to real broker feeds)
 const priceCache: Record<string, { bid: number; ask: number; mid: number; timestamp: number }> = {};
@@ -17,9 +16,9 @@ const priceCache: Record<string, { bid: number; ask: number; mid: number; timest
 // Initialize price data
 function initializePrices() {
   const allInstruments = [...FOREX_PAIRS, ...STOCKS_LIST, ...COMMODITIES_LIST];
-  allInstruments.forEach(instrument => {
+  allInstruments.forEach((instrument: any) => {
     const basePrice = Math.random() * 1000 + 10;
-    const spread = instrument.spread || 0.0002;
+    const spread = Number(instrument.spread ?? 0.0002);
     priceCache[instrument.symbol] = {
       bid: basePrice - (basePrice * spread) / 2,
       ask: basePrice + (basePrice * spread) / 2,
@@ -149,7 +148,7 @@ export function generateCandle(symbol: string, timeframe: string = "1m"): Candle
   const price = priceCache[symbol];
   if (!price) return null;
 
-  const key = `${symbol}:${timeframe}`;
+  const _key = `${symbol}:${timeframe}`;
   const now = Date.now();
   const timeframeMs = parseTimeframe(timeframe);
 
@@ -193,7 +192,7 @@ function parseTimeframe(timeframe: string): number {
   }
 }
 
-export function getCandles(symbol: string, timeframe: string, limit: number = 50): Candle[] {
+export function getCandles(symbol: string, timeframe: string, _limit: number = 50): Candle[] {
   // In production, fetch from database
   // This is a simplified version
   const candle = generateCandle(symbol, timeframe);

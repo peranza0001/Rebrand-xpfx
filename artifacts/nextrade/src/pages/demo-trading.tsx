@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { BarChart3, PlayCircle, ShieldCheck, Sparkles, RefreshCw } from "lucide-react";
+import { BarChart3, ShieldCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +73,7 @@ function DemoTradingContent() {
   );
   const [side, setSide] = useState<"Buy" | "Sell">("Buy");
   const [size, setSize] = useState("2500");
-  const [message, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
+  const [, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoRequested, setDemoRequested] = useState(false);
   const [demoStarted, setDemoStarted] = useState(false);

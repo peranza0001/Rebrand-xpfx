@@ -40,7 +40,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser, deleteUser } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import {

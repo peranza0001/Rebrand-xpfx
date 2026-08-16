@@ -100,10 +100,6 @@ export function resolveAppOriginFromRequest(req: { get?: (name: string) => strin
   return "https://xpressprofx.com";
 }
 
-function getAppOrigin(): string {
-  return resolveAppOriginFromRequest(undefined);
-}
-
 /**
  * POST /auth/forgot-password
  * Accepts an email. Sends a reset link if the address is registered.

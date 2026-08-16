@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Calculator, TrendingDown, Target } from "lucide-react";
 
@@ -21,7 +20,7 @@ interface RiskCalculationResult {
 
 export function RiskManagementCalculator({
   accountBalance,
-  onCalculate,
+  onCalculate: _onCalculate,
 }: RiskCalculatorProps) {
   const [riskPercent, setRiskPercent] = useState(2); // Default 2% risk per trade
   const [entryPrice, setEntryPrice] = useState(1.0854);

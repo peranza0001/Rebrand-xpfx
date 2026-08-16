@@ -48,7 +48,7 @@ export function useAuth() {
 }
 
 // Routes exempt from the connect-wallet gate.
-const WALLET_GATE_EXEMPT_PATHS = new Set<string>([
+const _WALLET_GATE_EXEMPT_PATHS = new Set<string>([
   "/connect-wallet",
   "/login",
   "/signup",
@@ -56,11 +56,11 @@ const WALLET_GATE_EXEMPT_PATHS = new Set<string>([
 ]);
 
 export function shouldEnforceWalletGate({
-  isAuthenticated,
-  isDemo,
-  walletSkipped,
-  connectedWalletsCount,
-  location,
+  isAuthenticated: _isAuthenticated,
+  isDemo: _isDemo,
+  walletSkipped: _walletSkipped,
+  connectedWalletsCount: _connectedWalletsCount,
+  location: _location,
 }: {
   isAuthenticated: boolean;
   isDemo: boolean;
@@ -83,7 +83,7 @@ function RedirectingScreen({ message }: { message: string }) {
 }
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, walletSkipped, isDemo } = useAuth();
+  const { isAuthenticated, isLoading, walletSkipped: _walletSkipped, isDemo: _isDemo } = useAuth();
   const [location, setLocation] = useLocation();
   const { data: connectedWallets, isLoading: isLoadingWallets } =
     useGetConnectedWallets({
@@ -93,7 +93,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       },
     });
 
-  const hasConnectedWallet = (connectedWallets?.length ?? 0) > 0;
+  const _hasConnectedWallet = (connectedWallets?.length ?? 0) > 0;
   const needsWalletGate = false;
 
   useEffect(() => {

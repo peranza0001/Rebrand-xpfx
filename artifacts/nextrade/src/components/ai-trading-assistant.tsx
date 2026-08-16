@@ -18,7 +18,7 @@ interface AITradingAssistantProps {
 
 export function AITradingAssistant({
   userName = "Trader",
-  onTrade,
+  onTrade: _onTrade,
 }: AITradingAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([
     {

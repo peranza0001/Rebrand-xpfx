@@ -27,7 +27,7 @@ export function MarketSentimentDashboard({
   events = defaultEvents,
   sentimentIndex = 65,
   volatilityIndex = 28,
-  marketMood = "Bullish",
+  marketMood: _marketMood = "Bullish",
 }: MarketSentimentProps) {
   const upcomingEvents = useMemo(
     () => events.filter((e) => e.actual === undefined).slice(0, 6),

@@ -1,6 +1,5 @@
 // Modern fintech dashboard header with key performance metrics
 import { TrendingUp, TrendingDown, BarChart3, Zap, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 

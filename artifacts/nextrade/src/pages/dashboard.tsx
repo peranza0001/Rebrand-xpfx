@@ -26,7 +26,6 @@ import { Landmark } from "lucide-react";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { ModernMarketWatchlist } from "@/components/modern-market-watchlist";
-import { TradingAnalytics } from "@/components/trading-analytics";
 
 export function Dashboard() {
   const { isDemo } = useAuth();

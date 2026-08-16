@@ -6,7 +6,7 @@
 
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../lib/session";
-import { getUserData, newId, NOW } from "../lib/store";
+import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
@@ -67,7 +67,7 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
 
   // Validate lever based on account tier
   const data = getUserData(req.userId!);
-  const maxLeverage = data.accountTier >= 2 ? 30 : 1; // Demo/T1 no leverage, T2+ up to 30x
+  const maxLeverage = (data.accountTier ?? 0) >= 2 ? 30 : 1; // Demo/T1 no leverage, T2+ up to 30x
   if (leverage > maxLeverage) {
     return res.status(403).json({ error: `Leverage exceeds your limit of ${maxLeverage}x` });
   }
@@ -88,11 +88,12 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
   }
 
   // Create trade
+  const instrumentType = "sector" in instrument ? "stock" : "baseAsset" in instrument ? "forex" : "commodity";
   const trade = {
     id: newId("trade"),
     userId: req.userId!,
     symbol,
-    instrumentType: instrument.sector === "Technology" ? "stock" : instrument.baseAsset ? "forex" : "commodity",
+    instrumentType,
     type: side === "buy" ? "long" : "short",
     entryPrice,
     currentPrice: entryPrice,
@@ -121,7 +122,13 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
   }, "[FOREX] Market order placed");
 
   // Persist transaction
-  void persistTransaction(req.userId!, "trade_open", requiredMargin, "USD", "margin_held", `Opened ${symbol} position`);
+  void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
+    type: "trade_open",
+    amount: requiredMargin,
+    currency: "USD",
+    status: "margin_held",
+    description: `Opened ${symbol} position`,
+  });
 
   return res.status(201).json({
     success: true,
@@ -146,7 +153,7 @@ router.post("/forex/order/limit", requireAuth, async (req, res) => {
   }
 
   const data = getUserData(req.userId!);
-  const maxLeverage = data.accountTier >= 2 ? 30 : 1;
+  const maxLeverage = (data.accountTier ?? 0) >= 2 ? 30 : 1;
   if (leverage > maxLeverage) {
     return res.status(403).json({ error: `Max leverage: ${maxLeverage}x` });
   }
@@ -294,7 +301,8 @@ router.get("/forex/account", requireAuth, (req, res) => {
 
   // Calculate margin metrics
   const usedMargin = activeTrades.reduce((sum, trade) => {
-    return sum + (trade.amount * trade.entryPrice * (trade.leverage || 1) * 0.02); // 2% margin per unit
+    const typedTrade = trade as any;
+    return sum + (typedTrade.amount * typedTrade.entryPrice * (typedTrade.leverage || 1) * 0.02); // 2% margin per unit
   }, 0);
 
   const equity = (tradingWallet?.balance || 0) + activeTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
@@ -310,7 +318,7 @@ router.get("/forex/account", requireAuth, (req, res) => {
     marginWarning: marginLevel < 50 ? "High risk - add funds" : "OK",
     activeTrades: activeTrades.length,
     pendingOrders: (data.pendingOrders || []).length,
-    maxLeverage: data.accountTier >= 2 ? "30x" : "1x (no leverage for tier)",
+    maxLeverage: (data.accountTier ?? 0) >= 2 ? "30x" : "1x (no leverage for tier)",
     tradingStatus: freeMargin > 0 ? "OK" : "Insufficient margin"
   });
 });
@@ -340,18 +348,21 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
   const profitLoss = trade.type === "long" ? priceChange * trade.amount : -priceChange * trade.amount;
 
   // Close trade
-  trade.status = "completed";
-  trade.currentPrice = exitPrice;
-  trade.profit = profitLoss;
-  trade.profitPercent = (profitLoss / (trade.entryPrice * trade.amount)) * 100;
-  (trade as any).closedAt = NOW();
+  const typedTrade = trade as any;
+  typedTrade.status = "completed";
+  typedTrade.currentPrice = exitPrice;
+  typedTrade.profit = profitLoss;
+  typedTrade.profitPercent = (profitLoss / (typedTrade.entryPrice * typedTrade.amount)) * 100;
+  typedTrade.closedAt = NOW();
 
   // Return margin + profit to wallet
   const tradingWallet = data.wallets.find(w => w.type === "trading");
-  if (tradingWallet) {
-    const returnAmount = (trade.amount * trade.entryPrice * 0.02) + profitLoss;
-    tradingWallet.balance += returnAmount;
+  if (!tradingWallet) {
+    return res.status(500).json({ error: "Trading wallet not found" });
   }
+
+  const returnAmount = (typedTrade.amount * typedTrade.entryPrice * 0.02) + profitLoss;
+  tradingWallet.balance += returnAmount;
 
   logger.info({
     userId: req.userId,
@@ -361,8 +372,16 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
     reason
   }, "[FOREX] Trade closed");
 
+  const tradeSymbol = (typedTrade.symbol as string | undefined) ?? "instrument";
+
   // Persist transaction
-  void persistTransaction(req.userId!, profitLoss > 0 ? "trade_profit" : "trade_loss", Math.abs(profitLoss), "USD", "completed", `Closed ${trade.symbol}`);
+  void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
+    type: profitLoss > 0 ? "trade_profit" : "trade_loss",
+    amount: Math.abs(profitLoss),
+    currency: "USD",
+    status: "completed",
+    description: `Closed ${tradeSymbol}`,
+  });
 
   return res.json({
     success: true,

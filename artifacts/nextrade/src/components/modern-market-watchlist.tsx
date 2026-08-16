@@ -1,6 +1,6 @@
 // Professional market data table with live updates
 import { useState } from "react";
-import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Eye, Plus } from "lucide-react";
+import { ArrowUp, ArrowDown, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,7 @@ interface ModernMarketWatchlistProps {
 export function ModernMarketWatchlist({
   markets,
   onTrade,
-  onAddToWatchlist,
+  onAddToWatchlist: _onAddToWatchlist,
   loading = false,
   title = "Market Watch",
   showSpread = true,

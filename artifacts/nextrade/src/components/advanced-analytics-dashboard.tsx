@@ -1,24 +1,17 @@
-import { useMemo } from "react";
 import {
   BarChart,
   Bar,
   AreaChart,
   Area,
-  LineChart,
-  Line,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, BarChart3, Zap, Award } from "lucide-react";
+import { TrendingUp, BarChart3, Award } from "lucide-react";
 
 interface PerformanceMetrics {
   totalReturn: number;

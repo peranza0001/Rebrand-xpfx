@@ -201,7 +201,7 @@ router.delete("/alerts/:alertId", requireAuth, (req, res) => {
 });
 
 // Get all active alerts for a symbol (admin/system)
-router.get("/alerts/symbol/:symbol", (_req, res) => {
+router.get("/alerts/symbol/:symbol", (req, res) => {
   // In production, query from database across all users
   // This is a system endpoint for price monitoring backend
   return res.json({

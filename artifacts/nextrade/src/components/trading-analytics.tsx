@@ -1,8 +1,7 @@
 // Trading analytics and performance metrics dashboard
-import { BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, TrendingDown, Target, Zap, Calendar } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { TrendingUp, TrendingDown, Target, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 interface PerformanceMetrics {
   totalTrades: number;
@@ -292,7 +291,7 @@ export function TradingAnalytics({
 
 // Custom bar shape to color positive/negative differently
 function BarShape(props: any) {
-  const { fill, x, y, width, height, payload } = props;
+  const { x, y, width, height, payload } = props;
 
   return (
     <rect

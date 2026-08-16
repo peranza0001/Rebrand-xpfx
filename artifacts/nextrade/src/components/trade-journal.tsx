@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Filter, Download, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { BarChart3, Filter, Download } from "lucide-react";
 
 interface Trade {
   id: string;

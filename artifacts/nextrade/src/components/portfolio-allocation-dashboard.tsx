@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Zap, TrendingUp, DollarSign } from "lucide-react";
 
 interface PortfolioPosition {
   symbol: string;
@@ -20,7 +19,7 @@ interface PortfolioAllocationDashboardProps {
 
 export function PortfolioAllocationDashboard({
   positions,
-  totalValue,
+  totalValue: _totalValue,
   diversificationScore = 75,
 }: PortfolioAllocationDashboardProps) {
   const chartData = useMemo(
