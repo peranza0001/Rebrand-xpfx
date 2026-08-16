@@ -77,19 +77,42 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
   country: string;
   phone?: string | null;
 }): Array<Record<string, unknown>> {
-  const base = {
+  const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+  const modernBase = {
+    id: userId,
+    email: userData.email,
+    firstName,
+    lastName,
+    passwordHash: userData.passwordHash,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  const legacyBase = {
+    id: userId,
+    email: userData.email,
+    username: userData.username,
+    fullName: userData.fullName,
+    passwordHash: userData.passwordHash,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  const snakeBase = {
     id: userId,
     email: userData.email,
     username: userData.username,
     password_hash: userData.passwordHash,
     full_name: userData.fullName,
     country: userData.country,
-    phone: userData.phone ?? "",
+    phone: userData.phone ?? null,
   };
 
   return [
-    { ...base },
-    { ...base, full_name: userData.fullName, password_hash: userData.passwordHash },
+    { ...modernBase },
+    { ...legacyBase },
+    { ...snakeBase },
+    { ...snakeBase, full_name: userData.fullName, password_hash: userData.passwordHash },
   ];
 }
 
@@ -146,7 +169,7 @@ export async function persistUser(userId: string, userData: {
             fullName: userData.fullName,
             passwordHash: userData.passwordHash,
             country: userData.country,
-            phone: userData.phone ?? "",
+            phone: userData.phone ?? null,
           })
           .where(eq(usersTable.id, userId)), 3, 200);
         return true;
@@ -163,7 +186,7 @@ export async function persistUser(userId: string, userData: {
           fullName: userData.fullName,
           passwordHash: userData.passwordHash,
           country: userData.country,
-          phone: userData.phone ?? "",
+          phone: userData.phone ?? null,
         }), 3, 200);
         return true;
       } catch (err) {
@@ -178,7 +201,7 @@ export async function persistUser(userId: string, userData: {
               fullName: userData.fullName,
               passwordHash: userData.passwordHash,
               country: userData.country,
-              phone: userData.phone ?? "",
+              phone: userData.phone ?? null,
             })
             .where(eq(usersTable.email, userData.email)), 3, 200);
           return true;
@@ -191,7 +214,7 @@ export async function persistUser(userId: string, userData: {
           fullName: userData.fullName,
           passwordHash: userData.passwordHash,
           country: userData.country,
-          phone: userData.phone ?? "",
+          phone: userData.phone ?? null,
         }), 3, 200);
         return true;
       }
@@ -260,16 +283,28 @@ export async function persistSession(
     if (!sessionDelegate) return true;
     const sessionPayloadCandidates = [
       {
-        id: sessionId,
-        user_id: userId,
-        is_admin: isAdmin,
-        expires_at: expiresAt,
+        token: sessionId,
+        userId,
+        expiresAt,
+        isAdmin,
       },
       {
         id: sessionId,
         userId,
         expiresAt,
         isAdmin,
+      },
+      {
+        id: sessionId,
+        user_id: userId,
+        is_admin: isAdmin,
+        expires_at: expiresAt,
+      },
+      {
+        token: sessionId,
+        user_id: userId,
+        expires_at: expiresAt,
+        is_admin: isAdmin,
       },
     ];
     let lastErr: unknown = null;
