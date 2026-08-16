@@ -19,6 +19,7 @@ import { logger } from './lib/logger';
 import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
 import { requireAdminRole } from './lib/rbac';
+import { registerUnhandledHandlers, trackRequestMetric, captureException } from './lib/observability';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 export { app };
+registerUnhandledHandlers();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -526,6 +528,16 @@ app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
   return res.json({ csrfToken });
 });
 
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const startedAt = Date.now();
+  const finish = () => {
+    trackRequestMetric(req, res, Date.now() - startedAt);
+  };
+  res.on('finish', finish);
+  res.on('close', finish);
+  next();
+});
+
 app.use('/api', mountApiRoutes);
 
 // Ensure any unmatched API request (all methods) returns a JSON 404 instead
@@ -559,6 +571,7 @@ app.get('*', (req: Request, res: Response) => {
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = (err as any).status || 500;
+  captureException(err, { route: _req.path, method: _req.method });
   logger.error({ err }, '[ERROR] Global middleware error');
   res.status(status).json({
     success: false,

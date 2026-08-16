@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-16 17:49:17 UTC
+- Last sync: 2026-08-16 17:51:42 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/src/lib/multi-region.ts | M  artifacts/api-server/src/routes/index.ts | A  artifacts/api-server/src/routes/region.ts
+- Current working tree: M  artifacts/api-server/src/app.ts | A  artifacts/api-server/src/lib/observability.ts | M  artifacts/api-server/src/routes/index.ts
 <!-- AUTO-UPDATE:END -->
 
 ---
