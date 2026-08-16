@@ -26,6 +26,7 @@ import { Landmark } from "lucide-react";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { ModernMarketWatchlist } from "@/components/modern-market-watchlist";
+import { LiveTradeMonitor } from "@/components/live-trade-monitor";
 
 export function Dashboard() {
   const { isDemo } = useAuth();
@@ -78,6 +79,31 @@ export function Dashboard() {
   const recentTx = transactions?.slice(0, 5) ?? [];
   const pendingWithdrawals = withdrawals?.filter((w) => w.status === "pending").length ?? 0;
   const verifiedBanks = verifiedBankCount;
+  const liveTradeSnapshots = activeTrades.slice(0, 4).map((trade) => {
+    const side = trade.type === "long" ? "buy" : "sell";
+    const pnl = (trade.currentPrice - trade.entryPrice) * trade.amount * (trade.type === "long" ? 1 : -1);
+    const pnlPct = trade.entryPrice > 0
+      ? (((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100) * (trade.type === "long" ? 1 : -1)
+      : 0;
+
+    return {
+      id: trade.id,
+      symbol: trade.pair,
+      side,
+      entryPrice: trade.entryPrice,
+      currentPrice: trade.currentPrice,
+      size: trade.amount,
+      pnl,
+      pnlPercent: pnlPct,
+      stopLoss: trade.entryPrice * (trade.type === "long" ? 0.98 : 1.02),
+      takeProfit: trade.entryPrice * (trade.type === "long" ? 1.03 : 0.97),
+      status: "open",
+    };
+  });
+  const liveChartData = watchlist.slice(0, 12).map((market, index) => ({
+    time: Date.now() - (watchlist.length - index) * 60 * 1000,
+    price: market.bid,
+  }));
   const [balancesVisible, setBalancesVisible] = useState(!balancesMasked);
 
   return (
@@ -344,6 +370,13 @@ export function Dashboard() {
           <ActionCard href="/p2p" icon={Users} label="P2P market" disabled={!featureAccess.canAccessP2P} altHref="/kyc" />
         </div>
       </section>
+
+      <LiveTradeMonitor
+        trades={liveTradeSnapshots}
+        title="Live trading analysis"
+        subtitle="Real-time execution signals across your active forex and broker positions."
+        chartSeries={liveChartData}
+      />
 
       {/* Watchlist + Open positions */}
       <section className="grid gap-4 lg:grid-cols-3">

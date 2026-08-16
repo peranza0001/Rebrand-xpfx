@@ -15,6 +15,7 @@ import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "r
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { AdvancedTradingPanel } from "@/components/advanced-trading-panel";
 import { TradingAnalytics } from "@/components/trading-analytics";
+import { LiveTradeMonitor } from "@/components/live-trade-monitor";
 
 type MarketItem = {
   symbol: string;
@@ -222,6 +223,25 @@ function DemoTradingContent() {
     if (user?.merchant) score += 5;
     return Math.min(100, score);
   }, [isAuthenticated, user]);
+
+  const liveTradeSnapshots = positions.map((position) => ({
+    id: position.id,
+    symbol: position.symbol,
+    side: position.side === "long" ? "buy" : "sell",
+    entryPrice: position.entryPrice,
+    currentPrice: position.currentPrice,
+    size: position.size,
+    pnl: position.pnl,
+    pnlPercent: position.pnlPercent,
+    stopLoss: position.entryPrice * (position.side === "long" ? 0.98 : 1.02),
+    takeProfit: position.entryPrice * (position.side === "long" ? 1.03 : 0.97),
+    status: "open",
+  }));
+
+  const liveChartData = markets.slice(0, 12).map((market, index) => ({
+    time: Date.now() - (markets.length - index) * 60 * 1000,
+    price: market.price,
+  }));
 
   const placeDemoOrder = async () => {
     if (!isAuthenticated) {
@@ -436,6 +456,37 @@ function DemoTradingContent() {
           </ChartContainer>
         </CardContent>
       </Card>
+
+      <LiveTradeMonitor
+        trades={liveTradeSnapshots}
+        title="Demo trade monitor"
+        subtitle="Monitor open paper positions, set stop-loss and take-profit levels, and decide whether to scale in, close, or cancel the trade."
+        chartSeries={liveChartData}
+        onCloseTrade={async (tradeId) => {
+          try {
+            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            if (resp.ok) {
+              await refreshDemoState();
+              setMessage("Demo position closed successfully.");
+            }
+          } catch (err: unknown) {
+            const error = err as { message?: string };
+            setMessage(error.message ?? "Failed to close demo position.");
+          }
+        }}
+        onCancelTrade={async (tradeId) => {
+          try {
+            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            if (resp.ok) {
+              await refreshDemoState();
+              setMessage("Demo position cancelled.");
+            }
+          } catch (err: unknown) {
+            const error = err as { message?: string };
+            setMessage(error.message ?? "Failed to cancel demo position.");
+          }
+        }}
+      />
 
       {/* Professional live trading panel shown when there are open positions or recent orders */}
       {positions.length > 0 && (
