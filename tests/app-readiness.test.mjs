@@ -166,6 +166,26 @@ test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async 
   });
 });
 
+test('sensitive financial endpoints enforce no-store browser safety headers', async () => {
+  await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
+    const response = await fetch(`${baseUrl}/api/readyz`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, '/api/readyz should return successfully');
+    assert.match(response.headers.get('cache-control') ?? '', /no-store/i, 'financial readiness responses should not be cached');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff', 'financial responses should disable MIME sniffing');
+    assert.equal(response.headers.get('x-frame-options'), 'DENY', 'financial responses should prevent framing');
+  });
+});
+
 test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_ORIGINS is configured without one', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;

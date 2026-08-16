@@ -106,6 +106,32 @@ async function _readinessHandler(_req: Request, res: Response) {
   return res.status(200).json({ ready: true, reason: 'app-ready' });
 }
 
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+
+  const sensitivePath = req.path.startsWith('/api/auth/')
+    || req.path.startsWith('/api/account/')
+    || req.path.startsWith('/api/admin/')
+    || req.path.startsWith('/api/transactions/')
+    || req.path.startsWith('/api/wallets/')
+    || req.path.startsWith('/api/live-chat')
+    || req.path === '/api/csrf-token'
+    || req.path === '/api/readyz'
+    || req.path === '/api/healthz'
+    || req.path.startsWith('/xpadmin');
+
+  if (sensitivePath) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
+  next();
+});
+
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json(buildHealthPayload());
 });
@@ -173,11 +199,6 @@ app.use(helmet({
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false
 }));
-
-app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
-  next();
-});
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 
