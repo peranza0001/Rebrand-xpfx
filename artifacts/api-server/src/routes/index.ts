@@ -52,6 +52,7 @@ import calendarAlertsRouter from "./calendar-alerts";
 import investmentPlansRouter from "./investment-plans";
 import kycAmlRouter from "./kyc-aml";
 import auditRouter from "./audit";
+import regionRouter from "./region";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(investmentPlansRouter);
 // ─── COMPLIANCE & KYC/AML ROUTES ─────────────────────────────────────────
 router.use('/verify', kycAmlRouter);
 router.use('/audit', auditRouter);
+router.use('/region', regionRouter);
 
 export default router;
