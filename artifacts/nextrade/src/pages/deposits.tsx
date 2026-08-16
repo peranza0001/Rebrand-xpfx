@@ -22,6 +22,7 @@ import { Loader2, Plus, Download, Lock, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PaymentSourceSelector, type PaymentSource } from "@/components/payment-source-selector";
 import { ManualTxHashInput } from "@/components/manual-tx-hash-input";
+import { DigitalPaymentMethods } from "@/components/digital-payment-methods";
 
 export function Deposits() {
   const { data: deposits, isLoading } = useGetDeposits();
@@ -349,6 +350,9 @@ export function Deposits() {
           </CardContent>
         </Card>
       )}
+
+      {/* Digital Payment Methods Section */}
+      <DigitalPaymentMethods />
 
       <Card>
         <CardHeader>
