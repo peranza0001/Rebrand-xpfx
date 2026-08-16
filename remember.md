@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-16 17:43:59 UTC
+- Last sync: 2026-08-16 17:45:31 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/src/lib/compliance-status.ts | A  artifacts/api-server/src/lib/kyc-provider.ts | M  artifacts/api-server/src/routes/index.ts
+- Current working tree: A  artifacts/api-server/src/lib/audit-log.ts | A  artifacts/api-server/src/routes/audit.ts | M  artifacts/api-server/src/routes/index.ts
 <!-- AUTO-UPDATE:END -->
 
 ---
