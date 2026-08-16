@@ -17,6 +17,8 @@ import { attachSession, SESSION_COOKIE } from './lib/session';
 import { getDb } from './lib/db-client';
 import { logger } from './lib/logger';
 import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
+import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
+import { requireAdminRole } from './lib/rbac';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -336,6 +338,17 @@ app.use(cookieParser(cookieSecret));
 
 // ─── SESSION ──────────────────────────────────────────────────────────────────
 app.use(attachSession);
+
+// Track session activity for timeout enforcement
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if ((req as any).sessionId) {
+    recordSessionActivity((req as any).sessionId);
+  }
+  next();
+});
+
+// Enforce session timeout (idle and lifetime)
+app.use(sessionTimeoutMiddleware);
 
 const { doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',

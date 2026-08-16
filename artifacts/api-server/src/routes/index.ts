@@ -1,7 +1,8 @@
 /**
  * Aggregates all XpressPro FX API route modules under /api.
  */
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, Request, Response, NextFunction } from "express";
+import { requireAdminRole } from "../lib/rbac";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import usersRouter from "./users";
@@ -70,25 +71,27 @@ router.use(cardsRouter);
 router.use(promotionsRouter);
 router.use(billingRouter);
 router.use(referralsRouter);
-router.use(adminRouter);
+
+// ─── ADMIN ROUTES (with RBAC protection) ───────────────────────────────────
+router.use('/admin', requireAdminRole(), adminRouter);
 router.use(gasFeeRouter);
 router.use(platformConfigRouter);
 router.use(webhooksRouter);
 router.use(liveChatRouter);
 router.use(mailboxRouter);
-router.use(adminExtendedRouter);
-router.use(adminPlatformRouter);
-router.use(adminUsersRouter);
-router.use(adminP2PRouter);
+router.use('/admin', requireAdminRole(), adminExtendedRouter);
+router.use('/admin', requireAdminRole(), adminPlatformRouter);
+router.use('/admin', requireAdminRole(), adminUsersRouter);
+router.use('/admin', requireAdminRole(), adminP2PRouter);
 router.use(moonpayRouter);
 router.use(paystackRouter);
 router.use(coinbaseRouter);
 router.use(notificationsRouter);
-router.use(adminNotificationsRouter);
+router.use('/admin', requireAdminRole(), adminNotificationsRouter);
 router.use(withdrawalGasFeeRouter);
 router.use(authPasswordRouter);
 router.use(authPinRouter);
-router.use(adminDepositsRouter);
+router.use('/admin', requireAdminRole(), adminDepositsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);

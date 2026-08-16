@@ -1,6 +1,6 @@
 // /auth routes — signup, login, logout, session, demo, OTP verify/resend, skip-wallet.
 import { randomBytes } from "crypto";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, Request, Response } from "express";
 import {
   LoginBody,
   ResendOtpBody,
@@ -43,6 +43,7 @@ import { eq } from "drizzle-orm";
 import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
+import { passwordResetRouter } from "./password-reset";
 import {
   issueOtp,
   resendOtp as resendOtpFn,
@@ -759,5 +760,8 @@ router.patch("/auth/profile", requireAuth, (req, res) => {
   });
   return res.json(stored.user);
 });
+
+// Include password reset routes
+router.use(passwordResetRouter);
 
 export default router;
