@@ -50,6 +50,7 @@ import webhooksRouter from "./webhooks";
 import forexRouter from "./forex";
 import calendarAlertsRouter from "./calendar-alerts";
 import investmentPlansRouter from "./investment-plans";
+import kycAmlRouter from "./kyc-aml";
 
 const router: IRouter = Router();
 
@@ -102,5 +103,8 @@ router.use(statementsRouter);
 router.use('/forex', forexRouter);
 router.use('/calendar', calendarAlertsRouter);
 router.use(investmentPlansRouter);
+
+// ─── COMPLIANCE & KYC/AML ROUTES ─────────────────────────────────────────
+router.use('/verify', kycAmlRouter);
 
 export default router;
