@@ -9,7 +9,7 @@ import { logger } from '../lib/logger';
 
 const router = Router();
 
-router.use(requireAuth());
+router.use(requireAuth);
 
 router.get('/audit/events', (req: Request, res: Response) => {
   try {

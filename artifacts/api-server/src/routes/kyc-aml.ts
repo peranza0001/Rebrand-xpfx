@@ -30,7 +30,7 @@ const router = Router();
  * POST /kyc/verify/start
  * Initiate KYC verification for authenticated user
  */
-router.post('/kyc/verify/start', requireAuth(), async (req: Request, res: Response) => {
+router.post('/kyc/verify/start', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const userRole = (req as any).userRole;
@@ -119,7 +119,7 @@ router.post('/kyc/verify/start', requireAuth(), async (req: Request, res: Respon
  * GET /kyc/verify/status/:verificationId
  * Check KYC verification status
  */
-router.get('/kyc/verify/status/:verificationId', requireAuth(), (req: Request, res: Response) => {
+router.get('/kyc/verify/status/:verificationId', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const { verificationId } = req.params;
@@ -169,7 +169,7 @@ router.get('/kyc/verify/status/:verificationId', requireAuth(), (req: Request, r
  * GET /kyc/verify/latest
  * Get authenticated user's latest verification status
  */
-router.get('/kyc/verify/latest', requireAuth(), (req: Request, res: Response) => {
+router.get('/kyc/verify/latest', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
 
@@ -207,7 +207,7 @@ router.get('/kyc/verify/latest', requireAuth(), (req: Request, res: Response) =>
  * POST /aml/screen
  * Initiate AML screening for authenticated user
  */
-router.post('/aml/screen', requireAuth(), async (req: Request, res: Response) => {
+router.post('/aml/screen', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const { firstName, lastName, dateOfBirth, countryCode, documentNumber } = req.body;
@@ -258,7 +258,7 @@ router.post('/aml/screen', requireAuth(), async (req: Request, res: Response) =>
  * GET /aml/screen/status/:screeningId
  * Check AML screening status
  */
-router.get('/aml/screen/status/:screeningId', requireAuth(), (req: Request, res: Response) => {
+router.get('/aml/screen/status/:screeningId', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const { screeningId } = req.params;
@@ -312,7 +312,7 @@ router.get('/aml/screen/status/:screeningId', requireAuth(), (req: Request, res:
  * GET /compliance/status
  * Get authenticated user's overall compliance status
  */
-router.get('/compliance/status', requireAuth(), (req: Request, res: Response) => {
+router.get('/compliance/status', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
 
@@ -349,7 +349,7 @@ router.get('/compliance/status', requireAuth(), (req: Request, res: Response) =>
  * GET /compliance/can-trade
  * Check if user is compliant and can trade
  */
-router.get('/compliance/can-trade', requireAuth(), (req: Request, res: Response) => {
+router.get('/compliance/can-trade', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const isCompliant = isUserCompliant(userId);

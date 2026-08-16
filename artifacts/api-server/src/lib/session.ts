@@ -58,7 +58,7 @@ export async function attachSession(req: Request, res: Response, next: NextFunct
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -66,7 +66,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 export function requireFullAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -78,7 +78,7 @@ export function requireFullAuth(req: Request, res: Response, next: NextFunction)
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }

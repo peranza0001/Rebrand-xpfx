@@ -406,7 +406,7 @@ function isTrustedSameOriginRequest(req: Request): boolean {
 }
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/')) {
+  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/') || req.path === '/api/csrf-token') {
     return next();
   }
 
