@@ -2,6 +2,7 @@
 import { TrendingUp, TrendingDown, BarChart3, Zap, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { safePercent } from "@/lib/portfolio-metrics";
 
 interface DashboardHeaderProps {
   accountName?: string;
@@ -115,7 +116,7 @@ export function ModernDashboardHeader({
             {formatCurrency(openPnL)}
           </div>
           <div className="text-xs text-muted-foreground">
-            {isProfitable ? "+" : ""}{((openPnL / totalBalance) * 100).toFixed(2)}% return
+            {isProfitable ? "+" : ""}{safePercent(openPnL, totalBalance).toFixed(2)}% return
           </div>
         </div>
 
@@ -126,7 +127,7 @@ export function ModernDashboardHeader({
           </label>
           <div className="text-2xl font-bold">{formatCurrency(usedMargin)}</div>
           <div className="text-xs text-muted-foreground">
-            {((usedMargin / equity) * 100).toFixed(1)}% of equity
+            {safePercent(usedMargin, equity).toFixed(1)}% of equity
           </div>
         </div>
 

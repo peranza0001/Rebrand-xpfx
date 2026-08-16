@@ -74,6 +74,7 @@ export function Dashboard() {
   const usedMargin = activeTrades.reduce((acc, t) => acc + t.amount * t.entryPrice * 0.1, 0);
   const freeMargin = Math.max(equity - usedMargin, 0);
   const marginLevel = usedMargin > 0 ? (equity / usedMargin) * 100 : 0;
+  const safeUsedMarginRatio = usedMargin > 0 ? (usedMargin / Math.max(equity, 1)) * 100 : 0;
   const recentTx = transactions?.slice(0, 5) ?? [];
   const pendingWithdrawals = withdrawals?.filter((w) => w.status === "pending").length ?? 0;
   const verifiedBanks = verifiedBankCount;
@@ -295,7 +296,7 @@ export function Dashboard() {
               <span className="text-muted-foreground">Margin level</span>
               <span className="font-mono font-semibold">{marginLevel.toFixed(0)}%</span>
             </div>
-            <Progress value={Math.min(marginLevel, 100)} />
+            <Progress value={Math.min(Math.max(marginLevel, 0), 100)} />
             <div className="text-xs text-muted-foreground mt-2">
               Equity ${equity.toFixed(2)} / Used margin ${usedMargin.toFixed(2)}
             </div>
