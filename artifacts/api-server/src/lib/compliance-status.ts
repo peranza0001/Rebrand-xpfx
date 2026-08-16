@@ -264,7 +264,7 @@ export function needsComplianceReview(userId: string): boolean {
     return true;
   }
 
-  if (status.overallStatus === 'not_started' || status.overallStatus === 'pending') {
+  if (status.overallStatus === 'pending' || status.overallStatus === 'not_started') {
     return true;
   }
 

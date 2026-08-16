@@ -1,6 +1,7 @@
 // Session timeout and idle tracking
 import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger';
+import { setCacheValue, getCacheValue, deleteCacheValue } from './cache-store';
 
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const SESSION_MAX_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -14,15 +15,21 @@ const sessionMetadata = new Map<string, { createdAt: number; lastActivityAt: num
 export function recordSessionActivity(sessionId: string) {
   if (!sessionId) return;
 
+  const now = Date.now();
   const current = sessionMetadata.get(sessionId);
   if (current) {
-    current.lastActivityAt = Date.now();
-  } else {
-    sessionMetadata.set(sessionId, {
-      createdAt: Date.now(),
-      lastActivityAt: Date.now(),
-    });
+    current.lastActivityAt = now;
+    setCacheValue(`session:${sessionId}:activity`, current.lastActivityAt, SESSION_IDLE_TIMEOUT_MS);
+    return;
   }
+
+  const next = {
+    createdAt: now,
+    lastActivityAt: now,
+  };
+  sessionMetadata.set(sessionId, next);
+  setCacheValue(`session:${sessionId}:created`, next.createdAt, SESSION_MAX_LIFETIME_MS);
+  setCacheValue(`session:${sessionId}:activity`, next.lastActivityAt, SESSION_IDLE_TIMEOUT_MS);
 }
 
 /**
@@ -32,9 +39,10 @@ export function isSessionIdleTimedOut(sessionId: string): boolean {
   if (!sessionId) return false;
 
   const metadata = sessionMetadata.get(sessionId);
-  if (!metadata) return false;
+  const lastActivityAt = metadata?.lastActivityAt ?? getCacheValue<number>(`session:${sessionId}:activity`);
+  if (lastActivityAt === undefined) return false;
 
-  const idleTime = Date.now() - metadata.lastActivityAt;
+  const idleTime = Date.now() - lastActivityAt;
   return idleTime > SESSION_IDLE_TIMEOUT_MS;
 }
 
@@ -45,9 +53,10 @@ export function isSessionLifetimeExpired(sessionId: string): boolean {
   if (!sessionId) return false;
 
   const metadata = sessionMetadata.get(sessionId);
-  if (!metadata) return false;
+  const createdAt = metadata?.createdAt ?? getCacheValue<number>(`session:${sessionId}:created`);
+  if (createdAt === undefined) return false;
 
-  const lifetime = Date.now() - metadata.createdAt;
+  const lifetime = Date.now() - createdAt;
   return lifetime > SESSION_MAX_LIFETIME_MS;
 }
 
@@ -57,6 +66,8 @@ export function isSessionLifetimeExpired(sessionId: string): boolean {
 export function clearSessionMetadata(sessionId: string) {
   if (sessionId) {
     sessionMetadata.delete(sessionId);
+    deleteCacheValue(`session:${sessionId}:created`);
+    deleteCacheValue(`session:${sessionId}:activity`);
   }
 }
 

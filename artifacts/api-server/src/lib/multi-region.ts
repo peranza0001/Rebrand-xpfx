@@ -83,6 +83,15 @@ export function getRegionalStatus(): RegionalStatus {
   };
 }
 
+export function setActiveRegion(region: string): RegionalStatus {
+  const normalized = region?.trim();
+  if (!normalized) {
+    return getRegionalStatus();
+  }
+  process.env.ACTIVE_REGION = normalized;
+  return getRegionalStatus();
+}
+
 export function promoteFailoverRegion(): RegionalStatus {
   const { primaryRegion, failoverRegion } = getConfiguredRegions();
 

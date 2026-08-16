@@ -475,12 +475,16 @@ const adminPortalStaticPath = candidateRoots
 const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artifacts', 'nextrade', 'dist', 'public');
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
 const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
+const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+const hasAdminBuild = Boolean(adminPortalIndexPath && fs.existsSync(adminPortalIndexPath));
 
 if (adminPortalStaticPath) {
   app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
 }
 
-app.use(express.static(frontendStaticPath, { index: false }));
+if (hasFrontendBuild) {
+  app.use(express.static(frontendStaticPath, { index: false }));
+}
 
 // ─── PLATFORM GATE ────────────────────────────────────────────────────────────
 app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
@@ -561,7 +565,7 @@ app.get('*', (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'Route not found.' });
   }
 
-  if (fs.existsSync(frontendIndexPath)) {
+  if (hasFrontendBuild) {
     return res.sendFile(frontendIndexPath);
   }
 
