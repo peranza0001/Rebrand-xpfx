@@ -26,6 +26,7 @@ import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { ModernMarketWatchlist } from "@/components/modern-market-watchlist";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
+import { LiveTradeChart } from "@/components/live-trade-chart";
 
 export function Dashboard() {
   const { isDemo } = useAuth();
@@ -104,6 +105,7 @@ export function Dashboard() {
     price: market.bid,
   }));
   const [balancesVisible, setBalancesVisible] = useState(!balancesMasked);
+  const [selectedChartSymbol, setSelectedChartSymbol] = useState<string>("EUR/USD");
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-full">
@@ -175,6 +177,33 @@ export function Dashboard() {
           />
         </CardContent>
       </Card>
+
+      {/* Live Trade Chart with Technical Analysis */}
+      {watchlist.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Live Market Analysis</h2>
+          <LiveTradeChart
+            symbol={selectedChartSymbol}
+            currentPrice={watchlist.find(m => m.symbol === selectedChartSymbol)?.bid || 0}
+            priceChange={watchlist.find(m => m.symbol === selectedChartSymbol)?.changePct || 0}
+            priceChangePercent={watchlist.find(m => m.symbol === selectedChartSymbol)?.changePct || 0}
+            chartData={liveChartData.map((point: any, index: number) => ({
+              time: new Date(point.time).toLocaleTimeString(),
+              price: watchlist[Math.min(index, watchlist.length - 1)]?.bid || point.price,
+              volume: Math.random() * 1000000,
+            }))}
+            sentiment={
+              (watchlist.find(m => m.symbol === selectedChartSymbol)?.changePct || 0) > 2
+                ? 'bullish'
+                : (watchlist.find(m => m.symbol === selectedChartSymbol)?.changePct || 0) < -2
+                  ? 'bearish'
+                  : 'neutral'
+            }
+            resistance={(watchlist.find(m => m.symbol === selectedChartSymbol)?.bid || 0) * 1.02}
+            support={(watchlist.find(m => m.symbol === selectedChartSymbol)?.bid || 0) * 0.98}
+          />
+        </div>
+      )}
 
       <Card className="border-primary/20 bg-linear-to-r from-primary/8 via-background to-background">
         <CardHeader className="pb-3">
