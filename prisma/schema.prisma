@@ -451,3 +451,105 @@ enum sender_type {
   admin
   bot
 }
+
+enum plan_status {
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum plan_trading_type {
+  long_term
+  short_term
+  mixed
+}
+
+enum checklist_item_type {
+  identity_verification
+  address_verification
+  payment_method
+  bank_account
+  emergency_contact
+  risk_acknowledgment
+  profile_completion
+}
+
+model investment_plans {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String              @unique
+  description       String
+  min_deposit       Decimal             @db.Decimal(20, 2)
+  max_deposit       Decimal?            @db.Decimal(20, 2)
+  trading_type      plan_trading_type
+  expected_return   Decimal             @db.Decimal(5, 2)
+  duration_days     Int
+  leverage          Int                 @default(1)
+  assets            String[]            @default([])
+  rebalance_days    Int                 @default(7)
+  stop_loss_percent Decimal             @default(5) @db.Decimal(5, 2)
+  take_profit_percent Decimal           @default(15) @db.Decimal(5, 2)
+  active            Boolean             @default(true)
+  created_at        DateTime            @default(now()) @db.Timestamp(6)
+  updated_at        DateTime            @updatedAt @db.Timestamp(6)
+  subscriptions     user_plan_subscriptions[]
+}
+
+model user_plan_subscriptions {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String          @db.Uuid
+  plan_id               String          @db.Uuid
+  status                plan_status     @default(active)
+  initial_deposit       Decimal         @db.Decimal(20, 2)
+  current_balance       Decimal         @db.Decimal(20, 2)
+  estimated_profit      Decimal         @default(0) @db.Decimal(20, 2)
+  estimated_profit_pct  Decimal         @default(0) @db.Decimal(5, 2)
+  account_manager_id    String?         @db.Uuid
+  subscription_started  DateTime        @default(now()) @db.Timestamp(6)
+  subscription_end      DateTime?       @db.Timestamp(6)
+  last_rebalance        DateTime        @default(now()) @db.Timestamp(6)
+  created_at            DateTime        @default(now()) @db.Timestamp(6)
+  updated_at            DateTime        @updatedAt @db.Timestamp(6)
+  plan                  investment_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, plan_id])
+  @@index([user_id])
+  @@index([status])
+}
+
+model account_checklist {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_type   checklist_item_type
+  title       String
+  description String
+  required    Boolean                 @default(true)
+  order_index Int                     @default(0)
+  active      Boolean                 @default(true)
+  created_at  DateTime                @default(now()) @db.Timestamp(6)
+  statuses    user_checklist_status[]
+}
+
+model user_checklist_status {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  item_id       String    @db.Uuid
+  completed     Boolean   @default(false)
+  completed_at  DateTime? @db.Timestamp(6)
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+  checklist     account_checklist @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, item_id])
+  @@index([user_id])
+  @@index([completed])
+}
+
+model gas_fee_wallets {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @unique @db.Uuid
+  wallet_address String
+  balance       Decimal   @default(0) @db.Decimal(20, 8)
+  currency      String    @default("ETH")
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+}
