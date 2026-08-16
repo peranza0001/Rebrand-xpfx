@@ -16,6 +16,7 @@ import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { AdvancedTradingPanel } from "@/components/advanced-trading-panel";
 import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
+import { DemoTradingGuide } from "@/components/demo-trading-guide";
 
 type MarketItem = {
   symbol: string;
@@ -642,6 +643,9 @@ function LiveTradingPanel({ symbol, price, history, positions }: { symbol: strin
           ))}
         </CardContent>
       </Card>
+
+      {/* Demo Trading Guide & Education */}
+      <DemoTradingGuide />
     </div>
   );
 }

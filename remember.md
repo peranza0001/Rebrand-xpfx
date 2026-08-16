@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-16 15:25:19 UTC
+- Last sync: 2026-08-16 15:28:44 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/nextrade/src/components/live-trade-chart.tsx | M  artifacts/nextrade/src/pages/dashboard.tsx
+- Current working tree: A  artifacts/nextrade/src/components/demo-trading-guide.tsx | M  artifacts/nextrade/src/pages/demo-trading.tsx
 <!-- AUTO-UPDATE:END -->
 
 ---
