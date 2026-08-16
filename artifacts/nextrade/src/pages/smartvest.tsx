@@ -42,6 +42,10 @@ export function SmartVest() {
   }
 
   const account = portfolio?.account;
+  const displayReturn = Number.isFinite(account?.returnPercent) ? Number(account.returnPercent) : 0;
+  const displayContribution = Number.isFinite(account?.suggestedContribution) ? Number(account.suggestedContribution) : 0;
+  const displayPortfolioValue = Number.isFinite(account?.portfolioValue) ? Number(account.portfolioValue) : 0;
+
   if (!featureAccess.canAccessSmartVest) {
     return (
       <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
@@ -86,9 +90,9 @@ export function SmartVest() {
           <Card>
             <CardHeader><CardTitle className="text-base">Portfolio value</CardTitle><CardDescription>Derived from your existing simulated wallet balance.</CardDescription></CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold">${account.portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {account.returnPercent.toFixed(2)}% simulated return</div>
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="h-4 w-4" /> Suggested contribution: ${account.suggestedContribution.toLocaleString()}</div>
+              <div className="text-3xl font-semibold">${displayPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {Number.isFinite(displayReturn) ? displayReturn.toFixed(2) : "0.00"}% simulated return</div>
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="h-4 w-4" /> Suggested contribution: ${displayContribution.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>

@@ -279,7 +279,7 @@ export function TradingAnalytics({
                   metrics.returnPercent >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {metrics.returnPercent >= 0 ? "+" : ""}{metrics.returnPercent.toFixed(2)}%
+                {metrics.returnPercent >= 0 ? "+" : ""}{Number.isFinite(metrics.returnPercent) ? metrics.returnPercent.toFixed(2) : "0.00"}%
               </div>
             </div>
           </div>
