@@ -573,10 +573,6 @@ router.post("/mentors/bookings/:bookingId/cancel", requireAuth, (req, res) => {
 
     logActivity({
       actorId: req.userId!,
-<<<<<<< HEAD
-      action: "mentorship_cancelled",
-      detail: `Cancelled mentorship session ${bookingId}, refunded $${session.cost}.`,
-=======
       actorName: "user",
       action: "mentorship_cancelled",
       detail: `Cancelled mentorship session`,
@@ -584,21 +580,14 @@ router.post("/mentors/bookings/:bookingId/cancel", requireAuth, (req, res) => {
         sessionId: bookingId,
         refundAmount: session.cost,
       },
->>>>>>> 04fe53a9 (fix: stabilize api typing, notifications, and deploy validation)
     });
 
     notifyUser({
       userId: req.userId!,
-<<<<<<< HEAD
-      kind: "info",
-      title: "Session Cancelled",
-      body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
-=======
       kind: "mentorship",
       title: "Session Cancelled",
       body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
       link: null,
->>>>>>> 04fe53a9 (fix: stabilize api typing, notifications, and deploy validation)
     });
 
     return res.json({
@@ -661,10 +650,6 @@ router.post("/mentorship/sessions/:sessionId/cancel", requireAuth, (req, res) =>
     // Log activity
     logActivity({
       actorId: req.userId!,
-<<<<<<< HEAD
-      action: "mentorship_cancelled",
-      detail: `Cancelled mentorship session ${sessionId}, refunded $${session.cost}.`,
-=======
       actorName: "user",
       action: "mentorship_cancelled",
       detail: `Cancelled mentorship session`,
@@ -672,22 +657,15 @@ router.post("/mentorship/sessions/:sessionId/cancel", requireAuth, (req, res) =>
         sessionId,
         refundAmount: session.cost,
       },
->>>>>>> 04fe53a9 (fix: stabilize api typing, notifications, and deploy validation)
     });
 
     // Notify user
     notifyUser({
       userId: req.userId!,
-<<<<<<< HEAD
-      kind: "info",
-      title: "Session Cancelled",
-      body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
-=======
       kind: "mentorship",
       title: "Session Cancelled",
       body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
       link: null,
->>>>>>> 04fe53a9 (fix: stabilize api typing, notifications, and deploy validation)
     });
 
     return res.json({
