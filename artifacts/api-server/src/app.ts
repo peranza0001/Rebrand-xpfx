@@ -23,6 +23,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+export { app };
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -317,7 +318,7 @@ app.use(attachSession);
 
 const { doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',
-  getSessionIdentifier: (req) =>
+  getSessionIdentifier: (req: Request) =>
     req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
   cookieName: 'xcsrf',
   cookieOptions: {

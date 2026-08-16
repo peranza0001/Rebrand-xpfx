@@ -1803,6 +1803,7 @@ export interface NotificationSettingsData {
   p2pOrderUpdate: boolean;
   tradeOpened: boolean;
   walletTransfer: boolean;
+  planNotifications: boolean;
 }
 
 /** Per-user inbox of in-app notifications (most-recent first). */
@@ -1831,4 +1832,5 @@ export const notificationSettings: NotificationSettingsData = {
   p2pOrderUpdate: true,
   tradeOpened: true,
   walletTransfer: true,
+  planNotifications: true,
 };

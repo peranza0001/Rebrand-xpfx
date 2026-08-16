@@ -65,7 +65,7 @@ router.get("/investment-plans/:planId", requireAuth, (req, res) => {
   const projection = generatePlanProjection(planId, Math.max(plan.minDeposit, data.wallets.find((w) => w.type === "main")?.balance ?? plan.minDeposit));
   const hasSubscription = data.activePlanSubscription?.planId === planId;
 
-  res.json({
+  return res.json({
     ...plan,
     projection,
     userCanSubscribe: !hasSubscription && !data.checklistIncomplete,
@@ -229,7 +229,7 @@ router.get("/investment-plans/:subscriptionId/performance", requireAuth, (req, r
   const daysActive = Math.max(1, Math.floor((Date.now() - new Date(sub.subscriptionStarted).getTime()) / (1000 * 60 * 60 * 24)));
   const dailyReturn = sub.estimatedProfitPct / Math.max(1, daysActive);
 
-  res.json({
+  return res.json({
     subscriptionId,
     initialDeposit: sub.initialDeposit,
     currentBalance: sub.currentBalance,

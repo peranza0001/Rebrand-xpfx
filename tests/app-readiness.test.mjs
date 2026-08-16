@@ -2,16 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { once } from 'node:events';
+import appModule from '../artifacts/api-server/src/app.ts';
+import { resolveAppOriginFromRequest } from '../artifacts/api-server/src/routes/auth-password.ts';
 
 process.env.NODE_ENV = 'production';
 process.env.SESSION_SECRET = 'test-session-secret';
 process.env.ALLOWED_ORIGINS = 'https://example.com,http://127.0.0.1';
 
-import appModule from '../artifacts/api-server/src/app.ts';
-import { resolveAppOriginFromRequest } from '../artifacts/api-server/src/routes/auth-password.ts';
-
-// Handle both direct export and ESM wrapper
-const app = appModule.default?.default ?? appModule.default ?? appModule;
+const app = appModule && typeof appModule === 'object' && 'default' in appModule ? appModule.default : appModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');

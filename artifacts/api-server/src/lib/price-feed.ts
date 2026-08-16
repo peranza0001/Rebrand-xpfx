@@ -4,7 +4,7 @@
  * Supports forex, stocks, commodities with configurable intervals
  */
 
-import { Socket as IOSocket, Server as SocketIOServer } from "socket.io";
+import type { Socket as IOSocket, Server as SocketIOServer } from "socket.io";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST } from "./instruments";
 import { logger } from "./logger";
 
@@ -82,7 +82,7 @@ export function initPriceFeed(io: SocketIOServer) {
     });
 
     // Get current price snapshot
-    socket.on("get_price", (symbol: string, callback) => {
+    socket.on("get_price", (symbol: string, callback: (response: { success: boolean; data?: Record<string, unknown>; error?: string }) => void) => {
       const price = priceCache[symbol];
       if (price) {
         callback({ success: true, data: price });

@@ -7,9 +7,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-// Validate production environment via script at runtime (loaded dynamically below).
 import { logger } from './lib/logger';
 import { restoreOtpCodesFromStorage } from './lib/otp';
+import * as appModule from './app';
+
+const app = ('default' in appModule ? appModule.default : appModule) as any;
 
 type PrismaClientType = {
   $connect: () => Promise<void>;
