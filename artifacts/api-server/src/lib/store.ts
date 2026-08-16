@@ -909,9 +909,15 @@ export const assetCatalog: AssetCatalogItem[] = [
 ];
 
 /** Platform activity log (admin view). */
-export const activityLog: ActivityLogEntry[] = [];
+export type ActivityLogRecord = ActivityLogEntry & {
+  metadata?: Record<string, unknown>;
+};
 
-export function logActivity(entry: Omit<ActivityLogEntry, "id" | "timestamp">): void {
+export const activityLog: ActivityLogRecord[] = [];
+
+export function logActivity(
+  entry: Omit<ActivityLogRecord, "id" | "timestamp">,
+): void {
   activityLog.unshift({
     id: newId("act"),
     timestamp: NOW(),
