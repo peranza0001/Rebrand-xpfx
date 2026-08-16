@@ -77,36 +77,19 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
   country: string;
   phone?: string | null;
 }): Array<Record<string, unknown>> {
-  const { firstName, lastName } = deriveFirstLastName(userData.fullName);
   const base = {
     id: userId,
     email: userData.email,
-    passwordHash: userData.passwordHash,
+    username: userData.username,
+    password_hash: userData.passwordHash,
+    full_name: userData.fullName,
     country: userData.country,
-    phone: userData.phone ?? null,
+    phone: userData.phone ?? "",
   };
 
   return [
-    {
-      ...base,
-      username: userData.username,
-      fullName: userData.fullName,
-    },
-    {
-      ...base,
-      username: userData.username,
-      firstName,
-      lastName,
-    },
-    {
-      ...base,
-      fullName: userData.fullName,
-    },
-    {
-      ...base,
-      firstName,
-      lastName,
-    },
+    { ...base },
+    { ...base, full_name: userData.fullName, password_hash: userData.passwordHash },
   ];
 }
 
@@ -278,10 +261,9 @@ export async function persistSession(
     const sessionPayloadCandidates = [
       {
         id: sessionId,
-        userId,
-        token: sessionId,
-        expiresAt,
-        isAdmin,
+        user_id: userId,
+        is_admin: isAdmin,
+        expires_at: expiresAt,
       },
       {
         id: sessionId,

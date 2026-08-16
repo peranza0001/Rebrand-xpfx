@@ -15,6 +15,7 @@ const appModule = await import('../artifacts/api-server/src/app.ts');
 const otpModule = await import('../artifacts/api-server/src/lib/otp.ts');
 const storeModule = await import('../artifacts/api-server/src/lib/store.ts');
 const dbPersistModule = await import('../artifacts/api-server/src/lib/db-persist.ts');
+const corsModule = await import('../artifacts/api-server/src/lib/cors.ts');
 
 const app = appModule.default?.default ?? appModule.default ?? appModule;
 const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
@@ -69,6 +70,14 @@ test('seeded demo users can sign in directly without first starting demo auth', 
     assert.equal(loginResult.data.role, 'demo');
     assert.equal(loginResult.data.user.email, 'demo@xpressprofx.com');
   });
+});
+
+test('brand origins are included in the production CORS allowlist by default', () => {
+  const { getAllowedOrigins } = corsModule;
+  const origins = getAllowedOrigins();
+
+  assert.ok(origins.includes('https://xpressprofx.com'));
+  assert.ok(origins.includes('https://www.xpressprofx.com'));
 });
 
 test('OTP codes are persisted and rehydrated from durable storage', async () => {

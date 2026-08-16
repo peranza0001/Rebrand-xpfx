@@ -32,5 +32,14 @@ export function normalizeAllowedOrigins(raw: string): string[] {
 
 export function getAllowedOrigins(): string[] {
   const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
-  return normalizeAllowedOrigins(raw);
+  const fallbackOrigins = [
+    'https://xpressprofx.com',
+    'https://www.xpressprofx.com',
+  ];
+  const merged = [...fallbackOrigins, ...normalizeAllowedOrigins(raw)];
+  const deduped = new Set<string>();
+  for (const origin of merged) {
+    deduped.add(origin);
+  }
+  return [...deduped];
 }
