@@ -5,7 +5,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
   Wallet, ShieldCheck, ShieldAlert, Activity, ArrowRight, Plus,
   Repeat, Briefcase, Bell, Award, BookOpen, ArrowUp, ArrowDown,
-  Lock, FileText, Calendar as CalIcon,
+  Lock, FileText, Calendar as CalIcon, Zap, Target, BarChart3, TrendingUpIcon, Flame, Shield,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetWallets, useGetSocialTradingWallet,
@@ -22,7 +22,6 @@ import { useAuth } from "@/lib/auth";
 import { WalletRequiredBanner } from "@/components/wallet-required-banner";
 import { BuyCryptoDialog } from "@/components/BuyCryptoDialog";
 import { DemoExperienceBanner } from "@/components/demo-experience-banner";
-import { Landmark } from "lucide-react";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { ModernMarketWatchlist } from "@/components/modern-market-watchlist";
@@ -177,29 +176,90 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" /> Statements
-            </CardTitle>
-            <CardDescription className="text-xs mt-1">
-              Pull a concise account statement with your recent activity.
-            </CardDescription>
+      <Card className="border-primary/20 bg-linear-to-r from-primary/8 via-background to-background">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                Live execution desk
+              </CardTitle>
+              <CardDescription className="text-xs mt-1">
+                Real-time trade signals, account momentum, and risk decisions across your active positions.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-500 bg-emerald-500/5">
+              <Activity className="h-2 w-2 mr-1 rounded-full bg-emerald-500 animate-pulse" /> 
+              {liveTradeSnapshots.length > 0 ? `${liveTradeSnapshots.length} LIVE` : "AWAITING TRADES"}
+            </Badge>
           </div>
-          <Link href="/statements">
-            <Button size="sm" variant="outline">View statement <ArrowRight className="h-3 w-3 ml-1" /></Button>
-          </Link>
         </CardHeader>
-        <CardContent className="pt-0 text-xs text-muted-foreground">
-          Review balances, deposits, withdrawals, and recent activity from one screen.
+        <CardContent className="pt-0">
+          <div className="grid gap-3 md:grid-cols-3">
+            {liveTradeSnapshots.length > 0 ? (
+              liveTradeSnapshots.slice(0, 3).map((trade) => (
+                <div key={trade.id} className={`rounded-xl border p-3 transition-all ${
+                  trade.pnl >= 0 
+                    ? "border-emerald-500/30 bg-emerald-500/5" 
+                    : "border-rose-500/30 bg-rose-500/5"
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono font-semibold text-sm">{trade.symbol}</span>
+                    <Badge variant="outline" className={`text-xs ${
+                      trade.pnl >= 0 
+                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" 
+                        : "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                    }`}>
+                      {trade.side.toUpperCase()}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded bg-muted/50 p-2">
+                        <div className="text-muted-foreground uppercase text-[10px]">Entry</div>
+                        <div className="font-mono font-semibold mt-1">{trade.entryPrice.toFixed(4)}</div>
+                      </div>
+                      <div className="rounded bg-muted/50 p-2">
+                        <div className="text-muted-foreground uppercase text-[10px]">Current</div>
+                        <div className="font-mono font-semibold mt-1 text-blue-500">{trade.currentPrice.toFixed(4)}</div>
+                      </div>
+                    </div>
+
+                    <div className={`rounded-lg p-2 ${
+                      trade.pnl >= 0 
+                        ? "bg-emerald-500/10 border border-emerald-500/20" 
+                        : "bg-rose-500/10 border border-rose-500/20"
+                    }`}>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">P&L</div>
+                      <div className={`font-mono text-sm font-semibold mt-1 ${
+                        trade.pnl >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}>
+                        {trade.pnl >= 0 ? "+" : "-"}${Math.abs(trade.pnl).toFixed(2)}
+                      </div>
+                      <div className={`text-[10px] mt-1 ${
+                        trade.pnl >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}>
+                        {trade.pnlPercent >= 0 ? "+" : ""}{trade.pnlPercent.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="md:col-span-3 rounded-xl border border-dashed border-border/60 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                <Activity className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                No active trades yet. Use the market watch to open the next position.
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       {!hasVerifiedBank && (
         <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-fiat-bank-locked">
           <CardContent className="py-3 flex items-center gap-3">
-            <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <Lock className="h-4 w-4 text-amber-500 shrink-0" />
             <div className="flex-1 text-sm">
               Fiat (USD) deposits and withdrawals are locked until you link and verify a bank account.
             </div>
@@ -210,125 +270,160 @@ export function Dashboard() {
         </Card>
       )}
 
-      {(banks?.length ?? 0) > 0 && (
-        <Card data-testid="card-dashboard-fiat-balances">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 gap-3">
-            <div>
-              <CardTitle className="text-base">Bank fiat balances</CardTitle>
-              <CardDescription className="text-xs">
-                {hasVerifiedBank
-                  ? "Cash available in your verified bank accounts"
-                  : "Verify a bank account to enable MoonPay purchases"}
-              </CardDescription>
+      {/* Enhanced account metrics with professional fintech styling */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Account Performance</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-muted-foreground">Live data</span>
             </div>
-            <BuyCryptoDialog
-              banks={banks}
-              triggerVariant="default"
-              triggerSize="sm"
-              triggerLabel="Buy crypto"
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {banks!.map((b) => {
-                const isVerified = b.verified;
-                const hasBalance = (b.fiatBalance ?? 0) > 0;
-                return (
-                  <div
-                    key={b.id}
-                    className="border rounded-lg p-3 flex items-center justify-between bg-card/50"
-                    data-testid={`dashboard-fiat-${b.id}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Landmark className="h-4 w-4 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {b.bankName}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          ····{b.last4}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {!isVerified ? (
-                        <Link
-                          href="/banks"
-                          className="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:underline"
-                          data-testid={`dashboard-fiat-unverified-${b.id}`}
-                        >
-                          Verify bank →
-                        </Link>
-                      ) : !hasBalance ? (
-                        <Link
-                          href="/banks"
-                          className="text-[11px] font-medium text-muted-foreground hover:underline hover:text-primary"
-                          data-testid={`dashboard-fiat-empty-${b.id}`}
-                        >
-                          Add balance →
-                        </Link>
-                      ) : (
-                        <>
-                          <div className="font-mono font-semibold text-sm">
-                            {balancesMasked
-                              ? "——"
-                              : b.fiatBalance.toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {b.fiatCurrency || b.currency}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
 
-      {/* Account metrics */}
-      <section className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-        <Metric label="Total balance" icon={Wallet} loading={isLoadingWallets}
-          value={fmtMoney(totalBalance)} />
-        <Metric label="Account equity" icon={Activity} loading={isLoadingWallets}
-          value={fmtMoney(equity)}
-          hint={`${activeTrades.length} open position${activeTrades.length === 1 ? "" : "s"}`} />
-        <Metric label="Open P&L" icon={openPnL >= 0 ? TrendingUp : TrendingDown}
-          value={fmtSignedMoney(openPnL)}
-          tone={balancesMasked ? undefined : (openPnL >= 0 ? "pos" : "neg")} />
-        <Metric label="Free margin" icon={Briefcase}
-          value={fmtMoney(freeMargin)}
-          hint={balancesMasked ? "Connect a wallet to view" : (usedMargin > 0 ? `Used $${usedMargin.toFixed(2)}` : "No margin in use")} />
-        <Metric label="Social profits" icon={Users} loading={isLoadingSocial}
-          value={
-            balancesMasked
-              ? "——"
-              : `+$${socialWallet?.totalProfits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "0.00"}`
-          }
-          tone={balancesMasked ? undefined : "pos"}
-          hint={`${socialWallet?.activeTrades ?? 0} active`} />
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-semibold">TOTAL BALANCE</span>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </div>
+              {isLoadingWallets ? (
+                <Skeleton className="h-7 w-24" />
+              ) : (
+                <>
+                  <div className="text-xl md:text-2xl font-bold font-mono">{fmtMoney(totalBalance)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{activeTrades.length} open {activeTrades.length === 1 ? "position" : "positions"}</div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-semibold">ACCOUNT EQUITY</span>
+                <Activity className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-xl md:text-2xl font-bold font-mono text-primary">{fmtMoney(equity)}</div>
+              <div className="text-xs text-muted-foreground mt-1">Real-time valuation</div>
+            </CardContent>
+          </Card>
+
+          <Card className={`border-border/50 hover:border-${openPnL >= 0 ? 'primary' : 'destructive'}/50 transition-colors`}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-semibold">OPEN P&L</span>
+                {openPnL >= 0 ? <TrendingUp className="h-4 w-4 text-primary" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+              </div>
+              <div className={`text-xl md:text-2xl font-bold font-mono ${openPnL >= 0 ? "text-primary" : "text-destructive"}`}>
+                {fmtSignedMoney(openPnL)}
+              </div>
+              <div className={`text-xs font-semibold mt-1 ${openPnL >= 0 ? "text-primary" : "text-destructive"}`}>
+                {openPnL >= 0 ? "+" : ""}{((openPnL / (totalBalance || 1)) * 100).toFixed(2)}%
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-semibold">FREE MARGIN</span>
+                <Briefcase className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-xl md:text-2xl font-bold font-mono">{fmtMoney(freeMargin)}</div>
+              <div className="text-xs text-muted-foreground mt-1">Available for trading</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground font-semibold">SOCIAL PROFITS</span>
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <div className={`text-xl md:text-2xl font-bold font-mono ${(socialWallet?.totalProfits ?? 0) > 0 ? "text-primary" : ""}`}>
+                {balancesMasked
+                  ? "——"
+                  : `+$${(socialWallet?.totalProfits ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">{socialWallet?.activeTrades ?? 0} active</div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
-      {/* Margin progress */}
+      {/* Professional risk management section */}
       {usedMargin > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-muted-foreground">Margin level</span>
-              <span className="font-mono font-semibold">{marginLevel.toFixed(0)}%</span>
+        <Card className="border-border/50 bg-linear-to-r from-background via-orange-500/5 to-background">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-orange-600" />
+                  Risk Management Status
+                </CardTitle>
+                <CardDescription className="text-xs mt-1">Monitor your margin utilization and leverage exposure</CardDescription>
+              </div>
+              <Badge variant={marginLevel > 200 ? "destructive" : marginLevel > 150 ? "secondary" : "default"}>
+                {marginLevel.toFixed(0)}% Level
+              </Badge>
             </div>
-            <Progress value={Math.min(Math.max(marginLevel, 0), 100)} />
-            <div className="text-xs text-muted-foreground mt-2">
-              Equity ${equity.toFixed(2)} / Used margin ${usedMargin.toFixed(2)}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-border/60 p-3">
+                <div className="text-xs text-muted-foreground font-semibold mb-2">USED MARGIN</div>
+                <div className="text-2xl font-mono font-semibold text-orange-600">${usedMargin.toFixed(2)}</div>
+                <div className="text-xs text-muted-foreground mt-1">{safeUsedMarginRatio.toFixed(1)}% of equity</div>
+              </div>
+              <div className="rounded-lg border border-border/60 p-3">
+                <div className="text-xs text-muted-foreground font-semibold mb-2">MARGIN LEVEL</div>
+                <div className={`text-2xl font-mono font-semibold ${marginLevel > 200 ? "text-destructive" : marginLevel > 150 ? "text-amber-600" : "text-emerald-600"}`}>
+                  {marginLevel.toFixed(0)}%
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{marginLevel > 200 ? "HIGH RISK" : marginLevel > 150 ? "ELEVATED" : "SAFE"}</div>
+              </div>
+              <div className="rounded-lg border border-border/60 p-3">
+                <div className="text-xs text-muted-foreground font-semibold mb-2">MARGIN CALL LEVEL</div>
+                <div className="text-2xl font-mono font-semibold text-rose-600">50%</div>
+                <div className="text-xs text-muted-foreground mt-1">Distance to liquidation</div>
+              </div>
+            </div>
+
+            {/* Margin level progress bar */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Margin utilization</span>
+                <span className="font-mono font-semibold">{safeUsedMarginRatio.toFixed(1)}%</span>
+              </div>
+              <div className="h-3 rounded-full bg-border/30 overflow-hidden">
+                <div 
+                  className={`h-full transition-all ${
+                    safeUsedMarginRatio > 80 ? "bg-rose-500" : 
+                    safeUsedMarginRatio > 60 ? "bg-orange-500" : 
+                    "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(safeUsedMarginRatio, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Safe zone</span>
+                <span>⚠️ Warning</span>
+                <span>🚨 Critical</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
+              <div className="text-sm text-blue-600 font-semibold mb-1">Pro Tip: Margin Management</div>
+              <div className="text-xs text-blue-600/80">Keep margin level above 200% for stable trading. Reduce positions if approaching 150%.</div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Margin progress for reference */}
 
       {/* Buy verification banner — persistent CTA until the user has
           completed their first crypto purchase via MoonPay or Coinbase. */}
@@ -464,7 +559,7 @@ export function Dashboard() {
               You have no open positions. <Link href="/trades" className="text-primary hover:underline">Open a trade →</Link>
             </div>
           ) : (
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-160">
               <thead className="border-b border-border text-xs text-muted-foreground">
                 <tr>
                   <th className="text-left px-4 py-2 font-medium">Pair</th>
@@ -585,35 +680,6 @@ export function Dashboard() {
 }
 
 /* ------------------------------ subcomponents ----------------------------- */
-
-interface MetricProps {
-  label: string;
-  value: string;
-  hint?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  loading?: boolean;
-  tone?: "pos" | "neg";
-}
-function Metric({ label, value, hint, icon: Icon, loading, tone }: MetricProps) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <Icon className="h-4 w-4 text-muted-foreground" />
-        </div>
-        {loading ? (
-          <Skeleton className="h-7 w-24" />
-        ) : (
-          <div className={`text-xl md:text-2xl font-bold font-mono ${tone === "pos" ? "text-primary" : tone === "neg" ? "text-destructive" : ""}`}>
-            {value}
-          </div>
-        )}
-        {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
-      </CardContent>
-    </Card>
-  );
-}
 
 function ActionCard({
   href, altHref, icon: Icon, label, tone, disabled,

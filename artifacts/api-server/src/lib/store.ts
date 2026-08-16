@@ -1202,7 +1202,7 @@ export function freshUserData(
     walletSkipped: false,
     lessonProgress: new Map(),
     checklistItems: DEFAULT_ACCOUNT_CHECKLIST.map((item) => ({ ...item })),
-    checklistIncomplete: true,
+    checklistIncomplete: !evaluateAccountChecklist(DEFAULT_ACCOUNT_CHECKLIST).authorized,
     accountChecklist: evaluateAccountChecklist(DEFAULT_ACCOUNT_CHECKLIST),
     activePlanSubscription: null,
     gasFeeWallet: null,

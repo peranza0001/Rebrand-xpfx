@@ -92,12 +92,18 @@ export interface RiskMetrics {
   marginLevel: number; // percent
 }
 
+export type AccountAuthorizationLevel = "basic" | "identity_verified" | "trading_ready" | "full_authorized";
+
 export interface AccountChecklist {
   userId: string;
   completed: boolean;
+  authorized: boolean;
+  authorizationLevel: AccountAuthorizationLevel;
   completionPercent: number;
   items: ChecklistItem[];
   missingMandatory: string[];
+  nextRequiredStep: string | null;
+  accessSummary: string[];
   completedAt?: string;
 }
 
@@ -302,13 +308,44 @@ export function evaluateAccountChecklist(items: ChecklistItem[] = DEFAULT_ACCOUN
   const mandatoryItems = items.filter((item) => item.mandatory);
   const completedCount = items.filter((item) => item.completed).length;
   const missingMandatory = mandatoryItems.filter((item) => !item.completed).map((item) => item.label);
+  const emailVerified = items.find((item) => item.id === "email-verify")?.completed ?? false;
+  const phoneVerified = items.find((item) => item.id === "phone-verify")?.completed ?? false;
+  const kycApproved = items.find((item) => item.id === "kyc-approved")?.completed ?? false;
+  const bankConnected = items.find((item) => item.id === "bank-connected")?.completed ?? false;
+  const depositComplete = items.find((item) => item.id === "deposit-made")?.completed ?? false;
+  const riskAcknowledged = items.find((item) => item.id === "risk-acknowledge")?.completed ?? false;
+
+  let authorizationLevel: AccountAuthorizationLevel = "basic";
+  if (emailVerified && phoneVerified && kycApproved) {
+    authorizationLevel = "identity_verified";
+  }
+  if (emailVerified && phoneVerified && kycApproved && bankConnected && depositComplete) {
+    authorizationLevel = "trading_ready";
+  }
+  if (emailVerified && phoneVerified && kycApproved && bankConnected && depositComplete && riskAcknowledged) {
+    authorizationLevel = "full_authorized";
+  }
+
+  const authorized = authorizationLevel === "full_authorized";
+  const nextRequiredStep = missingMandatory[0] ?? null;
+  const accessSummary = [
+    "Basic profile access",
+    ...(authorizationLevel === "basic" ? [] : ["Identity verification approved"]),
+    ...(authorizationLevel === "identity_verified" ? ["Enhanced due diligence cleared"] : []),
+    ...(authorizationLevel === "trading_ready" || authorizationLevel === "full_authorized" ? ["Funding and bank verification complete"] : []),
+    ...(authorizationLevel === "full_authorized" ? ["Full trading and withdrawal authorization granted"] : []),
+  ];
 
   return {
     userId: "",
     completed: mandatoryItems.every((item) => item.completed),
+    authorized,
+    authorizationLevel,
     completionPercent: items.length === 0 ? 0 : Math.round((completedCount / items.length) * 100),
     items,
     missingMandatory,
+    nextRequiredStep,
+    accessSummary,
   };
 }
 

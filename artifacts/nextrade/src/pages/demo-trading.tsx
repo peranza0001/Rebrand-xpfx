@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { BarChart3, ShieldCheck, RefreshCw } from "lucide-react";
+import { BarChart3, ShieldCheck, RefreshCw, Zap, Target, TrendingUp, TrendingDown, Activity, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -290,43 +290,77 @@ function DemoTradingContent() {
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="border-primary/20 bg-linear-to-br from-primary/10 via-background to-background">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <CardTitle className="text-xl">Professional demo trading workspace</CardTitle>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-yellow-500" />
+                <div>
+                  <CardTitle className="text-xl">Professional demo trading workspace</CardTitle>
+                  <CardDescription className="text-sm mt-1">
+                    Risk-managed paper trading that mirrors institutional workflows
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                <Activity className="h-3 w-3 mr-1 rounded-full bg-blue-500 animate-pulse" />
+                DEMO MODE
+              </Badge>
             </div>
-            <CardDescription>
-              Practise execution, risk management, and market read with a free paper account that mirrors institutional workflows.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">Free paper account</Badge>
-              <Badge variant="secondary">Risk-managed practice</Badge>
-              {isAuthenticated ? <Badge className="bg-emerald-600">Registered learner</Badge> : <Badge className="bg-amber-600">Demo session</Badge>}
+              <Badge variant="secondary" className="bg-blue-500/10 text-blue-600">
+                <Target className="h-3 w-3 mr-1" />
+                Free paper account
+              </Badge>
+              <Badge variant="secondary" className="bg-green-500/10 text-green-600">
+                <Shield className="h-3 w-3 mr-1" />
+                Risk-managed
+              </Badge>
+              {isAuthenticated ? (
+                <Badge className="bg-emerald-600">
+                  <ShieldCheck className="h-3 w-3 mr-1" />
+                  Registered learner
+                </Badge>
+              ) : (
+                <Badge className="bg-amber-600">
+                  <Activity className="h-3 w-3 mr-1" />
+                  Demo session
+                </Badge>
+              )}
             </div>
             {!isAuthenticated && demoError && (
               <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-950 dark:text-rose-200">
-                <div className="font-semibold">Unable to start demo session</div>
-                <p className="mt-2">{demoError}</p>
+                <div className="font-semibold">⚠️ Unable to start demo session</div>
+                <p className="mt-1 text-xs">{demoError}</p>
               </div>
             )}
             {!isAuthenticated && !demoError && !demoStarted && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-200">
-                <div className="font-semibold">Preparing your demo session</div>
-                <p className="mt-2">A seeded demo account is being created. You can start trading once your session is ready.</p>
+                <div className="font-semibold">🚀 Preparing your demo session</div>
+                <p className="mt-1 text-xs">A seeded demo account is being created. You can start trading once your session is ready.</p>
               </div>
             )}
-            <div className="rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between">
+            <div className="rounded-lg border border-border p-4 bg-muted/30">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-sm text-muted-foreground">Readiness to progress</div>
-                  <div className="text-2xl font-semibold">{readiness}%</div>
+                  <div className="text-sm text-muted-foreground font-semibold">Readiness to progress</div>
+                  <div className="text-3xl font-bold mt-1">{readiness}%</div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <ShieldCheck className="h-4 w-4" />
-                  {readiness >= 85 ? "Ready for live-account review" : "Keep practising to unlock live-account readiness"}
+                  {readiness >= 85 ? "🎯 Ready for live account" : "📈 Keep practising"}
                 </div>
               </div>
+              <div className="w-full bg-border/30 rounded-full h-2">
+                <div 
+                  className="h-full rounded-full bg-linear-to-r from-amber-500 to-emerald-500 transition-all"
+                  style={{ width: `${readiness}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-700 dark:text-blue-300">
+              <strong>💡 Pro tip:</strong> Complete KYC verification, place at least 5 trades, and maintain a 60%+ win rate to unlock live-account review.
             </div>
           </CardContent>
         </Card>
@@ -334,37 +368,43 @@ function DemoTradingContent() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Paper account status</CardTitle>
-            <CardDescription>Track your free demo balance and your current readiness.</CardDescription>
+            <CardDescription>Track your free demo balance and progress.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Demo balance</div>
-                <button type="button" onClick={() => void refreshDemoState()} className="rounded-full border border-border p-2 text-muted-foreground hover:text-foreground">
+            <div className="rounded-lg bg-linear-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm text-muted-foreground font-semibold">Demo balance</div>
+                <button type="button" onClick={() => void refreshDemoState()} className="rounded-full border border-border p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <RefreshCw className="h-4 w-4" />
                 </button>
               </div>
-              <div className="text-3xl font-semibold">{formatCurrency(demoBalance || 0)}</div>
+              <div className="text-3xl font-bold">{formatCurrency(demoBalance || 0)}</div>
+              <div className="text-xs text-muted-foreground mt-2">Real-time paper balance</div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-border p-3">
-                <div className="text-muted-foreground">Open positions</div>
-                <div className="text-xl font-semibold">{positions.length}</div>
+              <div className="rounded-lg border border-border p-3 bg-card/50 hover:bg-card/80 transition-colors">
+                <div className="text-muted-foreground text-xs mb-1 font-semibold">Open positions</div>
+                <div className="text-2xl font-bold">{positions.length}</div>
+                <div className="text-xs text-muted-foreground mt-1">Active trades</div>
               </div>
-              <div className="rounded-lg border border-border p-3">
-                <div className="text-muted-foreground">Live P&L</div>
-                <div className={`text-xl font-semibold ${positions.reduce((sum, position) => sum + position.pnl, 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <div className="rounded-lg border border-border p-3 bg-card/50 hover:bg-card/80 transition-colors">
+                <div className="text-muted-foreground text-xs mb-1 font-semibold">Live P&L</div>
+                <div className={`text-2xl font-bold ${positions.reduce((sum, position) => sum + position.pnl, 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {positions.reduce((sum, position) => sum + position.pnl, 0) >= 0 ? '+' : ''}{formatCurrency(positions.reduce((sum, position) => sum + position.pnl, 0))}
                 </div>
+                <div className="text-xs text-muted-foreground mt-1">Unrealised</div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2">
               {isAuthenticated ? (
-                <Button onClick={() => navigate("/education")}>Continue learning</Button>
+                <Button onClick={() => navigate("/education")} className="flex-1">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Continue learning
+                </Button>
               ) : (
                 <>
-                  <Button onClick={() => navigate("/signup")}>Create account</Button>
-                  <Button variant="outline" onClick={() => navigate("/login")}>Log in</Button>
+                  <Button onClick={() => navigate("/signup")} className="flex-1">Create account</Button>
+                  <Button variant="outline" onClick={() => navigate("/login")} className="flex-1">Log in</Button>
                 </>
               )}
             </div>
