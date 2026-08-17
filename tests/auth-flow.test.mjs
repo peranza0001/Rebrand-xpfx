@@ -19,9 +19,11 @@ const corsModule = await import('../artifacts/api-server/src/lib/cors.ts');
 
 const app = appModule.default?.default ?? appModule.default ?? appModule;
 const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
+const emailModule = await import('../artifacts/api-server/src/lib/email.ts');
 const store = storeModule.default?.default ?? storeModule.default ?? storeModule;
 const { _getOtpRecord } = otp;
 const { sentEmails } = store;
+const { normalizeSmtpHost } = emailModule;
 const { setPrismaClient, persistUser, persistSession } = dbPersistModule;
 
 async function withTestServer(handler) {
@@ -70,6 +72,53 @@ test('seeded demo users can sign in directly without first starting demo auth', 
     assert.equal(loginResult.data.role, 'demo');
     assert.equal(loginResult.data.user.email, 'demo@xpressprofx.com');
   });
+});
+
+test('SMTP host values are normalized before provider delivery', () => {
+  assert.equal(normalizeSmtpHost('https://smtp.sendgrid.net'), 'smtp.sendgrid.net');
+  assert.equal(normalizeSmtpHost('smtp.sendgrid.net'), 'smtp.sendgrid.net');
+});
+
+test('snake_case Prisma delegates persist users and sessions without missing-model fallback errors', async () => {
+  const sessionCalls = [];
+  const userCalls = [];
+  const fakePrismaClient = {
+    users: {
+      upsert: async ({ create, update }) => {
+        userCalls.push(create ?? update);
+        return create ?? update;
+      },
+    },
+    user_sessions: {
+      create: async ({ data }) => {
+        sessionCalls.push(data);
+        return data;
+      },
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    const userId = randomUUID();
+    const userPersisted = await persistUser(userId, {
+      email: 'snake-prisma@example.com',
+      username: 'snake-prisma',
+      passwordHash: 'hash',
+      fullName: 'Snake Prisma User',
+      country: 'US',
+      phone: null,
+    });
+    const sessionPersisted = await persistSession('snake-session-123', userId, new Date('2030-01-01T00:00:00Z'), false);
+
+    assert.equal(userPersisted, true);
+    assert.equal(sessionPersisted, true);
+    assert.equal(userCalls.length, 1);
+    assert.equal(sessionCalls.length, 1);
+    assert.equal(sessionCalls[0].id, 'snake-session-123');
+  } finally {
+    setPrismaClient(null);
+  }
 });
 
 test('brand origins are included in the production CORS allowlist by default', () => {

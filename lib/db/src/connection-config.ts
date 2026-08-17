@@ -5,20 +5,29 @@ export type PostgresConnectionConfig = {
   ssl: { rejectUnauthorized: boolean } | undefined;
 };
 
+function hasPlaceholderDatabaseHost(url?: string): boolean {
+  if (!url) return false;
+  const normalized = url.trim().toLowerCase();
+  return normalized.includes('db.example.internal') || normalized.includes('example.internal');
+}
+
 export function getRawDatabaseUrl(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
   const directUrl = env.DIRECT_DATABASE_URL?.trim();
-  if (directUrl) return directUrl;
+  if (directUrl && !hasPlaceholderDatabaseHost(directUrl)) return directUrl;
 
   // Prefer the private service connection string when both are available.
   // Railway exposes the internal service URL via DATABASE_URL and a public
   // proxy URL via DATABASE_PUBLIC_URL. The private URL is the correct one
   // for server-side connections and avoids proxy certificate issues.
   const privateUrl = env.DATABASE_URL?.trim();
-  if (privateUrl) return privateUrl;
+  if (privateUrl && !hasPlaceholderDatabaseHost(privateUrl)) return privateUrl;
 
-  return env.DATABASE_PUBLIC_URL?.trim();
+  const publicUrl = env.DATABASE_PUBLIC_URL?.trim();
+  if (publicUrl && !hasPlaceholderDatabaseHost(publicUrl)) return publicUrl;
+
+  return undefined;
 }
 
 export function buildPostgresConfig(

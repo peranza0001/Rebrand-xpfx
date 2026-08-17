@@ -27,6 +27,18 @@ import { logger } from "./logger";
 import { env } from "./env";
 import { isSendGridConfigured } from "./integration-config";
 
+export function normalizeSmtpHost(value?: string): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.hostname.replace(/\/$/, '');
+  } catch {
+    return trimmed.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  }
+}
+
 const NO_REPLY = "no_reply@xpressprofx.com";
 const MAX_LOG = 500;
 
@@ -92,7 +104,7 @@ async function deliverViaSendGrid(input: SendEmailInput, from: string): Promise<
 }
 
 async function deliverViaSmtp(input: SendEmailInput, from: string): Promise<ProviderResult> {
-  const host = env.SMTP_HOST;
+  const host = normalizeSmtpHost(env.SMTP_HOST);
   if (!host) return { ok: false, provider: "smtp", error: "SMTP_HOST not set" };
   try {
     // Lazy import — nodemailer is an optional peer dep. We use a Function

@@ -46,9 +46,28 @@ export function getPrismaClient(): any {
 
 export function getPrismaModelDelegate(modelName: string): any | null {
   if (!prismaClient) return null;
-  const singular = `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`;
-  const plural = `${singular}s`;
-  return prismaClient[singular] ?? prismaClient[plural] ?? null;
+  const camel = `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`;
+  const pluralCamel = `${camel}s`;
+  const snake = modelName.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  const snakePlural = `${snake}s`;
+  const candidates = new Set<string>([
+    modelName,
+    camel,
+    pluralCamel,
+    snake,
+    snakePlural,
+    `${snake}_s`,
+    `${camel}_s`,
+    `${modelName}s`,
+    `${modelName.toLowerCase()}s`,
+  ]);
+
+  for (const key of candidates) {
+    const value = prismaClient[key];
+    if (value) return value;
+  }
+
+  return null;
 }
 
 function getPrismaUserDelegate(): any | null {
@@ -56,7 +75,7 @@ function getPrismaUserDelegate(): any | null {
 }
 
 function getPrismaUserSessionDelegate(): any | null {
-  return getPrismaModelDelegate("UserSession");
+  return getPrismaModelDelegate("UserSession") ?? getPrismaModelDelegate("user_session") ?? getPrismaModelDelegate("user_sessions");
 }
 
 function deriveFirstLastName(fullName: string): { firstName: string; lastName: string } {
@@ -282,30 +301,12 @@ export async function persistSession(
     const sessionDelegate = getPrismaUserSessionDelegate();
     if (!sessionDelegate) return true;
     const sessionPayloadCandidates = [
-      {
-        token: sessionId,
-        userId,
-        expiresAt,
-        isAdmin,
-      },
-      {
-        id: sessionId,
-        userId,
-        expiresAt,
-        isAdmin,
-      },
-      {
-        id: sessionId,
-        user_id: userId,
-        is_admin: isAdmin,
-        expires_at: expiresAt,
-      },
-      {
-        token: sessionId,
-        user_id: userId,
-        expires_at: expiresAt,
-        is_admin: isAdmin,
-      },
+      { token: sessionId, userId, expiresAt, isAdmin },
+      { id: sessionId, userId, expiresAt, isAdmin },
+      { id: sessionId, user_id: userId, is_admin: isAdmin, expires_at: expiresAt },
+      { token: sessionId, user_id: userId, expires_at: expiresAt, is_admin: isAdmin },
+      { id: sessionId, userId, expires_at: expiresAt, is_admin: isAdmin },
+      { token: sessionId, userId: userId, expiresAt: expiresAt, isAdmin: isAdmin },
     ];
     let lastErr: unknown = null;
 
@@ -313,7 +314,9 @@ export async function persistSession(
       for (const data of sessionPayloadCandidates) {
         try {
           await retryAsync(async () => {
-            await sessionDelegate.create({ data });
+            const call = sessionDelegate.create ?? sessionDelegate.upsert ?? sessionDelegate.insert ?? null;
+            if (!call) throw new Error('No session create delegate available');
+            await call({ data });
           }, 3, 300);
           return true;
         } catch (err) {
