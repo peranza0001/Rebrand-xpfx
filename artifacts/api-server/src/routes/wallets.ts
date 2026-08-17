@@ -18,6 +18,7 @@ import {
   newUuid,
   NOW,
   toPublicConnectedWallet,
+  transferBetweenWallets,
   type StoredConnectedWallet,
 } from "../lib/store";
 import { requireAuth } from "../lib/session";
@@ -36,6 +37,55 @@ router.get("/wallets", requireAuth, (req, res) => {
 
 router.get("/wallets/transactions", requireAuth, (req, res) => {
   res.json(getUserData(req.userId!).transactions);
+});
+
+router.post("/wallets/transfer", requireAuth, (req, res) => {
+  const amount = Number(req.body?.amount ?? 0);
+  const fromWalletId = String(req.body?.fromWalletId ?? "");
+  const toWalletId = String(req.body?.toWalletId ?? "");
+  const description = String(req.body?.description ?? "").trim() || undefined;
+  const currency = String(req.body?.currency ?? "USD").trim() || "USD";
+
+  if (!fromWalletId || !toWalletId || !Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Please choose a valid source wallet, destination wallet, and transfer amount.",
+    });
+  }
+
+  const data = getUserData(req.userId!);
+  try {
+    const result = transferBetweenWallets(
+      { wallets: data.wallets, transactions: data.transactions },
+      {
+        fromWalletId,
+        toWalletId,
+        amount,
+        description,
+        currency,
+        userId: req.userId!,
+      },
+    );
+
+    logActivity({
+      actorId: req.userId!,
+      actorName: req.storedUser!.user.fullName,
+      action: "wallet.transfer",
+      detail: `Transferred ${amount} ${currency} from ${result.from.label} to ${result.to.label}`,
+    });
+
+    return res.json({
+      success: true,
+      from: result.from,
+      to: result.to,
+      amount,
+      currency,
+      message: `Transferred ${amount} ${currency} from ${result.from.label} to ${result.to.label}.`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to complete the transfer.";
+    return res.status(400).json({ success: false, message });
+  }
 });
 
 router.get("/wallets/connected", requireAuth, (req, res) => {

@@ -1368,6 +1368,88 @@ export function applyWalletCredit(
   return { wallet, transaction };
 }
 
+export function transferBetweenWallets(
+  data: { wallets: Wallet[]; transactions: Transaction[] },
+  input: {
+    fromWalletId: string;
+    toWalletId: string;
+    amount: number;
+    description?: string;
+    currency?: string;
+    isDemo?: boolean;
+    userId?: string;
+  },
+): { from: Wallet; to: Wallet; fromTransaction: Transaction; toTransaction: Transaction } {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Transfer amount must be greater than zero.');
+  }
+
+  const from = data.wallets.find((wallet) => wallet.id === input.fromWalletId);
+  const to = data.wallets.find((wallet) => wallet.id === input.toWalletId);
+  if (!from || !to) {
+    throw new Error('Both source and destination wallet records are required.');
+  }
+  if (from.id === to.id) {
+    throw new Error('A wallet cannot transfer funds to itself.');
+  }
+  if (from.balance < amount) {
+    throw new Error(`Insufficient balance in ${from.label}.`);
+  }
+
+  from.balance = Number((from.balance - amount).toFixed(2));
+  to.balance = Number((to.balance + amount).toFixed(2));
+
+  const maybeCurrency = input.currency ?? from.currency ?? 'USD';
+  const description = input.description ?? `Transfer from ${from.label} to ${to.label}`;
+
+  const fromTransaction: Transaction = {
+    id: newUuid(),
+    walletId: from.id,
+    type: 'transfer',
+    amount: -amount,
+    currency: maybeCurrency,
+    status: 'completed',
+    description,
+    isDemo: Boolean(input.isDemo),
+    createdAt: NOW(),
+  };
+  const toTransaction: Transaction = {
+    id: newUuid(),
+    walletId: to.id,
+    type: 'transfer',
+    amount,
+    currency: maybeCurrency,
+    status: 'completed',
+    description: `Received ${description}`,
+    isDemo: Boolean(input.isDemo),
+    createdAt: NOW(),
+  };
+
+  data.transactions.unshift(fromTransaction, toTransaction);
+
+  if (input.userId) {
+    void persistTransaction(fromTransaction.id, from.id, input.userId, {
+      type: fromTransaction.type,
+      amount: Number(fromTransaction.amount),
+      currency: fromTransaction.currency,
+      status: fromTransaction.status,
+      description: fromTransaction.description,
+      isDemo: Boolean(fromTransaction.isDemo),
+    });
+    void persistTransaction(toTransaction.id, to.id, input.userId, {
+      type: toTransaction.type,
+      amount: Number(toTransaction.amount),
+      currency: toTransaction.currency,
+      status: toTransaction.status,
+      description: toTransaction.description,
+      isDemo: Boolean(toTransaction.isDemo),
+    });
+  }
+
+  return { from, to, fromTransaction, toTransaction };
+}
+
 export function getDemoCourses(): DemoCourse[] {
   return demoCourses;
 }

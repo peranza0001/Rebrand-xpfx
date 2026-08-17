@@ -13,6 +13,8 @@ import { persistChatMessage } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
+import { sendEmail } from "../lib/email";
+import { env } from "../lib/env";
 import type { LiveChatMsg } from "../lib/store";
 
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
@@ -222,6 +224,17 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     ns?.to(`conv:${p.data.userId}`).emit('message', msg);
   } catch {
     // best-effort; do not fail the request if broadcasting fails
+  }
+
+  const recipient = users.get(p.data.userId)?.user.email;
+  if (recipient) {
+    void sendEmail({
+      to: recipient,
+      from: env.SMTP_FROM ?? undefined,
+      subject: "Reply from XpressPro FX Support",
+      body: `${req.storedUser!.user.fullName} replied:\n\n${b.data.content}`,
+      kind: "live_chat.admin_reply",
+    }).catch(() => undefined);
   }
 
   return res.json(msg);
