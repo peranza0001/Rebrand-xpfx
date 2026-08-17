@@ -6,11 +6,18 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-17 04:39:47 UTC
+- Last sync: 2026-08-17 05:30:05 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  .env.example | A  LIVECHAT_CHATWAY_IMPLEMENTATION.md | M  artifacts/api-server/src/lib/env.ts
+- Current working tree: M  remember.md
 <!-- AUTO-UPDATE:END -->
+
+## ✅ ACCEPTANCE CHECK (2026-08-17)
+- Live host healthz and healthz/db both responded with HTTP 200 from the Railway test deployment.
+- Demo auth returned a valid signed-in session on the live host without requiring a custom domain.
+- OTP verification and the app build/test suite passed locally with `npm test` on the repo state currently checked into the workspace.
+- The app remains host-neutral: public URLs are sourced from environment config, and the runtime is built to support deployments that vary by domain, proxy, and platform.
+- No secrets were printed, and the codebase remains designed to work with a portable VPS deployment using env-only host configuration.
 
 ---
 
