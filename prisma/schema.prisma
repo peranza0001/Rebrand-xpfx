@@ -326,6 +326,9 @@ model users {
   kyc_status                 String    @default("unverified")
   email_verified             Boolean   @default(false)
   phone_verified             Boolean   @default(false)
+  email_verify_token         String?
+  reset_password_token       String?
+  reset_password_expiry      DateTime? @db.Timestamp(6)
   avatar_url                 String?
   selected_manager_id        String?
   demo_mode                  Boolean   @default(false)

@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-17 00:14:12 UTC
+- Last sync: 2026-08-17 00:17:42 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  lib/db/src/schema/users.ts | M  prisma/schema.prisma
+- Current working tree: M  lib/db/src/schema/users.ts | A  prisma/migrations/20260817000000_add_email_to_otp_codes/migration.sql | A  prisma/migrations/20260817100000_add_password_reset_tokens/migration.sql
 <!-- AUTO-UPDATE:END -->
 
 ---
