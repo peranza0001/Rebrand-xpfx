@@ -113,7 +113,8 @@ export const env = {
 
   // Frontend runtime exposure
   VITE_API_URL: resolveEnvValue(process.env, "VITE_API_URL", ["API_PROXY_TARGET"]),
-  FRONTEND_URL: get("FRONTEND_URL") ?? "https://app.xpressprofx.com",
+  PUBLIC_APP_URL: resolveEnvValue(process.env, "PUBLIC_APP_URL", ["APP_URL", "PRODUCTION_URL", "FRONTEND_URL"]),
+  FRONTEND_URL: resolveEnvValue(process.env, "FRONTEND_URL", ["PUBLIC_APP_URL", "APP_URL", "PRODUCTION_URL"]) ?? "https://app.xpressprofx.com",
 
   // CORS allowlist — comma-separated list of allowed frontend origins.
   // Use this on Railway, Render, VPS, and any non-Replit deployment:

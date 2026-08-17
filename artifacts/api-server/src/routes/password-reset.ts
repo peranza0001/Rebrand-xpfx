@@ -51,9 +51,15 @@ router.post('/password-reset/request', async (req: Request, res: Response) => {
     // Generate reset token
     const token = generatePasswordResetToken(lowerEmail);
 
-    // In a real app, send email with reset link
-    // For now, return token in response (only for development)
-    const resetLink = `${process.env.APP_URL || 'https://xpressprofx.com'}/reset-password?token=${token}`;
+    const appBaseUrl = process.env.PUBLIC_APP_URL
+      || process.env.PRODUCTION_URL
+      || process.env.APP_URL
+      || process.env.FRONTEND_URL
+      || 'https://xpressprofx.com';
+
+    // In a real app, send email with reset link.
+    // Keep the base URL env-driven so the app remains portable across hosts.
+    const resetLink = `${appBaseUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
 
     if (process.env.NODE_ENV === 'production') {
       // In production, email the link (not returned in response)

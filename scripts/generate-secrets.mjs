@@ -39,7 +39,7 @@ const defaultProductionValues = {
   APP_NAME: 'XpressProFX',
   SENDGRID_API_KEY: 'SG.generated_placeholder_do_not_use',
   SMTP_FROM: 'support@example.com',
-  SMTP_HOST: 'https://smtp.sendgrid.net',
+  SMTP_HOST: 'smtp.sendgrid.net',
   SMTP_PASS: 'SG.generated_placeholder_do_not_use',
   SMTP_PORT: '587',
   SMTP_SECURE: 'false',
