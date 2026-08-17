@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-16 20:26:26 UTC
+- Last sync: 2026-08-17 00:14:12 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/app.ts
+- Current working tree: M  lib/db/src/schema/users.ts | M  prisma/schema.prisma
 <!-- AUTO-UPDATE:END -->
 
 ---

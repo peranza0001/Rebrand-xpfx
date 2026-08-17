@@ -143,6 +143,7 @@ model notifications {
 
 model OtpCode {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String
   user_id        String   @db.Uuid
   code           String
   type           String
