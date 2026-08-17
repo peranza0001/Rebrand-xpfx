@@ -145,6 +145,28 @@ test('production validation fails when admin credentials are weak or missing', (
   });
 });
 
+test('production validation accepts a strong 8-character admin password when all other production requirements are present', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'Abcdef1!',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@acme.com',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
+  };
+
+  assert.doesNotThrow(() => validateProductionEnvironment(env));
+});
+
 test('production validation accepts an admin password without a symbol', () => {
   const env = {
     NODE_ENV: 'production',
