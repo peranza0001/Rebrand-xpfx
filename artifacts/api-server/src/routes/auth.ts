@@ -255,28 +255,27 @@ router.post("/auth/signup", async (req, res) => {
   const email = parsed.data.email.toLowerCase();
   const existingUserId = await resolvePersistedUserIdByEmail(email);
 
-  // Do NOT reveal whether the address is already registered. Always return the
-  // same OTP-challenge response. When the email is already taken we skip
-  // issuing an OTP; the subsequent verify-otp call will simply time out with a
-  // generic "Invalid code" error that does not confirm account existence.
-  if (!existingUserId) {
-    // Account is NOT created yet — we hold the payload in the OTP record and
-    // only commit once the email has been verified.
-    try {
-        // Throttle OTP sends per-email and per-IP to reduce abuse
-        const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '';
-        if (!canSendOtp(email) || !canSendOtpFromIp(ip)) {
-          logger.warn({ email, ip }, "[auth] signup.otp_throttled");
-          return res.json(otpChallenge(parsed.data.email, "signup"));
-        }
+  if (existingUserId) {
+    logger.warn({ email, existingUserId }, "[auth] signup.email_already_registered");
+    return res.json(otpChallenge(parsed.data.email, "signup"));
+  }
 
-        await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
-        recordOtpSent(email);
-        recordOtpSentFromIp(ip);
-    } catch (err) {
-      logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
-      return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
+  // Account is NOT created yet — we hold the payload in the OTP record and
+  // only commit once the email has been verified.
+  try {
+    // Throttle OTP sends per-email and per-IP to reduce abuse
+    const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '';
+    if (!canSendOtp(email) || !canSendOtpFromIp(ip)) {
+      logger.warn({ email, ip }, "[auth] signup.otp_throttled");
+      return res.json(otpChallenge(parsed.data.email, "signup"));
     }
+
+    await issueOtp({ email, intent: "signup", signupPayload: parsed.data });
+    recordOtpSent(email);
+    recordOtpSentFromIp(ip);
+  } catch (err) {
+    logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
+    return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
   }
   return res.json(otpChallenge(parsed.data.email, "signup"));
 });

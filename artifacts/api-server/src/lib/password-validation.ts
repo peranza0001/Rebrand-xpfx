@@ -1,6 +1,6 @@
 // Password strength validation for enterprise security
 // Requirements:
-// - Minimum 12 characters
+// - Minimum 8 characters (matches the app's broader password policy)
 // - At least one uppercase letter
 // - At least one lowercase letter
 // - At least one number
@@ -36,8 +36,8 @@ export function validatePasswordStrength(password: string): PasswordStrengthResu
   let strengthScore = 0;
 
   // Check minimum length
-  if (password.length < 12) {
-    errors.push('Password must be at least 12 characters long');
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
   } else {
     strengthScore += 1;
   }

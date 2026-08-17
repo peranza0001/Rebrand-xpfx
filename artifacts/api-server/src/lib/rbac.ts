@@ -14,7 +14,7 @@ export interface AuthenticatedRequest extends Request {
  */
 export function requireRole(allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const userRole = req.userRole;
+    const userRole = req.userRole ?? req.storedUser?.role;
     
     if (!userRole) {
       logger.warn({ path: req.path }, '[RBAC] User has no role');
@@ -56,7 +56,7 @@ export function requireModeratorRole() {
  * Middleware to check if user is the resource owner or admin.
  */
 export function requireResourceOwnerOrAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const userRole = req.userRole;
+  const userRole = req.userRole ?? req.storedUser?.role;
   const userId = req.userId;
   const resourceUserId = req.params.userId; // Assumes route param is userId
 

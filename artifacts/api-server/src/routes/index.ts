@@ -76,26 +76,26 @@ router.use(promotionsRouter);
 router.use(billingRouter);
 router.use(referralsRouter);
 
-// ─── ADMIN ROUTES (with RBAC protection) ───────────────────────────────────
-router.use('/admin', requireAdminRole(), adminRouter);
+// ─── ADMIN ROUTES (with handler-level auth via requireAdmin) ──────────────────
+router.use(adminRouter);
 router.use(gasFeeRouter);
 router.use(platformConfigRouter);
 router.use(webhooksRouter);
 router.use(liveChatRouter);
 router.use(mailboxRouter);
-router.use('/admin', requireAdminRole(), adminExtendedRouter);
-router.use('/admin', requireAdminRole(), adminPlatformRouter);
-router.use('/admin', requireAdminRole(), adminUsersRouter);
-router.use('/admin', requireAdminRole(), adminP2PRouter);
+router.use(adminExtendedRouter);
+router.use(adminPlatformRouter);
+router.use(adminUsersRouter);
+router.use(adminP2PRouter);
 router.use(moonpayRouter);
 router.use(paystackRouter);
 router.use(coinbaseRouter);
 router.use(notificationsRouter);
-router.use('/admin', requireAdminRole(), adminNotificationsRouter);
+router.use(adminNotificationsRouter);
 router.use(withdrawalGasFeeRouter);
 router.use(authPasswordRouter);
 router.use(authPinRouter);
-router.use('/admin', requireAdminRole(), adminDepositsRouter);
+router.use(adminDepositsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);

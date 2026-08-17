@@ -50,7 +50,9 @@ export async function attachSession(req: Request, res: Response, next: NextFunct
       const stored = users.get(rec.userId);
       if (stored) {
         req.userId = rec.userId;
+        req.sessionId = sid;
         req.storedUser = stored;
+        (req as any).userRole = stored.role;
       }
     }
   }
