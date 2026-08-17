@@ -129,6 +129,49 @@ test('brand origins are included in the production CORS allowlist by default', (
   assert.ok(origins.includes('https://www.xpressprofx.com'));
 });
 
+test('customFetch automatically attaches CSRF tokens to unsafe requests', async () => {
+  const originalFetch = globalThis.fetch;
+  const actualCalls = [];
+
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    const headers = new Headers(init.headers ?? {});
+
+    if (url.endsWith('/api/csrf-token')) {
+      return new Response(JSON.stringify({ csrfToken: 'csrf-abc' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    actualCalls.push({
+      url,
+      method: String(init.method ?? 'GET'),
+      xCsrf: headers.get('x-csrf-token'),
+    });
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const { customFetch } = await import('../lib/api-client-react/src/custom-fetch.ts');
+    const result = await customFetch('/api/demo/order', {
+      method: 'POST',
+      body: JSON.stringify({ symbol: 'BTC/USD', amount: 2500 }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(actualCalls.length, 2, 'request should include an automatic CSRF token fetch and the mutation request');
+    assert.equal(actualCalls[1].xCsrf, 'csrf-abc', 'unsafe requests should include the fresh CSRF header');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('OTP codes are persisted and rehydrated from durable storage', async () => {
   const persisted = [];
   const fakePrismaClient = {

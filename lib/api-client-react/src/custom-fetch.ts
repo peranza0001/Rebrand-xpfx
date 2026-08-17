@@ -379,6 +379,15 @@ export async function customFetch<T = unknown>(
     }
   }
 
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    if (!headers.has("x-csrf-token") && !headers.has("x-csrftoken")) {
+      const token = await fetchCsrfToken();
+      if (token) {
+        headers.set("x-csrf-token", token);
+      }
+    }
+  }
+
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, {
