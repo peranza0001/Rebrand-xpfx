@@ -51,6 +51,7 @@ import {
   _getOtpRecord,
   OTP_TTL_MS,
 } from "../lib/otp";
+import { validatePasswordStrength } from "../lib/password-validation";
 
 const router: IRouter = Router();
 
@@ -239,6 +240,18 @@ router.post("/auth/signup", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid signup", details: parsed.error.issues });
   }
+
+  // Validate password strength before creating account
+  const passwordValidation = validatePasswordStrength(parsed.data.password);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      error: "Password does not meet security requirements",
+      code: "weak_password",
+      details: passwordValidation.errors,
+      strength: passwordValidation.strength,
+    });
+  }
+
   const email = parsed.data.email.toLowerCase();
   const existingUserId = await resolvePersistedUserIdByEmail(email);
 
