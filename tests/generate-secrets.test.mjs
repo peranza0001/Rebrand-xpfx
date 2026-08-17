@@ -46,7 +46,7 @@ test('secret generation bootstraps .env from .env.example for fresh clones', () 
   assert.doesNotMatch(envContent, /COOKIE_SECRET=\s*$/m);
   assert.doesNotMatch(envContent, /ADMIN_SECRET=\s*$/m);
   assert.doesNotMatch(envContent, /ENCRYPTION_KEY=\s*$/m);
-  assert.ok(result.includes('Generated secrets'));
+  assert.ok(result.includes('Generated or bootstrapped secrets'));
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -72,9 +72,9 @@ test('secret generation populates integration defaults for sendgrid and alchemy'
   assert.match(envContent, /ALCHEMY_API_KEY=/);
   assert.doesNotMatch(envContent, /SENDGRID_API_KEY=\s*$/m);
   assert.doesNotMatch(envContent, /ALCHEMY_API_KEY=\s*$/m);
-  assert.match(envContent, /SENDGRID_API_KEY=sg_generated_/);
-  assert.match(envContent, /ALCHEMY_API_KEY=alchemy_generated_/);
-  assert.ok(result.includes('Generated secrets'));
+  assert.match(envContent, /SENDGRID_API_KEY=SG\./);
+  assert.match(envContent, /ALCHEMY_API_KEY=https:\/\//);
+  assert.ok(result.includes('Generated or bootstrapped secrets'));
 
   rmSync(tempDir, { recursive: true, force: true });
 });
