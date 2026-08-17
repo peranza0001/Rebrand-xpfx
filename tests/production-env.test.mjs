@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
 
@@ -187,6 +188,46 @@ test('production validation accepts an admin password without a symbol', () => {
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
+});
+
+test('production bootstrap accepts a strong long admin password without a symbol', async () => {
+  const child = spawn(process.execPath, [
+    '--import', 'tsx',
+    '-e',
+    `
+      process.env.NODE_ENV = 'production';
+      process.env.PORT = '0';
+      process.env.SESSION_SECRET = '4u3yafJrcV8FRVyZwor7afOiOJJFpXlgctFYCMk/ER06pAXzUsA4fuPPLn5YTd9+83ZcrS7ZJhTsmGLYR2KFiA==';
+      process.env.JWT_SECRET = 'UfcyhUNAYXaNbIFOxmu95XMSBiVMVImZAvLL2D0zw723cRDO7EWpmPqyZPgtHlPTWVUtdwrOJ5BXdus0E+9hKg==';
+      process.env.WALLET_ENCRYPTION_KEY = '33c72d64c2883f1f95b1c17281566b5b3163c14d9f4118c065ac6ad5ae682522';
+      process.env.ADMIN_EMAIL = 'ops@acme.com';
+      process.env.ADMIN_PASSWORD = 'YrZjpj2XU3iIC9RihFnNSvi9';
+      process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/app?sslmode=require';
+      process.env.ALLOWED_ORIGINS = 'https://app.example.com';
+      process.env.SMTP_HOST = 'smtp.example.com';
+      process.env.SMTP_PORT = '587';
+      process.env.SMTP_USER = 'user';
+      process.env.SMTP_PASS = 'pass';
+      process.env.SMTP_FROM = 'no_reply@acme.com';
+      process.env.ALCHEMY_API_KEY = 'abcdefghijklmnopqrstuvwxyz';
+      await import('./artifacts/api-server/src/index.ts');
+      setTimeout(() => process.exit(0), 500);
+    `,
+  ], {
+    cwd: process.cwd(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+
+  const exitCode = await new Promise((resolve) => child.on('exit', resolve));
+  const output = `${stdout}\n${stderr}`;
+
+  assert.equal(exitCode, 0, output);
+  assert.doesNotMatch(output, /ADMIN_PASSWORD must be set to a strong production credential\./);
 });
 
 test('environment aliases resolve the production secret names used by deployment platforms', () => {
