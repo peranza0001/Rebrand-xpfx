@@ -20,6 +20,8 @@ const repoRoot = path.dirname(__dirname);
 const envPath = process.env.ENV_FILE ? path.resolve(process.env.ENV_FILE) : path.join(repoRoot, '.env');
 const envExamplePath = process.env.ENV_EXAMPLE_FILE ? path.resolve(process.env.ENV_EXAMPLE_FILE) : path.join(repoRoot, '.env.example');
 
+const isProductionMode = (process.env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+
 const defaultProductionValues = {
   NODE_ENV: 'production',
   PORT: '3000',
@@ -86,6 +88,11 @@ const secrets = {
   SMTP_SECURE: () => defaultProductionValues.SMTP_SECURE,
   SMTP_USER: () => defaultProductionValues.SMTP_USER,
 };
+
+if (isProductionMode) {
+  console.log('ℹ Production mode detected — skipping repo secret generation so Railway runtime values remain authoritative.');
+  process.exit(0);
+}
 
 let envContent = '';
 const existingKeys = new Map();

@@ -120,7 +120,13 @@ async function initDatabase() {
 
 function ensureRuntimeSecrets() {
   if (process.env.NODE_ENV === 'production') {
-    dotenv.config({ path: path.resolve(repoRoot, '.env'), override: false });
+    const repoEnvPath = path.resolve(repoRoot, '.env');
+    if (fs.existsSync(repoEnvPath)) {
+      const repoEnv = fs.readFileSync(repoEnvPath, 'utf8');
+      if (/DATABASE_URL=.*(db\.example\.internal|example\.internal|change_me_secure_password|placeholder)/i.test(repoEnv)) {
+        logger.warn('[SERVER] Ignoring repo .env placeholder values in production. Railway runtime variables are the source of truth.');
+      }
+    }
     return;
   }
 
