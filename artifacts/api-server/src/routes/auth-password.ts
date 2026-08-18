@@ -6,7 +6,7 @@
  * These are NEW additive routes; no existing auth logic is modified.
  */
 import { Router } from "express";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 import { requireAuth } from "../lib/session";
 import { users, usersByEmail, hashPassword, logActivity } from "../lib/store";
 import { persistUser, persistResetPasswordToken, getPrismaClient } from "../lib/db-persist";
@@ -27,10 +27,6 @@ interface ResetRecord {
 }
 
 const resetTokens = new Map<string, ResetRecord>();
-
-function generateToken(): string {
-  return randomBytes(32).toString("hex");
-}
 
 function verifyPassword(supplied: string, stored: string): boolean {
   try {
