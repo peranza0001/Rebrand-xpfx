@@ -19,9 +19,9 @@ export function resolveOpenAIModel(
     rawEnv.OPENAI_MODEL ||
     rawEnv.AI_INTEGRATIONS_OPENAI_MODEL ||
     rawEnv.OPENAI_CHAT_MODEL ||
-    "gpt-4o-mini";
+    "gpt-4.1-mini";
 
-  return selected.trim() || "gpt-4o-mini";
+  return selected.trim() || "gpt-4.1-mini";
 }
 
 export function getOpenAI(): OpenAI | null {

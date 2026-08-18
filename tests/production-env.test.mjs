@@ -277,5 +277,5 @@ test('the livechat AI honors the configured OpenAI model from the deployment env
   };
 
   assert.equal(resolveOpenAIModel(env), 'gpt-4.1-mini');
-  assert.equal(resolveOpenAIModel({ OPENAI_API_KEY: 'sk-test-openai-key' }), 'gpt-4o-mini');
+  assert.equal(resolveOpenAIModel({ OPENAI_API_KEY: 'sk-test-openai-key' }), 'gpt-4.1-mini');
 });
