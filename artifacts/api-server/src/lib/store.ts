@@ -1507,14 +1507,21 @@ export function createUser(opts: {
   usersByEmail.set(opts.email.toLowerCase(), id);
   referralCodeIndex.set(referralCode, id);
   referrals.set(id, []);
-  // Best-effort persist to DB so admin-created and seeded users survive restarts.
-  void persistUser(id, {
+  // Persist to DB so admin-created and seeded users survive restarts.
+  // Note: This is a background operation but we don't wait for it here.
+  // Callers that need guaranteed persistence should await separately if needed.
+  persistUser(id, {
     email: opts.email,
     username: opts.username,
     passwordHash: stored.passwordHash,
     fullName: opts.fullName,
     country: opts.country,
     phone: opts.phone ?? null,
+  }).catch((err) => {
+    logger.warn(
+      { userId: id, email: opts.email, err },
+      '[store] Background persist failed for user created via createUser'
+    );
   });
   return stored;
 }
