@@ -557,3 +557,149 @@ model gas_fee_wallets {
   created_at    DateTime  @default(now()) @db.Timestamp(6)
   updated_at    DateTime  @updatedAt @db.Timestamp(6)
 }
+
+// ─── PHASE 4: MULTI-BALANCE WALLET LEDGER SYSTEM ──────────────────────────
+
+model wallet_ledger_entries {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  wallet_id     String    @db.Uuid
+  entry_type    String
+  asset_symbol  String    @default("USD")
+  amount        Decimal   @db.Decimal(20, 8)
+  status        String    @default("completed")
+  source_type   String?
+  source_id     String?
+  description   String?
+  metadata      Json      @default("{}")
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id])
+  @@index([wallet_id])
+  @@index([created_at])
+}
+
+model trading_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  total_balance     Decimal  @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model social_trading_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  total_balance     Decimal  @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model connected_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_address   String
+  asset_symbol     String    @default("ETH")
+  balance          Decimal   @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  provider         String    @default("metamask")
+  last_synced_at   DateTime? @db.Timestamp(6)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([user_id, wallet_address, asset_symbol])
+  @@index([user_id])
+}
+
+model asset_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_type      String
+  asset_symbol     String
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([user_id, wallet_type, asset_symbol])
+  @@index([user_id])
+}
+
+model deposit_addresses {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  asset_symbol    String
+  address         String
+  label           String?
+  is_active       Boolean   @default(true)
+  created_by_admin String?
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+
+  @@unique([user_id, asset_symbol])
+  @@index([user_id])
+}
+
+model withdrawal_requests {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_id        String?   @db.Uuid
+  asset_symbol     String
+  amount           Decimal   @db.Decimal(20, 8)
+  recipient_address String
+  withdrawal_type  String    @default("crypto")
+  status           String    @default("pending")
+  approved_by_admin String?
+  approval_timestamp DateTime? @db.Timestamp(6)
+  rejection_reason String?
+  transaction_hash String?
+  gas_fee          Decimal?  @db.Decimal(20, 8)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id, status])
+}
+
+model deposit_requests {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_id        String?   @db.Uuid
+  asset_symbol     String
+  amount           Decimal   @db.Decimal(20, 8)
+  source_address   String?
+  status           String    @default("pending")
+  approved_by_admin String?
+  approval_timestamp DateTime? @db.Timestamp(6)
+  rejection_reason String?
+  transaction_hash String?
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id, status])
+}
+
+model user_financial_limits {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                 String    @unique @db.Uuid
+  kyc_tier                Int       @default(1)
+  daily_deposit_limit     Decimal   @default(10000) @db.Decimal(20, 8)
+  daily_withdrawal_limit  Decimal   @default(10000) @db.Decimal(20, 8)
+  monthly_deposit_limit   Decimal   @default(100000) @db.Decimal(20, 8)
+  monthly_withdrawal_limit Decimal  @default(100000) @db.Decimal(20, 8)
+  daily_deposits_used     Decimal   @default(0) @db.Decimal(20, 8)
+  daily_withdrawals_used  Decimal   @default(0) @db.Decimal(20, 8)
+  monthly_deposits_used   Decimal   @default(0) @db.Decimal(20, 8)
+  monthly_withdrawals_used Decimal  @default(0) @db.Decimal(20, 8)
+  last_reset_at           DateTime? @db.Timestamp(6)
+  created_at              DateTime  @default(now()) @db.Timestamp(6)
+  updated_at              DateTime  @updatedAt @db.Timestamp(6)
+}

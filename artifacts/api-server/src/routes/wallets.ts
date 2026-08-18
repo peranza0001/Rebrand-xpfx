@@ -333,4 +333,65 @@ router.post("/wallets/connected/:walletId/send", requireAuth, async (req, res) =
   });
 });
 
+// ─── PHASE 4: WALLET LEDGER SYSTEM ROUTES ─────────────────────────────────
+
+import * as walletLedger from "../lib/wallet-ledger";
+
+/**
+ * GET /api/wallets/balance - Get main wallet balance summary
+ */
+router.get("/balance", requireAuth, async (req, res) => {
+  try {
+    const balance = await walletLedger.getMainWalletBalance(req.userId!);
+    return res.status(200).json({
+      status: "ok",
+      balance,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch balance");
+    return res.status(500).json({ error: "Failed to fetch balance" });
+  }
+});
+
+/**
+ * GET /api/wallets/ledger - Get transaction history/audit trail
+ */
+router.get("/ledger", requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const entries = await walletLedger.getUserLedgerEntries(req.userId!, limit, offset);
+    return res.status(200).json({
+      status: "ok",
+      entries,
+      count: entries.length,
+      limit,
+      offset,
+    });
+  } catch (err) {
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch ledger");
+    return res.status(500).json({ error: "Failed to fetch ledger" });
+  }
+});
+
+/**
+ * GET /api/wallets/limits - Get user's KYC tier and transaction limits
+ */
+router.get("/limits", requireAuth, async (req, res) => {
+  try {
+    const limits = await walletLedger.getUserFinancialLimits(req.userId!);
+    if (!limits) {
+      return res.status(404).json({ error: "Limits not found" });
+    }
+    return res.status(200).json({ status: "ok", limits });
+  } catch (err) {
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch limits");
+    return res.status(500).json({ error: "Failed to fetch limits" });
+  }
+});
+
 export default router;
