@@ -1,8 +1,7 @@
 /**
  * Aggregates all XpressPro FX API route modules under /api.
  */
-import { Router, type IRouter, Request, Response, NextFunction } from "express";
-import { requireAdminRole } from "../lib/rbac";
+import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import usersRouter from "./users";

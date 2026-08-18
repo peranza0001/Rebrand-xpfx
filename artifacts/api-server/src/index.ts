@@ -9,9 +9,8 @@ import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { logger } from './lib/logger';
 import { restoreOtpCodesFromStorage } from './lib/otp';
-import * as appModule from './app';
 
-const app = ('default' in appModule ? appModule.default : appModule) as any;
+const _app = await import('./app');
 
 type PrismaClientType = {
   $connect: () => Promise<void>;

@@ -334,7 +334,7 @@ router.post("/live-chat/email-reply", (req, res) => {
     }).catch(() => undefined);
 
     return res.json({ success: true, message: "Reply added to chat", msg });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to process email reply" });
   }
 });

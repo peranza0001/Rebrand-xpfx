@@ -1,5 +1,5 @@
 // Session timeout and idle tracking
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { logger } from './logger';
 import { setCacheValue, getCacheValue, deleteCacheValue } from './cache-store';
 

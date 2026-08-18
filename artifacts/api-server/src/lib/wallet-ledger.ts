@@ -4,7 +4,6 @@
  * Every balance change flows through a single, auditable ledger write path.
  */
 
-import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
 import { logger } from "./logger";
 import { getPrismaClient } from "./db-persist";
@@ -204,7 +203,7 @@ export async function updateWalletSubBalance(
   userId: string,
   walletType: "trading" | "social" | "connected",
   delta: number,
-  assetSymbol = "USD"
+  _assetSymbol = "USD"
 ): Promise<boolean> {
   try {
     const prisma = getPrismaClient();

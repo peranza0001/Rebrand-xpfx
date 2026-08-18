@@ -5,7 +5,7 @@ import {
   ArrowDownToLine, ArrowUpFromLine, TrendingUp, TrendingDown, Users,
   Wallet, ShieldCheck, ShieldAlert, Activity, ArrowRight, Plus,
   Repeat, Briefcase, Bell, Award, BookOpen, ArrowUp, ArrowDown,
-  Lock, FileText, Calendar as CalIcon, Zap, Target, BarChart3, TrendingUpIcon, Flame, Shield,
+  Lock, Calendar as CalIcon, Zap, Shield,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetWallets, useGetSocialTradingWallet,
@@ -20,7 +20,6 @@ import { Progress } from "@/components/ui/progress";
 import { useLiveMarkets, formatPrice } from "@/lib/market-data";
 import { useAuth } from "@/lib/auth";
 import { WalletRequiredBanner } from "@/components/wallet-required-banner";
-import { BuyCryptoDialog } from "@/components/BuyCryptoDialog";
 import { DemoExperienceBanner } from "@/components/demo-experience-banner";
 import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
@@ -32,7 +31,7 @@ export function Dashboard() {
   const { isDemo } = useAuth();
   const { data: user, isLoading: isLoadingUser } = useGetCurrentUser();
   const { data: wallets, isLoading: isLoadingWallets } = useGetWallets();
-  const { data: socialWallet, isLoading: isLoadingSocial } = useGetSocialTradingWallet();
+  const { data: socialWallet } = useGetSocialTradingWallet();
   const { data: transactions } = useGetTransactions();
   const { data: trades } = useGetTrades();
   const { data: kyc } = useGetKycStatus();
@@ -105,7 +104,7 @@ export function Dashboard() {
     price: market.bid,
   }));
   const [balancesVisible, setBalancesVisible] = useState(!balancesMasked);
-  const [selectedChartSymbol, setSelectedChartSymbol] = useState<string>("EUR/USD");
+  const [selectedChartSymbol] = useState<string>("EUR/USD");
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-full">

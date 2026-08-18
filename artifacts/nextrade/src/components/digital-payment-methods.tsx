@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -106,7 +106,7 @@ export function DigitalPaymentMethods() {
       // Simulate payment processing
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      if (methodId === "apple-pay") {
+      if (method?.id === "apple-pay") {
         // Initiate Apple Pay session
         // Note: This requires actual Apple Pay implementation via Stripe/PaymentKit
         toast({
@@ -135,7 +135,7 @@ export function DigitalPaymentMethods() {
 
       setConfirmOpen(false);
       setAmount("");
-    } catch (error) {
+    } catch {
       toast({
         title: "Payment failed",
         description: "There was an error initiating the payment. Please try again.",

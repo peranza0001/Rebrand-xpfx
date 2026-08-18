@@ -1,8 +1,8 @@
-import { Activity, ArrowDownRight, ArrowUpRight, PauseCircle, TrendingUp, TrendingDown, XCircle, Target, Zap, Shield, Eye, EyeOff } from "lucide-react";
+import { Activity, PauseCircle, XCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart, BarChart, Bar } from "recharts";
+import { CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Area, AreaChart } from "recharts";
 import { useState } from "react";
 
 export interface LiveTradeSnapshot {
@@ -77,22 +77,17 @@ export function LiveTradeMonitor({
     Math.abs((activeTrade.entryPrice - activeTrade.stopLoss) / activeTrade.entryPrice * 100)
     : 0;
 
-  const profitTarget = activeTrade && activeTrade.takeProfit ?
+  const _profitTarget = activeTrade && activeTrade.takeProfit ?
     Math.abs((activeTrade.takeProfit - activeTrade.entryPrice) / activeTrade.entryPrice * 100)
     : 0;
 
-  const distanceToStop = activeTrade && activeTrade.stopLoss ?
+  const _distanceToStop = activeTrade && activeTrade.stopLoss ?
     Math.abs((activeTrade.currentPrice - activeTrade.stopLoss) / activeTrade.stopLoss * 100)
     : 0;
 
-  const distanceToTarget = activeTrade && activeTrade.takeProfit ?
+  const _distanceToTarget = activeTrade && activeTrade.takeProfit ?
     Math.abs((activeTrade.takeProfit - activeTrade.currentPrice) / activeTrade.currentPrice * 100)
     : 0;
-
-  // Market sentiment based on P&L trend
-  const sentimentScore = activeTrade ? 
-    Math.min(100, Math.max(0, 50 + (activeTrade.pnlPercent * 5)))
-    : 50;
 
   const signalText = !activeTrade
     ? "No active trades. Choose an instrument and open a position when the market setup matches your plan."
@@ -101,7 +96,7 @@ export function LiveTradeMonitor({
       : `Risk is elevated on ${activeTrade.symbol}. Reduce size, tighten stops, or exit before the next pullback.`;
 
   // Enhanced chart data with sentiment coloring
-  const enhancedChartData = series.map((point, idx) => ({
+  const enhancedChartData = series.map((point) => ({
     ...point,
     time: typeof point.time === "number" ? new Date(point.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : point.time,
     sentiment: 50 + (Math.random() - 0.5) * 30, // Simulated sentiment data

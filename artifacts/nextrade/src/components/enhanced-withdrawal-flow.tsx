@@ -4,13 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, DollarSign, Wallet, Building2, User, AlertCircle, CheckCircle2, Loader2, TrendingDown } from "lucide-react";
 
@@ -48,7 +41,7 @@ export function EnhancedWithdrawalFlow() {
   const [selectedSource, setSelectedSource] = useState<WithdrawalSource | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<WithdrawalDestination | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [conversionRate, setConversionRate] = useState<CryptoToFiatRate | null>(null);
+  const [conversionRate] = useState<CryptoToFiatRate | null>(null);
 
   // Mock data - in real implementation, fetch from API
   const withdrawalSources: WithdrawalSource[] = [
@@ -149,7 +142,7 @@ export function EnhancedWithdrawalFlow() {
       setSelectedSource(null);
       setSelectedDestination(null);
       setStep("select_source");
-    } catch (error) {
+    } catch {
       toast({
         title: "Withdrawal failed",
         description: "There was an error processing your withdrawal. Please try again.",

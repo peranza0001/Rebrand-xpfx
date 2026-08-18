@@ -12,12 +12,11 @@ import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-import { attachSession, SESSION_COOKIE } from './lib/session';
+import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
 import { logger } from './lib/logger';
 import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
-import { requireAdminRole } from './lib/rbac';
 import { registerUnhandledHandlers, trackRequestMetric, captureException } from './lib/observability';
 import { initServerSentry } from './lib/sentry';
 import apiRoutes from './routes/index';
@@ -499,7 +498,6 @@ const fallbackAdminIndexPath = adminPortalStaticPath
       .map((root) => path.join(root, 'artifacts', 'admin-portal', 'index.html'))
       .find((candidate) => fs.existsSync(candidate));
 const hasFrontendBuild = fs.existsSync(frontendIndexPath) || Boolean(fallbackFrontendIndexPath);
-const hasAdminBuild = Boolean((adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)) || fallbackAdminIndexPath);
 
 if (adminPortalStaticPath) {
   app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));

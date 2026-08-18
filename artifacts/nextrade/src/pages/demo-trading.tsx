@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { BarChart3, ShieldCheck, RefreshCw, Zap, Target, TrendingUp, TrendingDown, Activity, Shield } from "lucide-react";
+import { ShieldCheck, RefreshCw, Zap, Target, TrendingUp, Activity, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

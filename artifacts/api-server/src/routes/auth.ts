@@ -1,6 +1,6 @@
 // /auth routes — signup, login, logout, session, demo, OTP verify/resend, skip-wallet.
 import { randomBytes } from "crypto";
-import { Router, type IRouter, Request, Response } from "express";
+import { Router, type IRouter } from "express";
 import {
   LoginBody,
   ResendOtpBody,

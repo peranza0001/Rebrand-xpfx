@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, ComposedChart, CartesianGrid, XAxis, YAxis,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+  Line, ComposedChart, CartesianGrid, XAxis, YAxis,
+  Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Activity, Zap, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface ChartDataPoint {
   time: string;

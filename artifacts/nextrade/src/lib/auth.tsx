@@ -84,7 +84,7 @@ function RedirectingScreen({ message }: { message: string }) {
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, walletSkipped: _walletSkipped, isDemo: _isDemo } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { data: connectedWallets, isLoading: isLoadingWallets } =
     useGetConnectedWallets({
       query: {

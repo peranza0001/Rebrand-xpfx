@@ -14,12 +14,9 @@ import {
 } from '../lib/kyc-provider';
 import {
   createComplianceCheck,
-  updateComplianceCheck,
   getUserComplianceStatus,
   isUserComplianApproved,
   needsComplianceReview,
-  addHighRiskFlag,
-  setComplianceNote,
 } from '../lib/compliance-status';
 import { requireAuth } from '../lib/session';
 import { logger } from '../lib/logger';
@@ -33,7 +30,6 @@ const router = Router();
 router.post('/kyc/verify/start', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    const userRole = (req as any).userRole;
 
     if (!userId) {
       return res.status(401).json({

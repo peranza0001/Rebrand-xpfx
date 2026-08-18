@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Shield, Zap, Target, AlertCircle, CheckCircle, Clock, Percent, Loader2 } from "lucide-react";
+import { CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Shield, Zap, Target, AlertCircle, CheckCircle, Clock, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Custom fetch hooks for investment plans
@@ -50,8 +50,7 @@ function useGetInvestmentPlanSubscriptions() {
         if (!response.ok) throw new Error("Failed to fetch subscriptions");
         const result = await response.json();
         setData(result);
-      } catch (err) {
-        console.error(err);
+      } catch {
       } finally {
         setIsLoading(false);
       }

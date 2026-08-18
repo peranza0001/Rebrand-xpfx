@@ -101,7 +101,7 @@ router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: Auth
     }
 
     // Update deposit status
-    const updated = await prisma.deposit_requests.update({
+    await prisma.deposit_requests.update({
       where: { id: depositId },
       data: {
         status: "completed",

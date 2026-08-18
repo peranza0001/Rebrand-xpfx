@@ -93,7 +93,7 @@ export function setActiveRegion(region: string): RegionalStatus {
 }
 
 export function promoteFailoverRegion(): RegionalStatus {
-  const { primaryRegion, failoverRegion } = getConfiguredRegions();
+  const { failoverRegion } = getConfiguredRegions();
 
   if (!failoverRegion) {
     return getRegionalStatus();

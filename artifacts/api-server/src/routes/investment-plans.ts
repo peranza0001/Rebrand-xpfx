@@ -16,7 +16,7 @@ import { Router, type IRouter } from "express";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { notifyUser } from "../lib/notify";
 import { getUserData, logActivity, managers, users } from "../lib/store";
-import { DEFAULT_ACCOUNT_CHECKLIST, generatePlanProjection, INVESTMENT_PLANS, type InvestmentPlanType } from "../lib/investment-plans";
+import { generatePlanProjection, INVESTMENT_PLANS, type InvestmentPlanType } from "../lib/investment-plans";
 
 const router: IRouter = Router();
 
@@ -254,7 +254,6 @@ router.get("/investment-plans/:subscriptionId/performance", requireAuth, (req, r
 router.patch("/investment-plans/:subscriptionId/control", requireAdmin, (req, res) => {
   const subscriptionId = req.params["subscriptionId"];
   const { status, managerId, manualControl } = req.body as { status?: string; managerId?: string; manualControl?: boolean };
-  const userId = Object.keys(users).find(() => true);
   for (const [id, stored] of users) {
     const data = getUserData(id);
     if (data.activePlanSubscription?.subscriptionId === subscriptionId) {
