@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
+import { resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
 
 test('production validation fails when no email provider is configured', () => {
   const env = {
@@ -266,4 +267,15 @@ test('environment aliases resolve the production secret names used by deployment
   assert.equal(resolveEnvValue(env, 'SESSION_SECRET', ['COOKIE_SIGNING_KEY']), 'cookie-signing-secret');
   assert.equal(resolveEnvValue(env, 'MOONPAY_SECRET_KEY', ['MOONPAY_SECRET']), 'moonpay-secret');
   assert.equal(resolveEnvValue(env, 'PAYSTACK_PUBLIC', ['PAYSTACK_PUBLIC_KEY']), 'pk-test-paystack-key');
+});
+
+test('the livechat AI honors the configured OpenAI model from the deployment environment', () => {
+  const env = {
+    OPENAI_MODEL: 'gpt-4.1-mini',
+    AI_INTEGRATIONS_OPENAI_MODEL: 'gpt-4o-mini',
+    OPENAI_API_KEY: 'sk-test-openai-key',
+  };
+
+  assert.equal(resolveOpenAIModel(env), 'gpt-4.1-mini');
+  assert.equal(resolveOpenAIModel({ OPENAI_API_KEY: 'sk-test-openai-key' }), 'gpt-4o-mini');
 });

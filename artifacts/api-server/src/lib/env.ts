@@ -104,6 +104,8 @@ export const env = {
   // OpenAI integration (optional — chat features degrade without it)
   OPENAI_API_KEY: resolveEnvValue(process.env, "OPENAI_API_KEY", ["AI_INTEGRATIONS_OPENAI_API_KEY"]),
   AI_INTEGRATIONS_OPENAI_API_KEY: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_API_KEY", ["OPENAI_API_KEY"]),
+  OPENAI_MODEL: resolveEnvValue(process.env, "OPENAI_MODEL", ["AI_INTEGRATIONS_OPENAI_MODEL", "OPENAI_CHAT_MODEL"]),
+  AI_INTEGRATIONS_OPENAI_MODEL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_MODEL", ["OPENAI_MODEL", "OPENAI_CHAT_MODEL"]),
   OPENAI_BASE_URL: resolveEnvValue(process.env, "OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
   AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
 

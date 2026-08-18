@@ -12,6 +12,18 @@ import { env } from "./env";
 
 let cached: OpenAI | null = null;
 
+export function resolveOpenAIModel(
+  rawEnv: Record<string, string | undefined> = process.env,
+): string {
+  const selected =
+    rawEnv.OPENAI_MODEL ||
+    rawEnv.AI_INTEGRATIONS_OPENAI_MODEL ||
+    rawEnv.OPENAI_CHAT_MODEL ||
+    "gpt-4o-mini";
+
+  return selected.trim() || "gpt-4o-mini";
+}
+
 export function getOpenAI(): OpenAI | null {
   if (cached) return cached;
   const apiKey = env.OPENAI_API_KEY || env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -55,10 +67,11 @@ export async function generateAIReply(opts: {
   const client = getOpenAI();
   if (!client) return null;
   const OPENAI_TIMEOUT_MS = 15_000;
+  const model = resolveOpenAIModel();
   try {
     const res = await client.chat.completions.create(
       {
-        model: "gpt-4o-mini",
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "system", content: `User's display name: ${opts.userName}.` },
@@ -78,7 +91,7 @@ export async function generateAIReply(opts: {
     const cleaned = raw.replace(/\[HANDOFF\]/gi, "").trim();
     return { content: cleaned, escalated };
   } catch (err) {
-    logger.warn({ err: (err as Error).message }, "openai-client: chat failed");
+    logger.warn({ err: (err as Error).message, model }, "openai-client: chat failed");
     return null;
   }
 }
