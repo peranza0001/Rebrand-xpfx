@@ -14,12 +14,14 @@ let cached: OpenAI | null = null;
 
 export function getOpenAI(): OpenAI | null {
   if (cached) return cached;
-  const apiKey = env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  if (!apiKey || !baseURL) {
-    logger.warn("openai-client: AI_INTEGRATIONS_OPENAI_* not configured");
+  const apiKey = env.OPENAI_API_KEY || env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseURL = env.OPENAI_BASE_URL || env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+
+  if (!apiKey) {
+    logger.warn("openai-client: OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY not configured");
     return null;
   }
+
   cached = new OpenAI({ apiKey, baseURL });
   return cached;
 }
@@ -56,7 +58,7 @@ export async function generateAIReply(opts: {
   try {
     const res = await client.chat.completions.create(
       {
-        model: "gpt-5.4",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "system", content: `User's display name: ${opts.userName}.` },

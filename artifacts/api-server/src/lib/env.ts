@@ -102,8 +102,13 @@ export const env = {
   SESSION_SECRET: get("SESSION_SECRET"),
 
   // OpenAI integration (optional — chat features degrade without it)
+  OPENAI_API_KEY: resolveEnvValue(process.env, "OPENAI_API_KEY", ["AI_INTEGRATIONS_OPENAI_API_KEY"]),
   AI_INTEGRATIONS_OPENAI_API_KEY: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_API_KEY", ["OPENAI_API_KEY"]),
-  AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL"]),
+  OPENAI_BASE_URL: resolveEnvValue(process.env, "OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
+  AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
+
+  // Sentry (optional — errors are logged locally when absent)
+  SENTRY_DSN: resolveEnvValue(process.env, "SENTRY_DSN", ["PUBLIC_SENTRY_DSN", "CLIENT_SENTRY_DSN"]),
 
   // SendGrid (optional — email.ts falls back to SMTP, then to logged-only)
   SENDGRID_API_KEY: get("SENDGRID_API_KEY"),

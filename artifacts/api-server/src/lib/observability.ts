@@ -4,6 +4,7 @@
  * or fall back to structured local logging and metrics when not configured.
  */
 
+import * as Sentry from '@sentry/node';
 import { logger } from './logger';
 
 export interface APMMetricSample {
@@ -20,11 +21,10 @@ let errorCount = 0;
 export function captureException(error: unknown, context?: Record<string, unknown>) {
   errorCount += 1;
 
-  if (process.env.SENTRY_DSN) {
-    logger.warn(
-      { err: error, context, sentryConfigured: true },
-      '[OBSERVABILITY] Sentry DSN configured; attach external Sentry client here'
-    );
+  if (process.env.SENTRY_DSN || process.env.PUBLIC_SENTRY_DSN || process.env.CLIENT_SENTRY_DSN) {
+    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+      extra: context,
+    });
     return;
   }
 

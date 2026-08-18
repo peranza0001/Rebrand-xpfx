@@ -19,6 +19,7 @@ import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
 import { requireAdminRole } from './lib/rbac';
 import { registerUnhandledHandlers, trackRequestMetric, captureException } from './lib/observability';
+import { initServerSentry } from './lib/sentry';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 export { app };
+initServerSentry();
 registerUnhandledHandlers();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
