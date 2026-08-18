@@ -2,7 +2,7 @@
 import { randomBytes } from 'crypto';
 import { logger } from './logger';
 
-const PASSWORD_RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const PASSWORD_RESET_TOKEN_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 const PASSWORD_RESET_TOKEN_LENGTH = 32;
 
 // In-memory store for password reset tokens (in production, use database)

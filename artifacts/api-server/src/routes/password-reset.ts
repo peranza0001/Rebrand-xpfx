@@ -2,9 +2,37 @@
 import { Router, Request, Response } from 'express';
 import { validateEmail } from '../lib/email-utils';
 import { generatePasswordResetToken, verifyPasswordResetToken, markResetTokenAsUsed } from '../lib/password-reset';
-import { hashPassword, usersByEmail, users, verifyPassword } from '../lib/store';
-import { persistUser } from '../lib/db-persist';
+import { hashPassword, usersByEmail, users, logActivity } from '../lib/store';
+import { persistUser, persistResetPasswordToken } from '../lib/db-persist';
 import { logger } from '../lib/logger';
+import { sendEmail } from '../lib/email';
+
+function normalizeHostHeader(value?: string): string | undefined {
+  if (!value) return undefined;
+  const first = value.split(',')[0]?.trim();
+  if (!first) return undefined;
+  return first.replace(/\/+$/, '');
+}
+
+function resolveAppOriginFromRequest(req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> } | undefined): string {
+  const headers = req?.headers ?? {};
+  const headerHost = normalizeHostHeader(req?.get?.('host') || (typeof headers.host === 'string' ? headers.host : Array.isArray(headers.host) ? headers.host[0] : undefined));
+  const forwardedHost = normalizeHostHeader(req?.get?.('x-forwarded-host') || (typeof headers['x-forwarded-host'] === 'string'
+    ? headers['x-forwarded-host']
+    : Array.isArray(headers['x-forwarded-host'])
+      ? headers['x-forwarded-host'][0]
+      : undefined));
+  const origin = typeof headers.origin === 'string' ? headers.origin : undefined;
+  const protocolHeader = req?.get?.('x-forwarded-proto') || (typeof headers['x-forwarded-proto'] === 'string' ? headers['x-forwarded-proto'] : undefined);
+  const protocol = protocolHeader?.split(',')[0]?.trim() || (origin ? new URL(origin).protocol.replace(':', '') : 'https');
+
+  const preferredHost = forwardedHost || headerHost || (origin ? normalizeHostHeader(new URL(origin).host) : undefined);
+  if (preferredHost) {
+    return `${protocol}://${preferredHost}`;
+  }
+
+  return 'https://xpressprofx.com';
+}
 
 const router = Router();
 
@@ -48,34 +76,71 @@ router.post('/password-reset/request', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate reset token
-    const token = generatePasswordResetToken(lowerEmail);
-
-    const appBaseUrl = process.env.PUBLIC_APP_URL
-      || process.env.PRODUCTION_URL
-      || process.env.APP_URL
-      || process.env.FRONTEND_URL
-      || 'https://xpressprofx.com';
-
-    // In a real app, send email with reset link.
-    // Keep the base URL env-driven so the app remains portable across hosts.
-    const resetLink = `${appBaseUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
-
-    if (process.env.NODE_ENV === 'production') {
-      // In production, email the link (not returned in response)
-      logger.info({ email: lowerEmail }, '[PASSWORD_RESET] Token generated and would be emailed');
+    const user = users.get(userId);
+    if (!user) {
+      logger.warn({ email: lowerEmail }, '[PASSWORD_RESET] User missing from store after existence check');
       return res.status(200).json({
         success: true,
-        message: 'A password reset link has been sent to your email address.',
+        message: 'If an account exists with that email, you will receive a password reset link.',
       });
     }
 
-    // For development, include the token in response
+    // Generate reset token
+    const token = generatePasswordResetToken(lowerEmail);
+
+    const appBaseUrl = resolveAppOriginFromRequest(req);
+    const resetLink = `${appBaseUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await persistResetPasswordToken(userId, token, expiresAt);
+
+    try {
+      await sendEmail({
+        to: lowerEmail,
+        subject: 'Reset your XpressPro FX password',
+        kind: 'auth.forgot_password',
+        text: [
+          `Hi ${user.user.fullName},`,
+          '',
+          'You requested a password reset for your XpressPro FX account.',
+          'Click the link below to set a new password. This link expires in 30 minutes.',
+          '',
+          resetLink,
+          '',
+          'If you did not request this, you can safely ignore this email.',
+        ].join('\n'),
+        html: [
+          `<p>Hi ${user.user.fullName},</p>`,
+          '<p>You requested a password reset for your XpressPro FX account.</p>',
+          '<p>Click the link below to set a new password. <strong>This link expires in 30 minutes.</strong></p>',
+          `<p><a href="${resetLink}" style="background:#16a34a;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Reset Password</a></p>`,
+          `<p>Or copy this link: <code>${resetLink}</code></p>`,
+          '<p>If you did not request this, you can safely ignore this email.</p>',
+        ].join(''),
+      });
+    } catch (error) {
+      logger.error({ err: error, email: lowerEmail }, '[PASSWORD_RESET] Email delivery failed');
+    }
+
+    logActivity({
+      actorId: userId,
+      actorName: user.user.fullName,
+      action: 'auth.forgot_password',
+      detail: `Password reset email queued for ${lowerEmail}.`,
+    });
+
+    if (process.env.NODE_ENV !== 'production') {
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset link generated',
+        resetLink,
+        token,
+      });
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'Password reset link generated',
-      resetLink, // Only in development!
-      token, // Only in development!
+      message: 'A password reset link has been sent to your email address.',
     });
   } catch (error) {
     logger.error({ err: error }, '[PASSWORD_RESET] Request failed');
@@ -142,7 +207,15 @@ router.post('/password-reset/verify', async (req: Request, res: Response) => {
     user.passwordHash = passwordHash;
 
     // Persist to database
-    await persistUser(user.user);
+    await persistUser(userId, {
+      email: user.user.email,
+      username: user.user.username,
+      passwordHash,
+      fullName: user.user.fullName,
+      country: user.user.country,
+      phone: user.phone,
+    });
+    await persistResetPasswordToken(userId, null, null);
 
     // Mark token as used
     markResetTokenAsUsed(token);

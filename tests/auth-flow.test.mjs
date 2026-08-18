@@ -165,11 +165,53 @@ test('customFetch automatically attaches CSRF tokens to unsafe requests', async 
     });
 
     assert.deepEqual(result, { ok: true });
-    assert.equal(actualCalls.length, 2, 'request should include an automatic CSRF token fetch and the mutation request');
-    assert.equal(actualCalls[1].xCsrf, 'csrf-abc', 'unsafe requests should include the fresh CSRF header');
+    assert.equal(actualCalls.length, 1, 'unsafe requests should issue the mutation request once after fetching a fresh CSRF token');
+    assert.equal(actualCalls[0].xCsrf, 'csrf-abc', 'unsafe requests should include the fresh CSRF header');
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('legacy password reset requests issue real reset links that can be redeemed by the active reset route', async () => {
+  await withTestServer(async (baseUrl) => {
+    const email = 'legacy-reset@example.com';
+    const created = store.createUser({
+      email,
+      password: 'LegacyPass123!',
+      fullName: 'Legacy Reset User',
+      username: 'legacy_reset_user',
+      country: 'US',
+      role: 'user',
+    });
+
+    assert.ok(created, 'user should be created for reset testing');
+
+    const request = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    assert.equal(request.status, 200, 'legacy reset request should return success');
+    const requestBody = await request.json();
+    assert.equal(requestBody.success, true, 'legacy reset request should succeed');
+
+    const lastEmail = store.sentEmails[0];
+    assert.ok(lastEmail, 'legacy reset request should enqueue a real email message');
+    assert.equal(lastEmail.to, email, 'reset email should be sent to the requested address');
+    const match = (lastEmail.body || '').match(/reset-password\?token=([A-Fa-f0-9]+)/i);
+    assert.ok(match && match[1], 'reset email should contain a valid token in the URL');
+
+    const verify = await fetch(`${baseUrl}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: match[1], newPassword: 'NewPass456!' }),
+    });
+
+    assert.equal(verify.status, 200, 'token produced by legacy route should be accepted by the active reset route');
+    const verifyBody = await verify.json();
+    assert.equal(verifyBody.ok, true, 'reset should succeed with the shared token');
+  });
 });
 
 test('OTP codes are persisted and rehydrated from durable storage', async () => {

@@ -13,6 +13,11 @@ import { persistUser, persistResetPasswordToken, getPrismaClient } from "../lib/
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { env } from "../lib/env";
+import {
+  generatePasswordResetToken,
+  getResetTokenInfo,
+  markResetTokenAsUsed,
+} from "../lib/password-reset";
 
 const router = Router();
 
@@ -42,6 +47,16 @@ function verifyPassword(supplied: string, stored: string): boolean {
 async function getTokenRecord(token: string): Promise<ResetRecord | null> {
   const record = resetTokens.get(token);
   if (record) return record;
+
+  const tokenInfo = getResetTokenInfo(token);
+  if (tokenInfo) {
+    const userId = usersByEmail.get(tokenInfo.email.toLowerCase());
+    if (!userId) return null;
+    return {
+      userId,
+      expiresAt: Date.now() + tokenInfo.expiresInSeconds * 1000,
+    };
+  }
 
   const prisma = getPrismaClient();
   if (!prisma?.user) return null;
@@ -117,7 +132,7 @@ router.post("/auth/forgot-password", async (req, res) => {
     const stored = users.get(userId);
     if (stored && !stored.disabled && stored.role !== "demo") {
       clearResetTokensForUser(userId);
-      const token = generateToken();
+      const token = generatePasswordResetToken(normalized);
       const expiresAt = Date.now() + 30 * 60 * 1000;
       resetTokens.set(token, {
         userId,
@@ -194,6 +209,7 @@ router.post("/auth/reset-password", async (req, res) => {
       void persistResetPasswordToken(record.userId, null, null);
     }
     resetTokens.delete(token);
+    markResetTokenAsUsed(token);
     return res.status(400).json({
       error: "This reset link is invalid or has expired. Please request a new one.",
     });
@@ -237,6 +253,7 @@ router.post("/auth/reset-password", async (req, res) => {
   stored.passwordHash = hashPassword(newPassword);
   clearResetTokensForUser(record.userId);
   resetTokens.delete(token);
+  markResetTokenAsUsed(token);
   void persistUser(record.userId, {
     email: stored.user.email,
     username: stored.user.username,

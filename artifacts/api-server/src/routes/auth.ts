@@ -102,9 +102,10 @@ async function isUsernameTaken(username: string): Promise<boolean> {
   }
 
   const prisma = getPrismaClient();
-  if (prisma?.users?.findUnique) {
+  const prismaUserDelegate = prisma?.user?.findUnique ? prisma.user : prisma?.users?.findUnique ? prisma.users : null;
+  if (prismaUserDelegate?.findUnique) {
     try {
-      const row = await prisma.user.findUnique({ where: { username } });
+      const row = await prismaUserDelegate.findUnique({ where: { username } });
       if (row) {
         return true;
       }
@@ -773,7 +774,7 @@ router.patch("/auth/profile", requireAuth, (req, res) => {
   return res.json(stored.user);
 });
 
-// Include password reset routes
-router.use(passwordResetRouter);
+// Include password reset routes under the authenticated API namespace.
+router.use('/auth', passwordResetRouter);
 
 export default router;

@@ -301,9 +301,10 @@ export async function persistSession(
     const sessionDelegate = getPrismaUserSessionDelegate();
     if (!sessionDelegate) return true;
     const sessionPayloadCandidates = [
-      { token: sessionId, userId, expiresAt, isAdmin },
+      { id: sessionId, token: sessionId, userId, user_id: userId, expiresAt, expires_at: expiresAt, isAdmin, is_admin: isAdmin },
       { id: sessionId, userId, expiresAt, isAdmin },
       { id: sessionId, user_id: userId, is_admin: isAdmin, expires_at: expiresAt },
+      { token: sessionId, userId, expiresAt, isAdmin },
       { token: sessionId, user_id: userId, expires_at: expiresAt, is_admin: isAdmin },
       { id: sessionId, userId, expires_at: expiresAt, is_admin: isAdmin },
       { token: sessionId, userId: userId, expiresAt: expiresAt, isAdmin: isAdmin },
