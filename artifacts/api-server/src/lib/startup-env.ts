@@ -33,7 +33,7 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   resolved.PORT = port || '8080';
 
   const databaseUrl = normalizeString(getRawDatabaseUrl(env as Record<string, string | undefined>));
-  if (!databaseUrl) {
+  if (!databaseUrl || /db\.example\.internal|example\.internal|change_me_secure_password|placeholder/i.test(databaseUrl)) {
     if (resolved.NODE_ENV === 'production') {
       missing.push('DATABASE_URL');
     } else {

@@ -41,6 +41,30 @@ test('production validation accepts a complete SMTP configuration', () => {
   assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
+test('production validation rejects placeholder database URLs instead of silently dropping persistence', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    DATABASE_URL: 'postgresql://postgres:change_me_secure_password@db.example.internal:5432/railway',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
+    SMTP_HOST: 'smtp.example.com',
+    SMTP_PORT: '587',
+    SMTP_USER: 'user',
+    SMTP_PASS: 'pass',
+    SMTP_FROM: 'no_reply@acme.com',
+    ALCHEMY_API_KEY: 'abcdefghijklmnopqrstuvwxyz',
+  };
+
+  assert.throws(() => validateProductionEnvironment(env), {
+    message: /DATABASE_URL.*configured|real PostgreSQL/i,
+  });
+});
+
 test('production validation accepts DATABASE_PUBLIC_URL as an alternate database connection with SMTP configured', () => {
   const env = {
     NODE_ENV: 'production',

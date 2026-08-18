@@ -33,6 +33,16 @@ function isValidHexString(value, length) {
   return typeof value === 'string' && /^[0-9a-fA-F]+$/.test(value.trim()) && value.trim().length === length;
 }
 
+function isPlaceholderDatabaseUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.includes('db.example.internal')
+    || trimmed.includes('example.internal')
+    || trimmed.includes('change_me_secure_password')
+    || trimmed.includes('example.com')
+    || trimmed.includes('placeholder');
+}
+
 function validateProductionEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
@@ -84,8 +94,8 @@ function validateProductionEnvironment(env = process.env) {
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
-    if (!databaseUrl) {
-      errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured for production persistence. User accounts and session data will be lost across redeploys without a real PostgreSQL database.');
+    if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
+      errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
     }
 
     if (!env.ALLOWED_ORIGINS && !env.REPLIT_DOMAINS) {

@@ -8,7 +8,11 @@ export type PostgresConnectionConfig = {
 function hasPlaceholderDatabaseHost(url?: string): boolean {
   if (!url) return false;
   const normalized = url.trim().toLowerCase();
-  return normalized.includes('db.example.internal') || normalized.includes('example.internal');
+  return normalized.includes('db.example.internal')
+    || normalized.includes('example.internal')
+    || normalized.includes('change_me_secure_password')
+    || normalized.includes('placeholder')
+    || normalized.includes('example.com');
 }
 
 export function getRawDatabaseUrl(

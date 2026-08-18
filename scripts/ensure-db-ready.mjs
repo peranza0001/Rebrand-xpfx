@@ -40,6 +40,10 @@ if (!databaseUrl) {
   fail('Production deployment is missing DATABASE_URL/DATABASE_PUBLIC_URL/DIRECT_DATABASE_URL. User accounts, sessions, and wallet activity cannot persist across redeploys. Attach a PostgreSQL database before starting the app.');
 }
 
+if (/db\.example\.internal|example\.internal|change_me_secure_password|placeholder/i.test(databaseUrl)) {
+  fail('Production database configuration is still using a placeholder/example PostgreSQL URL. Replace it with the real Railway Postgres connection string before starting the app or user data will be lost on restart/redeploy.');
+}
+
 try {
   const prismaSchema = path.join(repoRoot, 'prisma', 'schema.prisma');
   if (!existsSync(prismaSchema)) {
