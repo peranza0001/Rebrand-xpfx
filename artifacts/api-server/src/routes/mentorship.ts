@@ -4,6 +4,7 @@ import { applyWalletDebit, getUserData, logActivity, newId, NOW } from "../lib/s
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { logger } from "../lib/logger";
+import { persistWalletBalance } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -422,6 +423,8 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
 
     // Deduct from wallet
     wallet.balance = Number((wallet.balance - cost).toFixed(2));
+    // PHASE 1 FIX: Persist balance change to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
 
     // Record transaction
     data.transactions.unshift({

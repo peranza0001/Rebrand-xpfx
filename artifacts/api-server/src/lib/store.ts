@@ -9,7 +9,7 @@
  * with Node's scrypt; sessions are random 32-byte tokens stored in memory.
  */
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { persistTransaction, persistUser } from './db-persist';
+import { persistTransaction, persistUser, persistWalletBalance } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import type {
@@ -1318,6 +1318,8 @@ export function applyWalletDebit(
       description: transaction.description,
       isDemo: Boolean(transaction.isDemo),
     });
+    // PHASE 1 FIX: Also persist the wallet balance to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
   }
 
   return { wallet, transaction };
@@ -1363,6 +1365,8 @@ export function applyWalletCredit(
       description: transaction.description,
       isDemo: Boolean(transaction.isDemo),
     });
+    // PHASE 1 FIX: Also persist the wallet balance to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
   }
 
   return { wallet, transaction };

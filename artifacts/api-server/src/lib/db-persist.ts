@@ -541,6 +541,30 @@ export async function persistConnectedWallet(
 }
 
 /**
+ * CRITICAL FIX FOR PHASE 1: Persist wallet balance to database after every balance-affecting operation.
+ * This ensures that wallet balances survive server restarts.
+ * Previously, balance changes were only kept in memory and lost on redeploy.
+ */
+export async function persistWalletBalance(
+  walletId: string,
+  balance: number,
+  pendingBalance: number = 0,
+): Promise<void> {
+  if (!prismaClient || !isUuid(walletId)) return;
+  try {
+    await prismaClient.wallets.update({
+      where: { id: walletId },
+      data: {
+        balance,
+        pending_balance: pendingBalance,
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, walletId, balance }, '[db-persist] persistWalletBalance failed; balance may be lost on redeploy');
+  }
+}
+
+/**
  * Persists a transaction to the database.
  */
 export async function persistTransaction(

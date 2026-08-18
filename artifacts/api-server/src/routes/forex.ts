@@ -7,7 +7,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../lib/session";
 import { getUserData, newId, NOW, newUuid } from "../lib/store";
-import { persistTransaction } from "../lib/db-persist";
+import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
 
@@ -109,6 +109,8 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
 
   // Deduct margin from wallet
   tradingWallet.balance -= requiredMargin;
+  // PHASE 1 FIX: Persist balance change to survive server restarts
+  void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
   data.trades.push(trade as any);
 
   // Log activity
@@ -363,6 +365,8 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
 
   const returnAmount = (typedTrade.amount * typedTrade.entryPrice * 0.02) + profitLoss;
   tradingWallet.balance += returnAmount;
+  // PHASE 1 FIX: Persist balance change to survive server restarts
+  void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
 
   logger.info({
     userId: req.userId,

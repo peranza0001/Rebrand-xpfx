@@ -31,7 +31,7 @@ import {
   userData,
   users,
 } from "../lib/store";
-import { persistBankAccount } from "../lib/db-persist";
+import { persistBankAccount, persistWalletBalance } from "../lib/db-persist";
 import {
   ensureCurrentCycle,
   getEffectiveRates,
@@ -205,6 +205,8 @@ router.post("/admin/withdrawals/:withdrawalId/decision", requireAdmin, (req, res
         )!;
         ethWallet.balance =
           Math.round((ethWallet.balance - wd.gasFeeAmount) * 1_000_000) / 1_000_000;
+        // PHASE 1 FIX: Persist balance change to survive server restarts
+        void persistWalletBalance(ethWallet.id, ethWallet.balance, 0);
         wd.gasFeeDeductedAt = NOW();
       }
       // Mark matching pending tx as completed
