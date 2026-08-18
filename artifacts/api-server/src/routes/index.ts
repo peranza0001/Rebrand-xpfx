@@ -54,6 +54,7 @@ import kycAmlRouter from "./kyc-aml";
 import auditRouter from "./audit";
 import regionRouter from "./region";
 import monitoringRouter from "./monitoring";
+import adminWalletsRouter from "./admin-wallets";
 
 const router: IRouter = Router();
 
@@ -96,6 +97,7 @@ router.use(withdrawalGasFeeRouter);
 router.use(authPasswordRouter);
 router.use(authPinRouter);
 router.use(adminDepositsRouter);
+router.use(adminWalletsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);

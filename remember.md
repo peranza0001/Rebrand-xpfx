@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-18 06:09:23 UTC
+- Last sync: 2026-08-18 06:11:07 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/src/lib/wallet-ledger.ts | M  artifacts/api-server/src/routes/wallets.ts | A  prisma/migrations/20260818060455_add_wallet_ledger_system/migration.sql
+- Current working tree: A  artifacts/api-server/src/routes/admin-wallets.ts | M  artifacts/api-server/src/routes/index.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
