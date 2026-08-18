@@ -123,7 +123,13 @@ router.post("/auth/forgot-password", async (req, res) => {
         userId,
         expiresAt,
       });
-      void persistResetPasswordToken(userId, token, new Date(expiresAt));
+      // Persist password reset token to DB (background operation)
+      persistResetPasswordToken(userId, token, new Date(expiresAt)).catch((err) => {
+        logger.warn(
+          { userId, err },
+          '[auth-password] Background persist failed for password reset token'
+        );
+      });
       const resetUrl = `${resolveAppOriginFromRequest(req)}/reset-password?token=${token}`;
       try {
         await sendEmail({
