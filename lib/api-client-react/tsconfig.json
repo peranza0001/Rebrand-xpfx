@@ -4,9 +4,12 @@
     "composite": true,
     "declarationMap": true,
     "emitDeclarationOnly": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "lib": ["dom", "es2022"]
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["dom", "es2022"],
+    "declaration": true,
+    "declarationDir": "./dist"
   },
-  "include": ["src"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

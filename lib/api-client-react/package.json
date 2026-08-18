@@ -15,9 +15,5 @@
   },
   "peerDependencies": {
     "react": ">=18"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "build": "tsc --build"
   }
 }

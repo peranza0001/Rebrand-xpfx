@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-18 09:58:36 UTC
+- Last sync: 2026-08-18 11:34:31 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/lib/db-persist.ts | M  artifacts/api-server/src/lib/password-reset.ts | M  artifacts/api-server/src/routes/auth-password.ts
+- Current working tree: M  artifacts/nextrade/tsconfig.json | M  lib/api-client-react/package.json | M  lib/api-client-react/tsconfig.json
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
