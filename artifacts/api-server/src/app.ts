@@ -15,7 +15,7 @@ import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
 import { logger } from './lib/logger';
-import { getAllowedOrigins, normalizeOrigin } from './lib/cors';
+import { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
 import { registerUnhandledHandlers, trackRequestMetric, captureException } from './lib/observability';
 import { initServerSentry } from './lib/sentry';
@@ -237,7 +237,6 @@ app.use(cors({
       return;
     }
 
-    const normalizedOrigin = normalizeOrigin(origin);
     const hostname = (() => {
       try {
         return new URL(origin).hostname;
@@ -246,8 +245,7 @@ app.use(cors({
       }
     })();
 
-    const allowedOrigins = getAllowedOrigins();
-    if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
       return;
     }
@@ -289,7 +287,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   })();
 
   const allowedOrigins = getAllowedOrigins();
-  if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+  if (isAllowedOrigin(origin)) {
     return next();
   }
 

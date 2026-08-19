@@ -27,11 +27,26 @@ test('railpack install/build keeps dev dependencies available without deprecated
 
 test('Railway frontend origin with a trailing slash is accepted as a credentialed CORS origin', async () => {
   const script = `
-    process.env.ALLOWED_ORIGINS = 'https://web-production-45a7e.up.railway.app/';
-    const { getAllowedOrigins } = await import(${JSON.stringify(corsPath)});
-    if (!getAllowedOrigins().includes('https://web-production-45a7e.up.railway.app')) {
+    process.env.ALLOWED_ORIGINS = 'https://rebrand-xpfx-production-1988.up.railway.app,https://web-production-45a7e.up.railway.app/';
+    const { isAllowedOrigin } = await import(${JSON.stringify(corsPath)});
+    if (!isAllowedOrigin('https://web-production-45a7e.up.railway.app')) {
       process.exit(1);
     }
+  `;
+  await execFileAsync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
+    cwd: repoRoot,
+  });
+});
+
+test('Vercel wildcard origins match only HTTPS subdomains and remain credential-safe', async () => {
+  const script = `
+    process.env.ALLOWED_ORIGINS = 'https://*.vercel.app,http://localhost:3000';
+    const { isAllowedOrigin } = await import(${JSON.stringify(corsPath)});
+    if (!isAllowedOrigin('https://preview-123.vercel.app')) process.exit(1);
+    if (!isAllowedOrigin('https://nested.preview-123.vercel.app')) process.exit(1);
+    if (isAllowedOrigin('http://preview-123.vercel.app')) process.exit(1);
+    if (isAllowedOrigin('https://vercel.app')) process.exit(1);
+    if (!isAllowedOrigin('http://localhost:3000/')) process.exit(1);
   `;
   await execFileAsync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
     cwd: repoRoot,
