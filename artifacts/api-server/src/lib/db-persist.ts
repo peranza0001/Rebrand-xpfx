@@ -372,6 +372,51 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
 }
 
+export async function getPersistedSession(sessionId: string): Promise<{
+  id: string;
+  userId: string;
+  expiresAt: Date;
+  isAdmin: boolean;
+} | null> {
+  const sessionDelegate = getPrismaUserSessionDelegate();
+  if (sessionDelegate?.findUnique) {
+    try {
+      const row = await sessionDelegate.findUnique({ where: { id: sessionId } });
+      if (row) {
+        const userId = String(row.userId ?? row.user_id ?? "");
+        const expiresAt = new Date(row.expiresAt ?? row.expires_at);
+        if (userId && !Number.isNaN(expiresAt.getTime())) {
+          return {
+            id: String(row.id ?? sessionId),
+            userId,
+            expiresAt,
+            isAdmin: Boolean(row.isAdmin ?? row.is_admin),
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, sessionId }, "[db-persist] getPersistedSession failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(userSessionsTable).where(eq(userSessionsTable.id, sessionId));
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      userId: row.userId,
+      expiresAt: row.expiresAt,
+      isAdmin: row.isAdmin,
+    };
+  } catch (err) {
+    logger.warn({ err, sessionId }, "[db-persist] getPersistedSession failed using Drizzle");
+    return null;
+  }
+}
+
 /**
  * List persisted sessions for a user. Returns an array of { id, userId, expiresAt, isAdmin }.
  */

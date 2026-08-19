@@ -6,7 +6,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { sessions, users } from "./store";
 import { isProduction } from "./env";
-import { deleteSession } from "./db-persist";
+import { deleteSession, getPersistedSession } from "./db-persist";
 
 export const SESSION_COOKIE = "xpfx_sid";
 
@@ -40,7 +40,14 @@ export async function cleanupExpiredSession(req: Request, res: Response, sid: st
 export async function attachSession(req: Request, res: Response, next: NextFunction): Promise<void> {
   const sid = getSessionId(req);
   if (sid) {
-    const rec = sessions.get(sid);
+    let rec = sessions.get(sid);
+    if (!rec) {
+      const persisted = await getPersistedSession(sid);
+      if (persisted) {
+        rec = { userId: persisted.userId, expiresAt: persisted.expiresAt };
+        sessions.set(sid, rec);
+      }
+    }
     if (rec) {
       if (isExpired(rec.expiresAt)) {
         await cleanupExpiredSession(req, res, sid);
