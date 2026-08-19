@@ -37,7 +37,7 @@ export function DigitalPaymentMethods() {
         "Card & wallet funds",
         "Mobile only",
       ],
-      supported: true,
+      supported: false,
       badge: "Premium",
     },
     {
@@ -51,7 +51,7 @@ export function DigitalPaymentMethods() {
         "Card & wallet funds",
         "Android & Web",
       ],
-      supported: true,
+      supported: false,
       badge: "Popular",
     },
     {
@@ -65,7 +65,7 @@ export function DigitalPaymentMethods() {
         "Direct crypto transfers",
         "Self-custody",
       ],
-      supported: true,
+      supported: false,
     },
     {
       id: "credit-card",
@@ -78,7 +78,7 @@ export function DigitalPaymentMethods() {
         "High limits",
         "Reward points",
       ],
-      supported: true,
+      supported: false,
     },
   ];
 
@@ -87,6 +87,16 @@ export function DigitalPaymentMethods() {
       toast({
         title: "Invalid amount",
         description: "Please enter a valid deposit amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const method = paymentMethods.find((candidate) => candidate.id === methodId);
+    if (!method?.supported) {
+      toast({
+        title: "Payment method unavailable",
+        description: "This payment method is not configured for live settlement yet. Use a verified provider checkout instead.",
         variant: "destructive",
       });
       return;
@@ -103,29 +113,25 @@ export function DigitalPaymentMethods() {
     try {
       const method = paymentMethods.find((m) => m.id === selectedMethod);
 
-      // Simulate payment processing
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
       if (method?.id === "apple-pay") {
-        // Initiate Apple Pay session
-        // Note: This requires actual Apple Pay implementation via Stripe/PaymentKit
         toast({
-          title: "Apple Pay Initiated",
-          description: `Processing $${amount} payment via Apple Pay. Complete the payment on your device.`,
+          title: "Apple Pay unavailable",
+          description: "Apple Pay is not configured for live settlement.",
+          variant: "destructive",
         });
-      } else if (methodId === "google-pay") {
-        // Initiate Google Pay session
+      } else if (method?.id === "google-pay") {
         toast({
-          title: "Google Pay Initiated",
-          description: `Processing $${amount} payment via Google Pay. Complete the payment on your device.`,
+          title: "Google Pay unavailable",
+          description: "Google Pay is not configured for live settlement.",
+          variant: "destructive",
         });
-      } else if (methodId === "connect-wallet") {
+      } else if (method?.id === "connect-wallet") {
         // Initiate Web3 wallet connection
         toast({
           title: "Wallet Connection Ready",
           description: `Approve the transaction in your connected wallet to deposit $${amount}.`,
         });
-      } else if (methodId === "credit-card") {
+      } else if (method?.id === "credit-card") {
         // Show credit card form
         toast({
           title: "Card Payment Ready",

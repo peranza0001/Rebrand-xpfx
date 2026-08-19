@@ -25,7 +25,7 @@ const store = storeModule.default?.default ?? storeModule.default ?? storeModule
 const { _getOtpRecord } = otp;
 const { sentEmails } = store;
 const { normalizeSmtpHost } = emailModule;
-const { setPrismaClient, persistUser, persistSession } = dbPersistModule;
+const { setPrismaClient, persistUser, persistSession, persistKyc } = dbPersistModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');
@@ -128,6 +128,30 @@ test('snake_case Prisma delegates persist users and sessions without missing-mod
     assert.equal(userCalls.length, 1);
     assert.equal(sessionCalls.length, 1);
     assert.equal(sessionCalls[0].id, 'snake-session-123');
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('KYC submissions use the durable Prisma document persistence path', async () => {
+  const kycCalls = [];
+  setPrismaClient({
+    kyc_documents: {
+      upsert: async (input) => {
+        kycCalls.push(input);
+        return input;
+      },
+    },
+  });
+
+  try {
+    const userId = randomUUID();
+    const kycId = randomUUID();
+    await persistKyc(kycId, userId, { documentType: 'passport', status: 'pending' });
+    assert.equal(kycCalls.length, 1);
+    assert.equal(kycCalls[0].create.user_id, userId);
+    assert.equal(kycCalls[0].create.doc_type, 'passport');
+    assert.equal(kycCalls[0].create.status, 'pending');
   } finally {
     setPrismaClient(null);
   }
