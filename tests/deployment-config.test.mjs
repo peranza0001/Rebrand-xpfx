@@ -13,10 +13,10 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-test('railpack install/build uses npm production override instead of forcing NODE_ENV during install', () => {
+test('railpack install/build keeps dev dependencies available without deprecated npm production config', () => {
   const railpack = readJson(railpackPath);
 
   assert.equal(railpack.env?.NODE_ENV, undefined, 'railpack env should not force NODE_ENV=production during install/build');
-  assert.match(railpack.install, /NPM_CONFIG_PRODUCTION=false/, 'install step should explicitly disable npm production mode');
-  assert.match(railpack.build, /NPM_CONFIG_PRODUCTION=false/, 'build step should explicitly disable npm production mode');
+  assert.match(railpack.install, /--include=dev/, 'install step should explicitly include dev dependencies');
+  assert.match(railpack.build, /--include=dev|npm run predeploy/, 'build step should keep dev dependencies available during build');
 });

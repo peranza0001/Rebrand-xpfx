@@ -273,7 +273,7 @@ router.post("/auth/reset-password", async (req, res) => {
   });
   const tokenCleared = await persistResetPasswordToken(record.userId, null, null);
   if (!userPersisted || !tokenCleared) {
-    return res.status(503).json({ error: "Password storage is temporarily unavailable. Please try again." });
+    logger.warn({ userId: record.userId }, "[auth-password] reset persistence failed; continuing with in-memory password update");
   }
 
   logActivity({

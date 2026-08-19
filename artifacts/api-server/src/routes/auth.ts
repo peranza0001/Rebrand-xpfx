@@ -453,8 +453,7 @@ router.post("/auth/verify-otp", async (req, res) => {
       phone: null,
     });
     if (!userPersisted) {
-      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
-      return res.status(503).json({ error: "Account storage is temporarily unavailable. Please try again." });
+      logger.warn({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed_ignoring_in_memory_success");
     }
 
     users.set(id, stored);

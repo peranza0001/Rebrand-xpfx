@@ -85,22 +85,19 @@ async function loadRowsFromDb<T>(
   loadDrizzle: (db: any) => Promise<T[]>,
   loadPrisma: () => Promise<T[]>,
 ): Promise<T[]> {
-  const drizzleRows = await dbGet(label, (db) => loadDrizzle(db), [] as T[]);
-  if (drizzleRows.length > 0) {
-    return drizzleRows;
-  }
-
   const prisma = getPrismaClient();
-  if (!prisma) {
-    return drizzleRows;
+  if (prisma) {
+    try {
+      const prismaRows = await loadPrisma();
+      if (prismaRows.length > 0) {
+        return prismaRows;
+      }
+    } catch (err) {
+      logger.warn({ label, err }, "[hydrate] Prisma load failed; trying compatibility reader");
+    }
   }
 
-  try {
-    return await loadPrisma();
-  } catch (err) {
-    logger.warn({ label, err }, "[hydrate] Prisma fallback failed");
-    return drizzleRows;
-  }
+  return dbGet(label, (db) => loadDrizzle(db), [] as T[]);
 }
 
 export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, existingEmails: Map<string, string>): StoredUser | null {

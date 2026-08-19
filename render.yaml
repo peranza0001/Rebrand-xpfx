@@ -41,7 +41,7 @@ services:
     plan: starter
 
     buildCommand: >-
-      npm ci --legacy-peer-deps --no-audit --no-fund &&
+      npm ci --include=dev --legacy-peer-deps --no-audit --no-fund &&
       npm run prepare:runtime-secrets &&
       npm run predeploy &&
       npm run build --workspace=artifacts/api-server &&

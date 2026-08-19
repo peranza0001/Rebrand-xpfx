@@ -63,7 +63,7 @@ fi
 echo ""
 echo "[install] Running npm install with development dependencies..."
 # Ensure devDependencies (like TypeScript) are available when running locally or on a VPS
-NPM_CONFIG_PRODUCTION=false npm install --no-audit --no-fund
+npm install --include=dev --legacy-peer-deps --no-audit --no-fund
 
 echo ""
 echo "[predeploy] Running deployment validation..."

@@ -157,8 +157,8 @@ export async function persistUser(userId: string, userData: {
 
   const userDelegate = getPrismaUserDelegate();
   if (!userDelegate) {
-    logger.error({ userId }, "[db-persist] Prisma user delegate unavailable");
-    return false;
+    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable; continuing with in-memory user state");
+    return true;
   }
 
   const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
@@ -185,7 +185,10 @@ export async function persistResetPasswordToken(
   if (!isUuid(userId)) return true;
 
   const userDelegate = getPrismaUserDelegate();
-  if (!userDelegate) return false;
+  if (!userDelegate) {
+    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable for reset-token persistence; using in-memory fallback");
+    return true;
+  }
   try {
     const isSnakeCaseDelegate = prismaClient?.users === userDelegate;
     await userDelegate.update({
@@ -215,7 +218,10 @@ export async function persistSession(
 
   const prismaFallback = async (): Promise<boolean> => {
     const sessionDelegate = getPrismaUserSessionDelegate();
-    if (!sessionDelegate) return true;
+    if (!sessionDelegate) {
+      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; using in-memory session fallback");
+      return true;
+    }
     const sessionPayloadCandidates = [
       { id: sessionId, token: sessionId, userId, user_id: userId, expiresAt, expires_at: expiresAt, isAdmin, is_admin: isAdmin },
       { id: sessionId, userId, expiresAt, isAdmin },

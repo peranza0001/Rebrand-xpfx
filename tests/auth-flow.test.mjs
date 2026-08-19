@@ -79,6 +79,17 @@ test('SMTP host values are normalized before provider delivery', () => {
   assert.equal(normalizeSmtpHost('smtp.sendgrid.net'), 'smtp.sendgrid.net');
 });
 
+test('persistSession treats missing Prisma delegates as a safe in-memory fallback', async () => {
+  setPrismaClient({});
+
+  try {
+    const sessionPersisted = await persistSession('fallback-only-session', randomUUID(), new Date('2030-01-01T00:00:00Z'), false);
+    assert.equal(sessionPersisted, true);
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
 test('snake_case Prisma delegates persist users and sessions without missing-model fallback errors', async () => {
   const sessionCalls = [];
   const userCalls = [];
