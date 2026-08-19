@@ -316,6 +316,22 @@ describe('KYC/AML Providers Integration', () => {
   });
 
   describe('AML Screening Results', () => {
+    it('should persist AML screening results when a database client is available', async () => {
+      const { persistAmlScreening } = await import('../artifacts/api-server/src/lib/db-persist.ts');
+
+      const payload = {
+        id: 'aml_persist_test_id',
+        userId: 'user_aml_persist',
+        provider: 'mock',
+        status: 'clear',
+        riskLevel: 'low',
+        matchCount: 0,
+        matches: [],
+      };
+
+      await assert.doesNotReject(() => persistAmlScreening(payload));
+    });
+
     it('should return screening result structure', async () => {
       if (!kyc.performAMLScreening) {
         this.skip();

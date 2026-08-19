@@ -657,6 +657,68 @@ export async function persistKycVerification(input: { id: string; userId: string
   }
 }
 
+export async function persistAmlScreening(input: {
+  id: string;
+  userId: string;
+  provider: string;
+  status: string;
+  riskLevel?: string;
+  matchCount?: number;
+  matches?: Array<{ listType: string; matchScore: number; entity: string }>;
+}): Promise<void> {
+  if (!prismaClient || !isUuid(input.userId)) return;
+
+  try {
+    const delegate =
+      getPrismaModelDelegate("AMLScreening") ??
+      getPrismaModelDelegate("AmlScreening") ??
+      getPrismaModelDelegate("aml_screening") ??
+      getPrismaModelDelegate("aml_screenings");
+
+    if (delegate?.upsert) {
+      await delegate.upsert({
+        where: { id: input.id },
+        update: {
+          provider: input.provider,
+          status: input.status,
+          riskLevel: input.riskLevel ?? "low",
+          matchCount: input.matchCount ?? 0,
+          matches: input.matches ?? [],
+        },
+        create: {
+          id: input.id,
+          userId: input.userId,
+          provider: input.provider,
+          status: input.status,
+          riskLevel: input.riskLevel ?? "low",
+          matchCount: input.matchCount ?? 0,
+          matches: input.matches ?? [],
+        },
+      });
+      return;
+    }
+
+    if (typeof prismaClient.$queryRaw === "function") {
+      const tableCheck = await prismaClient.$queryRaw`SELECT to_regclass('public.aml_screenings') AS table_name` as Array<{ table_name: string | null }>;
+      if (!tableCheck.length || !tableCheck[0]?.table_name) return;
+
+      await prismaClient.$queryRaw`
+        INSERT INTO aml_screenings (id, user_id, provider, status, risk_level, match_count, matches, created_at, updated_at)
+        VALUES (${input.id}, ${input.userId}, ${input.provider}, ${input.status}, ${input.riskLevel ?? "low"}, ${input.matchCount ?? 0}, ${JSON.stringify(input.matches ?? [])}::jsonb, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          provider = EXCLUDED.provider,
+          status = EXCLUDED.status,
+          risk_level = EXCLUDED.risk_level,
+          match_count = EXCLUDED.match_count,
+          matches = EXCLUDED.matches,
+          updated_at = NOW()
+      `;
+    }
+  } catch (err) {
+    logger.warn({ err, userId: input.userId, screeningId: input.id }, "[db-persist] persistAmlScreening failed");
+  }
+}
+
 export async function persistBankAccount(
   bankAccountId: string,
   userId: string,
