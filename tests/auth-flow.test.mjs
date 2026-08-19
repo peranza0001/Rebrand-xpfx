@@ -5,6 +5,7 @@ process.env.ADMIN_EMAIL = 'admin@example.com';
 process.env.ADMIN_PASSWORD = 'AdminPass123!';
 process.env.ENABLE_DEMO_AUTH = 'true';
 process.env.DATABASE_URL = '';
+process.env.AUTH_RATE_LIMIT_MAX = '100';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
