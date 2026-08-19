@@ -134,13 +134,15 @@ router.post("/auth/forgot-password", async (req, res) => {
         userId,
         expiresAt,
       });
-      // Persist password reset token to DB (background operation)
-      persistResetPasswordToken(userId, token, new Date(expiresAt)).catch((err) => {
-        logger.warn(
-          { userId, err },
-          '[auth-password] Background persist failed for password reset token'
-        );
-      });
+      const tokenPersisted = await persistResetPasswordToken(userId, token, new Date(expiresAt));
+      if (!tokenPersisted) {
+        resetTokens.delete(token);
+        logger.error({ userId }, "[auth-password] Reset token persistence failed");
+        return res.json({
+          ok: true,
+          message: "If that email address is registered, a reset link has been sent.",
+        });
+      }
       const resetUrl = `${resolveAppOriginFromRequest(req)}/reset-password?token=${token}`;
       try {
         await sendEmail({
@@ -216,24 +218,35 @@ router.post("/auth/reset-password", async (req, res) => {
     // If the user exists in DB but is not loaded into memory, we still
     // want the reset operation to succeed for the persisted account.
     const prisma = getPrismaClient();
-    if (prisma) {
+    const userDelegate = prisma?.user?.findUnique
+      ? prisma.user
+      : prisma?.users?.findUnique
+        ? prisma.users
+        : null;
+    if (userDelegate) {
       try {
-        const dbUser = await prisma.user.findUnique({
+        const dbUser = await userDelegate.findUnique({
           where: { id: record.userId },
-          select: { email: true, passwordHash: true },
         });
         if (dbUser) {
           // We don't have a fully hydrated in-memory user, but the reset
           // can still proceed by clearing the persistent token and letting
           // future login use the updated hashed password from the DB.
           const newHash = hashPassword(newPassword);
-          await prisma.user.update({
+          const isSnakeCaseDelegate = userDelegate === prisma.users;
+          await userDelegate.update({
             where: { id: record.userId },
-            data: {
-              passwordHash: newHash,
-              resetPasswordToken: null,
-              resetPasswordExpiry: null,
-            },
+            data: isSnakeCaseDelegate
+              ? {
+                password_hash: newHash,
+                reset_password_token: null,
+                reset_password_expiry: null,
+              }
+              : {
+                passwordHash: newHash,
+                resetPasswordToken: null,
+                resetPasswordExpiry: null,
+              },
           });
           clearResetTokensForUser(record.userId);
           return res.json({ ok: true, message: "Password updated successfully. You can now log in." });
@@ -250,7 +263,7 @@ router.post("/auth/reset-password", async (req, res) => {
   clearResetTokensForUser(record.userId);
   resetTokens.delete(token);
   markResetTokenAsUsed(token);
-  void persistUser(record.userId, {
+  const userPersisted = await persistUser(record.userId, {
     email: stored.user.email,
     username: stored.user.username,
     passwordHash: stored.passwordHash,
@@ -258,7 +271,10 @@ router.post("/auth/reset-password", async (req, res) => {
     country: stored.user.country,
     phone: stored.phone,
   });
-  void persistResetPasswordToken(record.userId, null, null);
+  const tokenCleared = await persistResetPasswordToken(record.userId, null, null);
+  if (!userPersisted || !tokenCleared) {
+    return res.status(503).json({ error: "Password storage is temporarily unavailable. Please try again." });
+  }
 
   logActivity({
     actorId: record.userId,
