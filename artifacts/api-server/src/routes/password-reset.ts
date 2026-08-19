@@ -76,6 +76,13 @@ router.post('/password-reset/request', async (req: Request, res: Response) => {
       });
     }
 
+    if (!userId) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with that email, you will receive a password reset link.',
+      });
+    }
+
     const user = users.get(userId);
     if (!user) {
       logger.warn({ email: lowerEmail }, '[PASSWORD_RESET] User missing from store after existence check');

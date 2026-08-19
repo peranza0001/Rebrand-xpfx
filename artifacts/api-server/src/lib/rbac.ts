@@ -32,7 +32,7 @@ export function requireRole(allowedRoles: string[]) {
       });
     }
 
-    next();
+    return next();
   };
 }
 

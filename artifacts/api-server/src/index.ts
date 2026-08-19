@@ -231,7 +231,7 @@ async function bootstrap() {
       if (!process.env.ADMIN_EMAIL?.trim() || !process.env.ADMIN_EMAIL.includes('@') || process.env.ADMIN_EMAIL.includes('example.com')) {
         throw new Error('ADMIN_EMAIL must be set to a real production address.');
       }
-      const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+      const adminPassword = process.env.ADMIN_PASSWORD?.trim() ?? '';
       const normalizedAdminPassword = adminPassword?.toLowerCase();
       const hasUpper = /[A-Z]/.test(adminPassword ?? '');
       const hasLower = /[a-z]/.test(adminPassword ?? '');

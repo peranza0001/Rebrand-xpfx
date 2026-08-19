@@ -7,6 +7,7 @@
 import { getDb } from "./db-client";
 import { logger } from "./logger";
 import { getPrismaClient } from "./db-persist";
+import { sql } from "drizzle-orm";
 
 export type LedgerEntryType =
   | "deposit_initiated"
@@ -129,13 +130,15 @@ export async function getUserLedgerEntries(
     const db = getDb();
     if (db) {
       // Using Drizzle ORM pattern
-      const entries = await db.execute(`
+      const safeLimit = Math.max(0, Math.floor(limit));
+      const safeOffset = Math.max(0, Math.floor(offset));
+      const result = await db.execute(sql`
         SELECT * FROM wallet_ledger_entries 
-        WHERE user_id = ? 
+        WHERE user_id = ${userId}
         ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-      `, [userId, limit, offset]);
-      return entries || [];
+        LIMIT ${safeLimit} OFFSET ${safeOffset}
+      `);
+      return ((result as unknown as { rows?: LedgerEntry[] }).rows ?? []);
     }
 
     const prisma = getPrismaClient();
@@ -182,7 +185,7 @@ export async function getMainWalletBalance(userId: string): Promise<{ available:
     const socialLocked = social?.locked_balance || 0;
     const socialPending = social?.pending_balance || 0;
 
-    const connectedAvailable = (connected || []).reduce((sum, w) => sum + Number(w.balance || 0), 0);
+    const connectedAvailable = (connected || []).reduce((sum: number, w: { balance?: number | string }) => sum + Number(w.balance || 0), 0);
 
     return {
       available: tradingAvailable + socialAvailable + connectedAvailable,
@@ -211,7 +214,7 @@ export async function updateWalletSubBalance(
       return false;
     }
 
-    const updateData = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date(),
     };
 

@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-19 19:30:38 UTC
+- Last sync: 2026-08-19 19:43:07 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  tests/auth-flow.test.mjs
+- Current working tree: M  artifacts/api-server/src/index.ts | M  artifacts/api-server/src/lib/compliance-status.ts | M  artifacts/api-server/src/lib/kyc-provider.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

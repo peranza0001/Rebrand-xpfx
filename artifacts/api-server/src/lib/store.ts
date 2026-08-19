@@ -12,6 +12,7 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import { persistTransaction, persistUser, persistWalletBalance } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
+import { logger } from "./logger";
 import type {
   AccountManager,
   ActivityLogEntry,
@@ -254,6 +255,8 @@ export interface SmartVestAccount {
   createdAt: string;
   updatedAt: string;
   returnPercent?: number;
+  lastPayoutAt?: string;
+  totalPayoutsReceived?: number;
 }
 
 /**

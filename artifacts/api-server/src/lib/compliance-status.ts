@@ -227,7 +227,7 @@ export function updateUserComplianceStatus(userId: string): UserComplianceStatus
     status.highRiskFlags.push(`High KYC risk: ${latestKYC.riskScore}`);
   }
 
-  if (latestAML && latestAML.status === 'match') {
+  if (latestAML?.status === 'rejected') {
     status.highRiskFlags.push('AML match detected');
   }
 

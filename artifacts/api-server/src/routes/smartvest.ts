@@ -110,16 +110,18 @@ router.post("/smartvest/complete-plan", requireFullAuth, async (req, res) => {
     }
 
     // Get or create main wallet
-    let mainWallet = data.mainWallet;
+    let mainWallet = data.wallets.find((wallet) => wallet.type === "main");
     if (!mainWallet) {
       mainWallet = {
         id: `wallet_${Date.now()}`,
-        userId: req.userId!,
-        name: "Main Wallet",
         type: "main",
-        createdAt: new Date(),
+        label: "Main Wallet",
+        currency: "USD",
+        balance: 0,
+        pendingBalance: 0,
+        address: "",
       };
-      data.mainWallet = mainWallet;
+      data.wallets.push(mainWallet);
     }
 
     // Record ledger entry for SmartVest payout

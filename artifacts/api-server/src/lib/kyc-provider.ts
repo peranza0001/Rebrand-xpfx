@@ -544,10 +544,6 @@ async function performComplyAdvantageScreening(
       riskLevel: 'low',
       matches: [],
       createdAt: new Date(),
-      rawResponse: {
-        provider: 'comply_advantage',
-        note: 'In production, checks against OFAC, EU sanctions, UN sanctions, and 500+ other lists',
-      },
     };
   } catch (error) {
     logger.error({ err: error, screeningId }, '[AML_COMPLY] ComplyAdvantage screening failed');
@@ -593,10 +589,6 @@ async function performSocureAMLScreening(
       riskLevel: 'low',
       matches: [],
       createdAt: new Date(),
-      rawResponse: {
-        provider: 'socure',
-        note: 'In production, checks against global AML/sanctions databases',
-      },
     };
   } catch (error) {
     logger.error({ err: error, screeningId }, '[AML_SOCURE] Socure AML screening failed');
