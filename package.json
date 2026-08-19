@@ -75,6 +75,7 @@
     "brace-expansion": "2.1.4",
     "minimatch": "7.4.9",
     "esbuild": "0.28.1",
+    "prisma": "5.14.0",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.28.1"
     }
