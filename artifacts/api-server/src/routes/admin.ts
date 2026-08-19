@@ -31,7 +31,7 @@ import {
   userData,
   users,
 } from "../lib/store";
-import { persistBankAccount, persistWalletBalance } from "../lib/db-persist";
+import { persistBankAccount, persistKycStatus, persistWalletBalance } from "../lib/db-persist";
 import {
   ensureCurrentCycle,
   getEffectiveRates,
@@ -274,6 +274,7 @@ router.post("/admin/kyc/:userId/decision", requireAdmin, (req, res) => {
     data.kyc.decidedAt = NOW();
     stored.user.kycVerified = false;
   }
+  void persistKycStatus(targetId, data.kyc.status, req.userId!, data.kyc.rejectionReason);
   notifyUser({
     userId: targetId,
     kind: parsed.data.decision === "approve" ? "kyc_approved" : "kyc_rejected",

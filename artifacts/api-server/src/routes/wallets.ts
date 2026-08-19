@@ -23,7 +23,7 @@ import {
 } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
-import { persistConnectedWallet } from "../lib/db-persist";
+import { persistConnectedWallet, persistTransaction, persistWallet } from "../lib/db-persist";
 import {
   getLiveBalance,
 } from "../lib/blockchain";
@@ -39,7 +39,7 @@ router.get("/wallets/transactions", requireAuth, (req, res) => {
   res.json(getUserData(req.userId!).transactions);
 });
 
-router.post("/wallets/transfer", requireAuth, (req, res) => {
+router.post("/wallets/transfer", requireAuth, async (req, res) => {
   const amount = Number(req.body?.amount ?? 0);
   const fromWalletId = String(req.body?.fromWalletId ?? "");
   const toWalletId = String(req.body?.toWalletId ?? "");
@@ -66,6 +66,11 @@ router.post("/wallets/transfer", requireAuth, (req, res) => {
         userId: req.userId!,
       },
     );
+    await Promise.all([
+      persistWallet(result.from.id, req.userId!, { walletType: result.from.type, balance: result.from.balance, pendingBalance: result.from.pendingBalance, currency: result.from.currency, label: result.from.label, address: result.from.address }),
+      persistWallet(result.to.id, req.userId!, { walletType: result.to.type, balance: result.to.balance, pendingBalance: result.to.pendingBalance, currency: result.to.currency, label: result.to.label, address: result.to.address }),
+      ...data.transactions.slice(0, 2).map((transaction) => persistTransaction(transaction.id, transaction.walletId, req.userId!, { type: transaction.type, amount: transaction.amount, currency: transaction.currency, status: transaction.status, description: transaction.description })),
+    ]);
 
     logActivity({
       actorId: req.userId!,

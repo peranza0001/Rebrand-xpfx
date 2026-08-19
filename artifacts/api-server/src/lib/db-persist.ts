@@ -593,22 +593,53 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
 }): Promise<void> {
   if (!prismaClient || !isUuid(kycId) || !isUuid(userId)) return;
   try {
-    await prismaClient.kyc_documents.upsert({
+    const delegate = getPrismaModelDelegate("KYCDocument");
+    if (!delegate) return;
+    const status = kycData.status === "approved" ? "APPROVED" : kycData.status === "rejected" ? "REJECTED" : kycData.status === "in_review" ? "UNDER_REVIEW" : "PENDING";
+    const type = kycData.documentType.toUpperCase();
+    await delegate.upsert({
       where: { id: kycId },
       update: {
-        status: kycData.status,
-        doc_url: kycData.fileUrl ?? "",
+        status,
+        fileUrl: kycData.fileUrl ?? "",
       },
       create: {
         id: kycId,
-        user_id: userId,
-        doc_type: kycData.documentType,
-        doc_url: kycData.fileUrl ?? "",
-        status: kycData.status,
+        userId,
+        type,
+        fileUrl: kycData.fileUrl ?? "",
+        status,
       },
     });
-  } catch {
-    // Silent fail
+  } catch (err) {
+    logger.warn({ err, kycId, userId }, "[db-persist] persistKyc failed");
+  }
+}
+
+export async function persistKycStatus(userId: string, status: string, reviewedBy?: string, rejectionReason?: string | null): Promise<void> {
+  if (!prismaClient || !isUuid(userId)) return;
+  try {
+    const normalizedStatus = status === "approved" ? "APPROVED" : status === "rejected" ? "REJECTED" : status === "in_review" ? "UNDER_REVIEW" : "PENDING";
+    const delegate = getPrismaModelDelegate("KYCDocument");
+    if (delegate) {
+      const latest = await delegate.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
+      if (latest) await delegate.update({ where: { id: latest.id }, data: { status: normalizedStatus, reviewedAt: new Date(), reviewedBy: reviewedBy ?? null } });
+    }
+    const userDelegate = getPrismaModelDelegate("User");
+    await userDelegate?.update({ where: { id: userId }, data: { kycStatus: status, kycVerified: status === "approved" } });
+    void rejectionReason;
+  } catch (err) {
+    logger.warn({ err, userId, status }, "[db-persist] persistKycStatus failed");
+  }
+}
+
+export async function persistKycVerification(input: { id: string; userId: string; provider: string; providerRef?: string; status: string; rejectionReason?: string }): Promise<void> {
+  if (!prismaClient || !isUuid(input.userId)) return;
+  try {
+    const delegate = getPrismaModelDelegate("KYCVerification");
+    await delegate?.upsert({ where: { id: input.id }, update: { provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null }, create: { id: input.id, userId: input.userId, provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null } });
+  } catch (err) {
+    logger.warn({ err, userId: input.userId, verificationId: input.id }, "[db-persist] persistKycVerification failed");
   }
 }
 

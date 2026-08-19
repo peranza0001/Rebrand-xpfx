@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,16 @@ export function DigitalPaymentMethods() {
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [availability, setAvailability] = useState({ applePay: false, googlePay: false });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/payments/digital-methods", { credentials: "include" })
+      .then((response) => response.ok ? response.json() as Promise<{ applePay?: boolean; googlePay?: boolean }> : null)
+      .then((data) => { if (active && data) setAvailability({ applePay: data.applePay === true, googlePay: data.googlePay === true }); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   const paymentMethods: DigitalPaymentMethod[] = [
     {
@@ -37,7 +47,7 @@ export function DigitalPaymentMethods() {
         "Card & wallet funds",
         "Mobile only",
       ],
-      supported: false,
+      supported: availability.applePay,
       badge: "Premium",
     },
     {
@@ -51,7 +61,7 @@ export function DigitalPaymentMethods() {
         "Card & wallet funds",
         "Android & Web",
       ],
-      supported: false,
+      supported: availability.googlePay,
       badge: "Popular",
     },
     {
@@ -113,18 +123,23 @@ export function DigitalPaymentMethods() {
     try {
       const method = paymentMethods.find((m) => m.id === selectedMethod);
 
-      if (method?.id === "apple-pay") {
-        toast({
-          title: "Apple Pay unavailable",
-          description: "Apple Pay is not configured for live settlement.",
-          variant: "destructive",
+      if (method?.id === "apple-pay" || method?.id === "google-pay") {
+        if (!("PaymentRequest" in window)) throw new Error("This browser does not support secure payment requests.");
+        const paymentRequest = new PaymentRequest(
+          [{ supportedMethods: method.id === "apple-pay" ? "https://apple.com/apple-pay" : "https://google.com/pay" }],
+          { total: { label: "XpressPro FX deposit", amount: { currency: "USD", value: amount } } },
+        );
+        if (!(await paymentRequest.canMakePayment())) throw new Error(`${method.name} is unavailable on this device.`);
+        const paymentResponse = await paymentRequest.show();
+        const response = await fetch(`/api/payments/${method.id}/intent`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ amount: Number(amount), currency: "USD", token: JSON.stringify(paymentResponse.details) }),
         });
-      } else if (method?.id === "google-pay") {
-        toast({
-          title: "Google Pay unavailable",
-          description: "Google Pay is not configured for live settlement.",
-          variant: "destructive",
-        });
+        if (!response.ok) throw new Error((await response.json() as { error?: string }).error ?? "Payment could not be started.");
+        await paymentResponse.complete("success");
+        toast({ title: "Payment submitted", description: "Your wallet will be credited after processor confirmation." });
       } else if (method?.id === "connect-wallet") {
         // Initiate Web3 wallet connection
         toast({

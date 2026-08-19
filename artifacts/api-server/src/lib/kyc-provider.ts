@@ -34,8 +34,8 @@
 
 import { logger } from './logger';
 
-export type KYCVerificationStatus = 'pending' | 'approved' | 'rejected' | 'manual_review';
-export type KYCProvider = 'onfido' | 'socure' | 'stripe_identity' | 'idology' | 'trulioo' | 'mock';
+export type KYCVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
+export type KYCProvider = 'onfido' | 'socure' | 'stripe_identity' | 'idology' | 'trulioo' | 'unconfigured';
 
 export interface KYCVerificationRequest {
   userId: string;
@@ -118,9 +118,7 @@ const providerConfig: Record<KYCProvider, any> = {
     endpoint: process.env.TRULIOO_API_URL || 'https://api.trulioo.com/v1',
     enabled: !!process.env.TRULIOO_API_KEY,
   },
-  mock: {
-    enabled: true, // Always available for testing
-  },
+  unconfigured: { enabled: true },
 };
 
 // In-memory verification store
@@ -133,7 +131,7 @@ const screenings = new Map<string, AMLScreeningResult>();
  */
 export function getConfiguredKYCProvider(): KYCProvider {
   // Try providers in order of preference
-  const preferredOrder: KYCProvider[] = ['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo', 'mock'];
+  const preferredOrder: KYCProvider[] = ['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo'];
   
   for (const provider of preferredOrder) {
     if (providerConfig[provider]?.enabled) {
@@ -141,7 +139,7 @@ export function getConfiguredKYCProvider(): KYCProvider {
     }
   }
   
-  return 'mock'; // Fallback to mock
+  return 'unconfigured';
 }
 
 /**
@@ -177,9 +175,17 @@ export async function initiateKYCVerification(
       case 'trulioo':
         result = await initiateTruliooVerification(request, verificationId);
         break;
-      case 'mock':
+      case 'unconfigured':
       default:
-        result = initiateMockVerification(request, verificationId);
+        result = {
+          verificationId,
+          status: 'pending',
+          userId: request.userId,
+          provider: 'unconfigured',
+          createdAt: new Date(),
+          checks: { identity: false, documentValidity: false },
+          errorMessage: 'KYC provider not configured',
+        };
     }
 
     verifications.set(verificationId, result);
@@ -219,8 +225,8 @@ async function initiateOnfidoVerification(
   const endpoint = providerConfig.onfido.endpoint;
 
   if (!apiKey) {
-    logger.warn({ verificationId }, '[KYC_ONFIDO] No API key configured, falling back to mock');
-    return initiateMockVerification(request, verificationId);
+    logger.warn({ verificationId }, '[KYC_ONFIDO] No API key configured');
+    return { verificationId, status: 'pending', userId: request.userId, provider: 'unconfigured', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'KYC provider not configured' };
   }
 
   try {
@@ -277,8 +283,8 @@ async function initiateSocureVerification(
   const endpoint = providerConfig.socure.endpoint;
 
   if (!apiKey) {
-    logger.warn({ verificationId }, '[KYC_SOCURE] No API key configured, falling back to mock');
-    return initiateMockVerification(request, verificationId);
+    logger.warn({ verificationId }, '[KYC_SOCURE] No API key configured');
+    return { verificationId, status: 'pending', userId: request.userId, provider: 'unconfigured', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'KYC provider not configured' };
   }
 
   try {
@@ -376,32 +382,6 @@ async function initiateTruliooVerification(
     provider: 'trulioo',
     createdAt: new Date(),
     checks: { identity: false, documentValidity: false },
-  };
-}
-
-/**
- * Mock verification for development/testing
- */
-function initiateMockVerification(
-  request: KYCVerificationRequest,
-  verificationId: string
-): KYCVerificationResult {
-  // Simulate verification approval for demo accounts
-  const isDemoEmail = request.email?.includes('demo') || request.email?.includes('test');
-  
-  return {
-    verificationId,
-    status: isDemoEmail ? 'approved' : 'manual_review',
-    userId: request.userId,
-    provider: 'mock',
-    createdAt: new Date(),
-    completedAt: new Date(),
-    riskScore: isDemoEmail ? 10 : 45,
-    checks: {
-      identity: isDemoEmail,
-      documentValidity: isDemoEmail,
-      livenessCheck: isDemoEmail,
-    },
   };
 }
 

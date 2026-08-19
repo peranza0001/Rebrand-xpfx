@@ -20,6 +20,8 @@ import {
 } from '../lib/compliance-status';
 import { requireAuth } from '../lib/session';
 import { logger } from '../lib/logger';
+import { persistKycVerification } from '../lib/db-persist';
+import { newUuid } from '../lib/store';
 
 const router = Router();
 
@@ -89,6 +91,7 @@ router.post('/kyc/verify/start', requireAuth, async (req: Request, res: Response
 
     // Create compliance check record
     createComplianceCheck(userId, 'kyc_verification', verificationResult.verificationId);
+    await persistKycVerification({ id: newUuid(), userId, provider: verificationResult.provider, providerRef: verificationResult.verificationId, status: verificationResult.status, rejectionReason: verificationResult.errorMessage });
 
     // Log activity
     logger.info(

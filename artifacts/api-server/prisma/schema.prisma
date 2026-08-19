@@ -74,6 +74,33 @@ model KYCDocument {
   @@map("kyc_documents")
 }
 
+model PaymentIntent {
+  id          String   @id @default(uuid())
+  processorId String   @unique @map("processor_id")
+  userId      String   @map("user_id")
+  amount      Decimal  @db.Decimal(18, 8)
+  currency    String
+  method      String
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  @@index([userId, status])
+  @@map("payment_intents")
+}
+
+model KYCVerification {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  provider        String
+  providerRef     String?  @map("provider_ref")
+  status          String
+  rejectionReason String?  @map("rejection_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  @@index([userId, status])
+  @@map("kyc_verifications")
+}
+
 // ─── TRADING ACCOUNTS ─────────────────────────────────────────────────────────
 
 model TradingAccount {

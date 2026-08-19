@@ -54,6 +54,7 @@ import auditRouter from "./audit";
 import regionRouter from "./region";
 import monitoringRouter from "./monitoring";
 import adminWalletsRouter from "./admin-wallets";
+import digitalPaymentsRouter from "./digital-payments";
 
 const router: IRouter = Router();
 
@@ -97,6 +98,7 @@ router.use(authPasswordRouter);
 router.use(authPinRouter);
 router.use(adminDepositsRouter);
 router.use(adminWalletsRouter);
+router.use(digitalPaymentsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);

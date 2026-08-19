@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-19 19:54:46 UTC
+- Last sync: 2026-08-19 20:54:48 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/routes/kyc.ts | M  artifacts/nextrade/src/components/digital-payment-methods.tsx | M  tests/auth-flow.test.mjs
+- Current working tree: A  PAYMENTS_KYC_SETUP.md | A  artifacts/api-server/prisma/migrations/20260819120000_add_payments_kyc_verifications/migration.sql | M  artifacts/api-server/prisma/schema.prisma
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
