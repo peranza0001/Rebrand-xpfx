@@ -593,6 +593,15 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
 }): Promise<void> {
   if (!prismaClient || !isUuid(kycId) || !isUuid(userId)) return;
   try {
+    const legacyDelegate = prismaClient.kyc_documents;
+    if (legacyDelegate?.upsert) {
+      await legacyDelegate.upsert({
+        where: { id: kycId },
+        update: { status: kycData.status, doc_url: kycData.fileUrl ?? "" },
+        create: { id: kycId, user_id: userId, doc_type: kycData.documentType, doc_url: kycData.fileUrl ?? "", status: kycData.status },
+      });
+      return;
+    }
     const delegate = getPrismaModelDelegate("KYCDocument");
     if (!delegate) return;
     const status = kycData.status === "approved" ? "APPROVED" : kycData.status === "rejected" ? "REJECTED" : kycData.status === "in_review" ? "UNDER_REVIEW" : "PENDING";
@@ -621,6 +630,11 @@ export async function persistKycStatus(userId: string, status: string, reviewedB
   try {
     const normalizedStatus = status === "approved" ? "APPROVED" : status === "rejected" ? "REJECTED" : status === "in_review" ? "UNDER_REVIEW" : "PENDING";
     const delegate = getPrismaModelDelegate("KYCDocument");
+    const legacyDelegate = prismaClient.kyc_documents;
+    if (legacyDelegate?.findFirst) {
+      const latest = await legacyDelegate.findFirst({ where: { user_id: userId }, orderBy: { created_at: "desc" } });
+      if (latest) await legacyDelegate.update({ where: { id: latest.id }, data: { status, reviewed_at: new Date(), reviewed_by: reviewedBy ?? null } });
+    }
     if (delegate) {
       const latest = await delegate.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
       if (latest) await delegate.update({ where: { id: latest.id }, data: { status: normalizedStatus, reviewedAt: new Date(), reviewedBy: reviewedBy ?? null } });

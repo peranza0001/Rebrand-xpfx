@@ -6,7 +6,7 @@
  * are correctly set up for later connection to real services.
  * 
  * Providers tested:
- * - Mock (always available)
+ * - Unconfigured mode (safe default when credentials are absent)
  * - Onfido (when ONFIDO_API_KEY is set)
  * - Socure (when SOCURE_API_KEY is set)
  * - ComplyAdvantage AML (when COMPLY_ADVANTAGE_API_KEY is set)
@@ -39,8 +39,8 @@ describe('KYC/AML Providers Integration', () => {
     }
   });
 
-  describe('Mock KYC Provider', () => {
-    it('should approve demo email KYC verification', async () => {
+  describe('Unconfigured KYC Provider', () => {
+    it('should keep demo email KYC pending without provider credentials', async () => {
       if (!kyc.initiateKYCVerification) {
         this.skip();
       }
@@ -56,13 +56,13 @@ describe('KYC/AML Providers Integration', () => {
       });
 
       assert.strictEqual(result.userId, 'user_demo_123');
-      assert.strictEqual(result.provider, 'mock');
-      assert.strictEqual(result.status, 'approved');
-      assert.strictEqual(result.checks.identity, true);
-      assert.strictEqual(result.checks.documentValidity, true);
+      assert.strictEqual(result.provider, 'unconfigured');
+      assert.strictEqual(result.status, 'pending');
+      assert.strictEqual(result.checks.identity, false);
+      assert.strictEqual(result.checks.documentValidity, false);
     });
 
-    it('should flag non-demo email for manual review', async () => {
+    it('should keep non-demo email pending without provider credentials', async () => {
       if (!kyc.initiateKYCVerification) {
         this.skip();
       }
@@ -78,8 +78,8 @@ describe('KYC/AML Providers Integration', () => {
       });
 
       assert.strictEqual(result.userId, 'user_prod_456');
-      assert.strictEqual(result.provider, 'mock');
-      assert.strictEqual(result.status, 'manual_review');
+      assert.strictEqual(result.provider, 'unconfigured');
+      assert.strictEqual(result.status, 'pending');
       assert.strictEqual(result.checks.identity, false);
     });
 
@@ -196,7 +196,7 @@ describe('KYC/AML Providers Integration', () => {
 
       const provider = kyc.getConfiguredKYCProvider();
       assert(provider);
-      assert(['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo', 'mock'].includes(provider));
+      assert(['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo', 'unconfigured'].includes(provider));
     });
 
     it('should prioritize Onfido if ONFIDO_API_KEY is set', async () => {
@@ -221,12 +221,12 @@ describe('KYC/AML Providers Integration', () => {
       }
     });
 
-    it('should fall back to mock provider when no real providers configured', async () => {
+    it('should report unconfigured when no real providers are configured', async () => {
       if (!kyc.getConfiguredKYCProvider) {
         this.skip();
       }
 
-      // If no real providers are configured, should return 'mock'
+      // Missing credentials must never enable fake verification.
       if (
         !process.env.ONFIDO_API_KEY &&
         !process.env.SOCURE_API_KEY &&
@@ -235,7 +235,7 @@ describe('KYC/AML Providers Integration', () => {
         !process.env.TRULIOO_API_KEY
       ) {
         const provider = kyc.getConfiguredKYCProvider();
-        assert.strictEqual(provider, 'mock');
+        assert.strictEqual(provider, 'unconfigured');
       }
     });
   });

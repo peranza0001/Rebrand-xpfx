@@ -145,6 +145,28 @@ Frontend build output: artifacts/nextrade/dist/public/
 
 ## What This Means for Vercel Deployment
 
+Each Vercel build now runs `scripts/vercel-build.mjs` and publishes
+`/build-info.json`. The file contains `sourceCommit`, `sourceBranch`,
+`sourceRepository`, `builtAt`, and `platform`, so the deployed revision can be
+verified directly instead of relying on the Vercel dashboard label. The
+expected production commit must match the `main` commit in the GitHub
+repository connected to the Vercel project.
+
+### Repository and branch verification
+
+The Vercel project must be connected to `trevionjamielynn800/Rebrand-xpfx` with
+Production Branch set to `main`. In each deployment, open `/build-info.json`
+and verify that `sourceRepository` is `trevionjamielynn800/Rebrand-xpfx` and
+`sourceBranch` is `main`; compare `sourceCommit` with the GitHub `main` commit.
+A deployment from a fork or preview branch can be valid but will intentionally
+show a different commit.
+
+This workspace previously had `origin` pointed at the fork
+`peranza0001/Rebrand-xpfx` while `upstream` pointed at the founder repository.
+Those repositories have unrelated histories, so synchronizing them requires a
+normal pull request or an explicit repository migration. Do not force-push one
+history over the other.
+
 ### Before Fix
 - ❌ Build would fail with JSON parsing errors
 - ❌ TypeScript compilation would fail to resolve workspace dependencies
