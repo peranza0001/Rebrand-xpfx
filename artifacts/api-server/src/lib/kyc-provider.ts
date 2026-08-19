@@ -130,6 +130,8 @@ const screenings = new Map<string, AMLScreeningResult>();
  * Priority order: Onfido > Socure > Stripe Identity > IDology > Trulioo > Mock
  */
 export function getConfiguredKYCProvider(): KYCProvider {
+  const requested = process.env.KYC_PROVIDER?.trim().toLowerCase() as KYCProvider | undefined;
+  if (requested && requested !== 'unconfigured' && providerConfig[requested]?.enabled) return requested;
   // Try providers in order of preference
   const preferredOrder: KYCProvider[] = ['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo'];
   
