@@ -98,7 +98,7 @@ describe('KYC/AML Providers Integration', () => {
           lastName: 'User',
           dateOfBirth: '1985-06-20',
           countryCode: 'GB',
-          documentType,
+          documentType: docType,
         });
 
         assert.strictEqual(result.documentType || true, true); // Just verify it ran
