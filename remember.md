@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-19 13:04:00 UTC
+- Last sync: 2026-08-19 13:21:24 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/lib/simulation-engine.ts | M  artifacts/api-server/src/routes/demo-trading.ts
+- Current working tree: M  artifacts/api-server/src/lib/db-persist.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

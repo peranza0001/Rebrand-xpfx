@@ -153,97 +153,28 @@ export async function persistUser(userId: string, userData: {
   country: string;
   phone?: string | null;
 }): Promise<boolean> {
-  if (!isUuid(userId)) return true;
+  if (!isUuid(userId)) return false;
 
-  const prismaFallback = async (): Promise<boolean> => {
-    const userDelegate = getPrismaUserDelegate();
-    if (!userDelegate) return true;
-
-    const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
-    let lastErr: unknown = null;
-
-    for (const payload of payloadCandidates) {
-      try {
-        await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
-        return true;
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-
-    const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
-    logger.warn({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+  const userDelegate = getPrismaUserDelegate();
+  if (!userDelegate) {
+    logger.error({ userId }, "[db-persist] Prisma user delegate unavailable");
     return false;
-  };
+  }
 
-  const db = getDb();
-  if (db) {
+  const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
+  let lastErr: unknown = null;
+  for (const payload of payloadCandidates) {
     try {
-      const existingById = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.id, userId)), 3, 200);
-      if (existingById.length > 0) {
-        await retryAsync(async () => db.update(usersTable)
-          .set({
-            email: userData.email,
-            username: userData.username,
-            fullName: userData.fullName,
-            passwordHash: userData.passwordHash,
-            country: userData.country,
-            phone: userData.phone ?? null,
-          })
-          .where(eq(usersTable.id, userId)), 3, 200);
-        return true;
-      }
-
-      // Try insert with explicit id first. Some deployments may use integer
-      // serial primary keys (non-UUID). If inserting with a UUID id fails,
-      // fall back to inserting without id and rely on email uniqueness.
-      try {
-        await retryAsync(async () => db.insert(usersTable).values({
-          id: userId,
-          email: userData.email,
-          username: userData.username,
-          fullName: userData.fullName,
-          passwordHash: userData.passwordHash,
-          country: userData.country,
-          phone: userData.phone ?? null,
-        }), 3, 200);
-        return true;
-      } catch (err) {
-        // If insertion with explicit id fails (e.g. DB expects numeric id),
-        // try finding by email and either update or insert without id.
-        logger.warn({ err, userId }, '[db-persist] insert with explicit id failed, falling back to email-based upsert');
-        const existingByEmail = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.email, userData.email)), 3, 200);
-        if (existingByEmail.length > 0) {
-          await retryAsync(async () => db.update(usersTable)
-            .set({
-              username: userData.username,
-              fullName: userData.fullName,
-              passwordHash: userData.passwordHash,
-              country: userData.country,
-              phone: userData.phone ?? null,
-            })
-            .where(eq(usersTable.email, userData.email)), 3, 200);
-          return true;
-        }
-
-        // Insert without id
-        await retryAsync(async () => db.insert(usersTable).values({
-          email: userData.email,
-          username: userData.username,
-          fullName: userData.fullName,
-          passwordHash: userData.passwordHash,
-          country: userData.country,
-          phone: userData.phone ?? null,
-        }), 3, 200);
-        return true;
-      }
+      await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
+      return true;
     } catch (err) {
-      logger.warn({ err, userId }, "[db-persist] persistUser failed using Drizzle");
-      return await prismaFallback();
+      lastErr = err;
     }
   }
 
-  return prismaFallback();
+  const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+  return false;
 }
 
 export async function persistResetPasswordToken(
@@ -253,34 +184,19 @@ export async function persistResetPasswordToken(
 ): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
-  const db = getDb();
-  if (db) {
-    try {
-      await db.update(usersTable)
-        .set({
-          resetPasswordToken: token,
-          resetPasswordExpiry: expiresAt,
-        })
-        .where(eq(usersTable.id, userId));
-      return true;
-    } catch (err) {
-      logger.warn({ err, userId }, "[db-persist] persistResetPasswordToken failed using Drizzle");
-      return false;
-    }
-  }
-
   const userDelegate = getPrismaUserDelegate();
-  if (!userDelegate) return true;
+  if (!userDelegate) return false;
   try {
+    const isSnakeCaseDelegate = prismaClient?.users === userDelegate;
     await userDelegate.update({
       where: { id: userId },
-      data: {
-        resetPasswordToken: token,
-        resetPasswordExpiry: expiresAt,
-      },
+      data: isSnakeCaseDelegate
+        ? { reset_password_token: token, reset_password_expiry: expiresAt }
+        : { resetPasswordToken: token, resetPasswordExpiry: expiresAt },
     });
     return true;
-  } catch {
+  } catch (err) {
+    logger.error({ err, userId }, "[db-persist] persistResetPasswordToken failed using Prisma");
     return false;
   }
 }
@@ -330,22 +246,6 @@ export async function persistSession(
       return false;
     }
   };
-
-  const db = getDb();
-  if (db) {
-    try {
-      await retryAsync(async () => db.insert(userSessionsTable).values({
-        id: sessionId,
-        userId,
-        isAdmin,
-        expiresAt,
-      }), 3, 200);
-      return true;
-    } catch (err) {
-      logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Drizzle");
-      return await prismaFallback();
-    }
-  }
 
   return prismaFallback();
 }
