@@ -162,7 +162,7 @@ async function resolvePersistedUserIdByEmail(email: string): Promise<string | un
             moonpayEmail: row.moonpayEmail ?? null,
             buyVerified: Boolean(row.buyVerified),
           },
-          passwordHash: row.password ?? row.passwordHash ?? "",
+          passwordHash: row.passwordHash ?? row.password_hash ?? row.password ?? "",
           role: (row.role as any) ?? "user",
           referralCode: (row.referralCode as string) ?? "",
           referredBy: row.referredBy ?? null,
@@ -431,12 +431,6 @@ router.post("/auth/verify-otp", async (req, res) => {
       suspended: false,
       disabled: false,
     };
-    users.set(id, stored);
-    usersByEmail.set(email, id);
-    referralCodeIndex.set(referralCode, id);
-    referrals.set(id, []);
-    userData.set(id, freshUserData(id, { country: payload.country }));
-
     if (referredBy) {
       const list = referrals.get(referredBy) ?? [];
       list.push({
@@ -459,8 +453,15 @@ router.post("/auth/verify-otp", async (req, res) => {
       phone: null,
     });
     if (!userPersisted) {
-      logger.warn({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed_fallback_to_memory");
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
+      return res.status(503).json({ error: "Account storage is temporarily unavailable. Please try again." });
     }
+
+    users.set(id, stored);
+    usersByEmail.set(email, id);
+    referralCodeIndex.set(referralCode, id);
+    referrals.set(id, []);
+    userData.set(id, freshUserData(id, { country: payload.country }));
 
     const sid = newSessionId();
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
