@@ -430,9 +430,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
+function positiveRateLimitEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: positiveRateLimitEnv('GENERAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  max: positiveRateLimitEnv('GENERAL_RATE_LIMIT_MAX', 100),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests' }
@@ -440,8 +445,8 @@ const globalLimiter = rateLimit({
 
 // ─── AUTH RATE LIMITER ────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+  windowMs: positiveRateLimitEnv('AUTH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  max: positiveRateLimitEnv('AUTH_RATE_LIMIT_MAX', 10),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests' }
@@ -449,16 +454,31 @@ const authLimiter = rateLimit({
 
 // ─── LIVE CHAT RATE LIMITER ───────────────────────────────────────────────────
 const liveChatLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 30,
+  windowMs: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_WINDOW_MS', 1 * 60 * 1000),
+  max: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_MAX', 30),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Live chat rate limit reached.' }
 });
 
+const financialActionLimiter = rateLimit({
+  windowMs: positiveRateLimitEnv('FINANCIAL_RATE_LIMIT_WINDOW_MS', 60 * 60 * 1000),
+  max: positiveRateLimitEnv('FINANCIAL_RATE_LIMIT_MAX', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Financial action rate limit reached' },
+});
+
 app.use('/api/', globalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/live-chat/', liveChatLimiter);
+app.use([
+  '/api/deposits',
+  '/api/withdrawals',
+  '/api/wallets',
+  '/api/p2p',
+  '/api/moonpay/initiate',
+], financialActionLimiter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
