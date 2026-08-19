@@ -1,7 +1,6 @@
-import { assetCatalog, getUserData, userData, newId, NOW, applyWalletDebit, applyWalletCredit } from './store';
+import { assetCatalog, getUserData, userData, newId, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
-import * as walletLedger from './wallet-ledger';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -65,44 +64,11 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             const notional = current * o.amount; // USD exposure
             const marginRequired = Number((notional / o.leverage).toFixed(2));
             
-            // Get or create main wallet for user
-            let mainWallet = data.mainWallet;
-            if (!mainWallet) {
-              mainWallet = {
-                id: `wallet_${Date.now()}`,
-                userId: o.userId,
-                name: "Main Wallet",
-                type: "main",
-                createdAt: new Date(),
-              };
-              data.mainWallet = mainWallet;
+            const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
+            if (!tradingWallet || tradingWallet.balance < marginRequired) {
+              throw new Error("Insufficient demo balance for this practice trade.");
             }
-            
-            // debit margin from trading wallet
-            applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true, o.userId);
-            
-            // Record margin debit in ledger
-            await walletLedger.recordLedgerEntry({
-              userId: o.userId,
-              walletId: mainWallet.id,
-              entryType: "trading_fee",
-              assetSymbol: "USD",
-              amount: marginRequired,
-              status: "completed",
-              sourceType: "demo_trade_margin",
-              sourceId: o.id,
-              description: `Demo trade margin locked for ${o.instrument} (${o.side} ${o.amount} units at ${current})`,
-              metadata: {
-                orderType: o.type,
-                instrument: o.instrument,
-                side: o.side,
-                amount: o.amount,
-                entryPrice: current,
-                leverage: o.leverage,
-                notional,
-                marginRequired,
-              },
-            });
+            tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
             
             // add trade record
             const trade = {
@@ -150,51 +116,16 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           const equity = margin + t.profit; // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
           if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
-            // close trade
+            // Close trade
             t.status = 'completed';
             t.completedAt = NOW();
-            // credit back margin + profit to trading wallet
+            // Credit demo margin and P&L back to the demo wallet only.
             try {
               const finalCredit = Math.round((margin + t.profit) * 100) / 100;
-              applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, finalCredit, `Demo trade closed (${t.pair})`, 'USD', true, uid);
-              
-              // Get or create main wallet for user
-              let mainWallet = data.mainWallet;
-              if (!mainWallet) {
-                mainWallet = {
-                  id: `wallet_${Date.now()}`,
-                  userId: uid,
-                  name: "Main Wallet",
-                  type: "main",
-                  createdAt: new Date(),
-                };
-                data.mainWallet = mainWallet;
+              const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
+              if (tradingWallet) {
+                tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
               }
-              
-              // Record P&L in ledger as either profit or loss
-              const entryType = t.profit >= 0 ? "trade_profit" : "trading_fee";
-              await walletLedger.recordLedgerEntry({
-                userId: uid,
-                walletId: mainWallet.id,
-                entryType,
-                assetSymbol: "USD",
-                amount: Math.abs(t.profit),
-                status: "completed",
-                sourceType: "demo_trade_closure",
-                sourceId: t.id,
-                description: `Demo trade closed: ${t.pair} ${t.type} ${Math.abs(t.profit) > 0 ? 'profit' : 'loss'} ${Math.abs(t.profit)} USD (entry: ${t.entryPrice}, exit: ${current})`,
-                metadata: {
-                  pair: t.pair,
-                  type: t.type,
-                  entryPrice: t.entryPrice,
-                  exitPrice: current,
-                  amount: t.amount,
-                  leverage: t.leverage,
-                  profit: t.profit,
-                  margin,
-                  status: "stop_out_margin_call",
-                },
-              });
               
               demoNs.emit('trade_closed', { userId: uid, trade: t });
             } catch (err) {

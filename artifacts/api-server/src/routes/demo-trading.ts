@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/session';
-import { assetCatalog, getUserData } from '../lib/store';
+import { assetCatalog, demoConfig, getUserData } from '../lib/store';
 import sim from '../lib/simulation-engine';
 
 const router = Router();
@@ -8,13 +8,17 @@ const router = Router();
 export function getDemoAccountSnapshot(userId: string) {
   const data = getUserData(userId);
   const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  if (tradingWallet && tradingWallet.balance <= 0 && data.trades.length === 0) {
+    tradingWallet.balance = demoConfig.defaultBalance;
+  }
   const positions = data.trades
     .filter((trade) => trade.status === 'active')
     .map((trade) => ({
       id: trade.id,
       symbol: trade.pair,
       side: trade.type === 'long' ? 'Long' : 'Short',
-      entry: Number(trade.entryPrice ?? 0),
+      entryPrice: Number(trade.entryPrice ?? 0),
+      currentPrice: Number(trade.currentPrice ?? trade.entryPrice ?? 0),
       size: Number(trade.amount ?? 0),
       pnl: Number(trade.profit ?? 0),
     }));
@@ -37,6 +41,7 @@ router.get('/demo/instruments', requireAuth, (_req, res) => {
 });
 
 router.post('/demo/order', requireAuth, (req, res) => {
+  getDemoAccountSnapshot(req.userId!);
   const { instrument, symbol, type, side, price, amount, quantity, leverage } = req.body as any;
   const resolvedInstrument = instrument || symbol;
   const resolvedAmount = amount ?? quantity;
@@ -61,7 +66,7 @@ router.post('/demo/order', requireAuth, (req, res) => {
 
 router.post('/demo/reset-balance', requireAuth, (req, res) => {
   const data = getUserData(req.userId!);
-  const defaultAmount = 10000;
+  const defaultAmount = demoConfig.defaultBalance;
   const trading = data.wallets.find((w) => w.type === 'trading');
   if (trading) trading.balance = defaultAmount;
   data.trades = [];
