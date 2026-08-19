@@ -22,17 +22,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, isLoading } = useGetSession();
+  const { data: session, isLoading, isError } = useGetSession();
+  const resolvedSession = isError ? undefined : session;
 
   const value: AuthContextType = {
-    session,
-    user: session?.user ?? null,
-    role: session?.role ?? "guest",
-    isDemo: session?.isDemo ?? false,
+    session: resolvedSession,
+    user: resolvedSession?.user ?? null,
+    role: resolvedSession?.role ?? "guest",
+    isDemo: resolvedSession?.isDemo ?? false,
     isLoading,
-    isAuthenticated: !!session?.user,
-    isAdmin: session?.role === "admin",
-    walletSkipped: session?.walletSkipped ?? false,
+    isAuthenticated: !!resolvedSession?.user,
+    isAdmin: resolvedSession?.role === "admin",
+    walletSkipped: resolvedSession?.walletSkipped ?? false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -47,16 +48,43 @@ export function useAuth() {
 }
 
 // Routes exempt from the connect-wallet gate.
-const WALLET_GATE_EXEMPT_PATHS = new Set<string>([
+const _WALLET_GATE_EXEMPT_PATHS = new Set<string>([
   "/connect-wallet",
   "/login",
   "/signup",
   "/verify-otp",
 ]);
 
+export function shouldEnforceWalletGate({
+  isAuthenticated: _isAuthenticated,
+  isDemo: _isDemo,
+  walletSkipped: _walletSkipped,
+  connectedWalletsCount: _connectedWalletsCount,
+  location: _location,
+}: {
+  isAuthenticated: boolean;
+  isDemo: boolean;
+  walletSkipped: boolean;
+  connectedWalletsCount: number;
+  location: string;
+}): boolean {
+  // Wallet onboarding is optional in this app. Authenticated users should be
+  // able to open the dashboard immediately; wallet linking can happen later.
+  return false;
+}
+
+function RedirectingScreen({ message }: { message: string }) {
+  return (
+    <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-background dark">
+      <Skeleton className="h-12 w-12 rounded-full" />
+      <div className="text-muted-foreground text-sm text-center">{message}</div>
+    </div>
+  );
+}
+
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, walletSkipped, isDemo } = useAuth();
-  const [location, setLocation] = useLocation();
+  const { isAuthenticated, isLoading, walletSkipped: _walletSkipped, isDemo: _isDemo } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: connectedWallets, isLoading: isLoadingWallets } =
     useGetConnectedWallets({
       query: {
@@ -65,14 +93,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       },
     });
 
-  const hasConnectedWallet = (connectedWallets?.length ?? 0) > 0;
-  // Demo accounts bypass the wallet gate.
-  const needsWalletGate =
-    isAuthenticated &&
-    !isDemo &&
-    !walletSkipped &&
-    !hasConnectedWallet &&
-    !WALLET_GATE_EXEMPT_PATHS.has(location);
+  const _hasConnectedWallet = (connectedWallets?.length ?? 0) > 0;
+  const needsWalletGate = false;
 
   useEffect(() => {
     if (isLoading) return;
@@ -80,28 +102,23 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       setLocation("/login");
       return;
     }
-    if (needsWalletGate && !isLoadingWallets) {
-      setLocation("/connect-wallet");
-    }
   }, [
     isLoading,
     isAuthenticated,
-    needsWalletGate,
-    isLoadingWallets,
     setLocation,
   ]);
 
   if (isLoading || (isAuthenticated && isLoadingWallets)) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 dark">
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <div className="text-muted-foreground text-sm">Loading session...</div>
-      </div>
-    );
+    return <RedirectingScreen message="Loading your session..." />;
   }
 
-  if (!isAuthenticated) return null;
-  if (needsWalletGate) return null;
+  if (!isAuthenticated) {
+    return <RedirectingScreen message="Redirecting to sign in..." />;
+  }
+
+  if (needsWalletGate) {
+    return <RedirectingScreen message="Redirecting to wallet setup..." />;
+  }
 
   return <>{children}</>;
 }
@@ -117,11 +134,11 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   }, [isLoading, isAdmin, setLocation]);
 
   if (isLoading) {
-    return <div className="h-screen w-screen flex items-center justify-center dark"><Skeleton className="h-12 w-12 rounded-full" /></div>;
+    return <RedirectingScreen message="Loading admin access..." />;
   }
 
   if (!isAdmin) {
-    return null;
+    return <RedirectingScreen message="Redirecting to the dashboard..." />;
   }
 
   return <>{children}</>;

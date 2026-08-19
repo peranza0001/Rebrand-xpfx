@@ -15,16 +15,15 @@ import {
 import {
   getUserData,
   logActivity,
-  newId,
   newUuid,
   NOW,
   toPublicConnectedWallet,
+  transferBetweenWallets,
   type StoredConnectedWallet,
 } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
-import { notifyUser, pushAdminAlert } from "../lib/notify";
-import { persistConnectedWallet } from "../lib/db-persist";
+import { persistConnectedWallet, persistTransaction, persistWallet } from "../lib/db-persist";
 import {
   getLiveBalance,
 } from "../lib/blockchain";
@@ -38,6 +37,60 @@ router.get("/wallets", requireAuth, (req, res) => {
 
 router.get("/wallets/transactions", requireAuth, (req, res) => {
   res.json(getUserData(req.userId!).transactions);
+});
+
+router.post("/wallets/transfer", requireAuth, async (req, res) => {
+  const amount = Number(req.body?.amount ?? 0);
+  const fromWalletId = String(req.body?.fromWalletId ?? "");
+  const toWalletId = String(req.body?.toWalletId ?? "");
+  const description = String(req.body?.description ?? "").trim() || undefined;
+  const currency = String(req.body?.currency ?? "USD").trim() || "USD";
+
+  if (!fromWalletId || !toWalletId || !Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Please choose a valid source wallet, destination wallet, and transfer amount.",
+    });
+  }
+
+  const data = getUserData(req.userId!);
+  try {
+    const result = transferBetweenWallets(
+      { wallets: data.wallets, transactions: data.transactions },
+      {
+        fromWalletId,
+        toWalletId,
+        amount,
+        description,
+        currency,
+        userId: req.userId!,
+      },
+    );
+    await Promise.all([
+      persistWallet(result.from.id, req.userId!, { walletType: result.from.type, balance: result.from.balance, pendingBalance: result.from.pendingBalance, currency: result.from.currency, label: result.from.label, address: result.from.address }),
+      persistWallet(result.to.id, req.userId!, { walletType: result.to.type, balance: result.to.balance, pendingBalance: result.to.pendingBalance, currency: result.to.currency, label: result.to.label, address: result.to.address }),
+      ...data.transactions.slice(0, 2).map((transaction) => persistTransaction(transaction.id, transaction.walletId, req.userId!, { type: transaction.type, amount: transaction.amount, currency: transaction.currency, status: transaction.status, description: transaction.description })),
+    ]);
+
+    logActivity({
+      actorId: req.userId!,
+      actorName: req.storedUser!.user.fullName,
+      action: "wallet.transfer",
+      detail: `Transferred ${amount} ${currency} from ${result.from.label} to ${result.to.label}`,
+    });
+
+    return res.json({
+      success: true,
+      from: result.from,
+      to: result.to,
+      amount,
+      currency,
+      message: `Transferred ${amount} ${currency} from ${result.from.label} to ${result.to.label}.`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to complete the transfer.";
+    return res.status(400).json({ success: false, message });
+  }
 });
 
 router.get("/wallets/connected", requireAuth, (req, res) => {
@@ -283,78 +336,67 @@ router.post("/wallets/connected/:walletId/send", requireAuth, async (req, res) =
     status: null,
     message: "Connected wallets are non-custodial. Sign this transaction in your wallet provider.",
   });
-  /*
+});
+
+// ─── PHASE 4: WALLET LEDGER SYSTEM ROUTES ─────────────────────────────────
+
+import * as walletLedger from "../lib/wallet-ledger";
+
+/**
+ * GET /api/wallets/balance - Get main wallet balance summary
+ */
+router.get("/balance", requireAuth, async (req, res) => {
   try {
-    const result = await Promise.reject(new Error("unreachable"));
-    const txId = newId("tx");
-    const txStatus = result.status === 1 ? "completed" : "pending";
-    data.transactions.unshift({
-      id: txId,
-      walletId: wallet.id,
-      type: "withdrawal",
-      amount: -parsed.data.amount,
-      currency: result.asset,
-      status: txStatus,
-      description: `Sent ${parsed.data.amount} ${result.asset} to ${parsed.data.to.slice(0, 10)}… (tx ${result.hash.slice(0, 10)}…)`,
-      createdAt: NOW(),
-    });
-    logActivity({
-      actorId: req.userId!,
-      actorName: req.storedUser!.user.fullName,
-      action: "wallet.send",
-      detail: `On-chain send ${parsed.data.amount} ${result.asset} from ${wallet.walletType} → ${parsed.data.to}`,
-    });
-    pushAdminAlert({
-      kind: "wallet.transfer",
-      title: "Outbound wallet transfer",
-      body: `${req.storedUser!.user.email} sent ${parsed.data.amount} ${result.asset} from a connected wallet (tx ${result.hash}).`,
-      userId: req.userId!,
-      userEmail: req.storedUser!.user.email,
-      severity: "warning",
-      linkUrl: `/users/${req.userId}`,
-      email: true,
-    });
-    notifyUser({
-      userId: req.userId!,
-      kind: "wallet_transfer",
-      emailToggle: "walletTransfer",
-      title: "Wallet transfer broadcast",
-      body: `Sent ${parsed.data.amount} ${result.asset} from your connected wallet to ${parsed.data.to}. Tx hash: ${result.hash}.`,
-      link: "/wallets",
-    });
-    const confirmedSuffix =
-      result.confirmations > 0
-        ? ` Mined in block ${result.blockNumber}.`
-        : " Broadcast — awaiting first confirmation.";
-    return res.json({
-      success: true,
-      hash: result.hash,
-      from: result.from,
-      to: result.to,
-      asset: result.asset,
-      amount: result.amount,
-      blockNumber: result.blockNumber,
-      confirmations: result.confirmations,
-      status: result.status,
-      message: `Tx ${result.hash}.${confirmedSuffix}`,
+    const balance = await walletLedger.getMainWalletBalance(req.userId!);
+    return res.status(200).json({
+      status: "ok",
+      balance,
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "On-chain send failed.";
-    req.log.warn({ err: message, walletId: wallet.id }, "on-chain send failed");
-    return res.json({
-      success: false,
-      hash: null,
-      from: wallet.address,
-      to: parsed.data.to,
-      asset: parsed.data.asset,
-      amount: parsed.data.amount,
-      blockNumber: null,
-      confirmations: 0,
-      status: null,
-      message,
-    });
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch balance");
+    return res.status(500).json({ error: "Failed to fetch balance" });
   }
-    */
-  });
+});
+
+/**
+ * GET /api/wallets/ledger - Get transaction history/audit trail
+ */
+router.get("/ledger", requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const entries = await walletLedger.getUserLedgerEntries(req.userId!, limit, offset);
+    return res.status(200).json({
+      status: "ok",
+      entries,
+      count: entries.length,
+      limit,
+      offset,
+    });
+  } catch (err) {
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch ledger");
+    return res.status(500).json({ error: "Failed to fetch ledger" });
+  }
+});
+
+/**
+ * GET /api/wallets/limits - Get user's KYC tier and transaction limits
+ */
+router.get("/limits", requireAuth, async (req, res) => {
+  try {
+    const limits = await walletLedger.getUserFinancialLimits(req.userId!);
+    if (!limits) {
+      return res.status(404).json({ error: "Limits not found" });
+    }
+    return res.status(200).json({ status: "ok", limits });
+  } catch (err) {
+    const logger = require("../lib/logger").logger;
+    logger.error({ err, userId: req.userId }, "[wallet-api] Failed to fetch limits");
+    return res.status(500).json({ error: "Failed to fetch limits" });
+  }
+});
 
 export default router;

@@ -13,6 +13,7 @@ import { PayBillingBody } from "@workspace/api-zod";
 import type { BillingStatus } from "@workspace/api-zod";
 import { requireAuth } from "../lib/session";
 import { getUserData, logActivity, newId } from "../lib/store";
+import { persistWalletBalance } from "../lib/db-persist";
 import {
   ensureCurrentCycle,
   getEffectiveRates,
@@ -67,6 +68,8 @@ router.post("/billing/pay", requireAuth, (req, res): unknown => {
   }
 
   wallet.balance = Number((wallet.balance - total).toFixed(2));
+  // PHASE 1 FIX: Persist balance change to survive server restarts
+  void persistWalletBalance(wallet.id, wallet.balance, 0);
   const now = new Date().toISOString();
   for (const c of toPay) {
     c.paid = true;

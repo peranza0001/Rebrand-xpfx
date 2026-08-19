@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
-pnpm install --frozen-lockfile --no-audit --no-fund
-pnpm run push -w @workspace/db
+npm ci --no-audit --no-fund
+npm --workspace=lib/db run push

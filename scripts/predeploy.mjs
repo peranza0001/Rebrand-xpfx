@@ -39,6 +39,21 @@ function warn(msg) {
   warnings.push(msg);
 }
 
+function hasMeaningfulValue(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function resolveEnvValue(env, key, aliases = []) {
+  const candidates = [key, ...aliases];
+  for (const candidate of candidates) {
+    const value = env[candidate];
+    if (hasMeaningfulValue(value)) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // 1. Required env var check
 // ---------------------------------------------------------------------------
@@ -62,13 +77,20 @@ if (!skipEnvCheck) {
 
   // Required in production
   if (isProduction) {
-    const prodRequired = ["SESSION_SECRET", "JWT_SECRET", "WALLET_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD", "ALCHEMY_API_KEY"];
-    for (const key of prodRequired) {
-      const val = (process.env[key] ?? "").trim();
+    const prodRequired = [
+      ["SESSION_SECRET", ["COOKIE_SIGNING_KEY", "COOKIE_SECRET"]],
+      ["JWT_SECRET", []],
+      ["WALLET_ENCRYPTION_KEY", []],
+      ["ADMIN_EMAIL", []],
+      ["ADMIN_PASSWORD", []],
+    ];
+    for (const [key, aliases] of prodRequired) {
+      const val = resolveEnvValue(process.env, key, aliases);
       if (!val) {
+        const aliasNote = aliases.length > 0 ? ` or ${aliases.join("/")}` : "";
         fail(
-          `Missing required env var for production: ${key}\n` +
-            `  Set ${key} as a secret in your platform's environment settings.`
+          `Missing required env var for production: ${key}${aliasNote}\n` +
+            `  Set ${key}${aliasNote} as a secret in your platform's environment settings.`
         );
       }
     }
@@ -87,9 +109,36 @@ if (!skipEnvCheck) {
       );
     }
 
-    // Security check: MoonPay API key without secret key is a critical misconfiguration
+    const blockchainConfigured = !!process.env.ALCHEMY_API_KEY?.trim() || !!process.env.INFURA_API_KEY?.trim();
+    if (!blockchainConfigured) {
+      fail(
+        `Missing required env var for production: ALCHEMY_API_KEY or INFURA_API_KEY\n` +
+          `  Set ALCHEMY_API_KEY or INFURA_API_KEY in your platform env vars for blockchain provider access.`
+      );
+    }
+
+    const sendgridKey = (process.env.SENDGRID_API_KEY ?? "").trim();
+    const smtpConfigured =
+      !!process.env.SMTP_HOST?.trim() &&
+      !!process.env.SMTP_USER?.trim() &&
+      !!process.env.SMTP_PASS?.trim();
+
+    if (!sendgridKey && !smtpConfigured) {
+      fail(
+        `Missing required env var for production: SENDGRID_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS\n` +
+          `  Configure SendGrid or SMTP credentials for transactional email delivery.`
+      );
+    }
+
+    if (sendgridKey && !process.env.SMTP_FROM?.trim()) {
+      fail(
+        `Missing required env var for production: SMTP_FROM\n` +
+          `  Set SMTP_FROM to a verified sender address when using SENDGRID_API_KEY in production.`
+      );
+    }
+
     const moonpayKey = (process.env.MOONPAY_API_KEY ?? "").trim();
-    const moonpaySecret = (process.env.MOONPAY_SECRET_KEY ?? "").trim();
+    const moonpaySecret = resolveEnvValue(process.env, "MOONPAY_SECRET_KEY", ["MOONPAY_SECRET"]);
     if (moonpayKey && !moonpaySecret) {
       fail(
         `Security misconfiguration: MOONPAY_API_KEY is set but MOONPAY_SECRET_KEY is missing.\n` +
@@ -245,7 +294,6 @@ for (const configFile of jsonConfigFiles) {
 console.log("[predeploy] Checking for conflicting platform build configs...");
 
 const conflictingConfigs = [
-  "nixpacks.toml",
   "fly.toml",
   "Procfile.backup",
 ];

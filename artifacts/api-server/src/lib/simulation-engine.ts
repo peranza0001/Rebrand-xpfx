@@ -1,4 +1,4 @@
-import { assetCatalog, getUserData, userData, newId, NOW, applyWalletDebit, applyWalletCredit } from './store';
+import { assetCatalog, getUserData, userData, newId, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
 
@@ -31,8 +31,8 @@ export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): O
 
 export function initSimulation(io: IOServer, demoNs: Namespace) {
   // On each tick, random walk prices and evaluate orders
-  setInterval(() => {
-    instruments.forEach((inst) => {
+  setInterval(async () => {
+    instruments.forEach(async (inst) => {
       const vol = 0.0008; // adjustable
       const change = (Math.random() - 0.5) * vol * inst.price;
       inst.price = Math.max(0.00001, inst.price + change);
@@ -63,8 +63,13 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             const data = getUserData(o.userId);
             const notional = current * o.amount; // USD exposure
             const marginRequired = Number((notional / o.leverage).toFixed(2));
-            // debit margin from trading wallet
-            applyWalletDebit({ wallets: data.wallets, transactions: data.transactions }, null, marginRequired, `Demo trade margin (${o.instrument})`, 'USD', true, o.userId);
+            
+            const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
+            if (!tradingWallet || tradingWallet.balance < marginRequired) {
+              throw new Error("Insufficient demo balance for this practice trade.");
+            }
+            tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
+            
             // add trade record
             const trade = {
               id: newId('t'),
@@ -111,15 +116,20 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           const equity = margin + t.profit; // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
           if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
-            // close trade
+            // Close trade
             t.status = 'completed';
             t.completedAt = NOW();
-            // credit back margin + profit to trading wallet
+            // Credit demo margin and P&L back to the demo wallet only.
             try {
-              applyWalletCredit({ wallets: data.wallets, transactions: data.transactions }, null, Math.round((margin + t.profit) * 100) / 100, `Demo trade closed (${t.pair})`, 'USD', true, uid);
+              const finalCredit = Math.round((margin + t.profit) * 100) / 100;
+              const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
+              if (tradingWallet) {
+                tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
+              }
+              
               demoNs.emit('trade_closed', { userId: uid, trade: t });
             } catch (err) {
-              logger.warn({ err }, 'Failed to credit closed trade funds');
+              logger.warn({ err }, 'Failed to credit closed trade funds or record ledger');
             }
           }
         }

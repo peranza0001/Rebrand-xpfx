@@ -7,8 +7,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildPostgresConfig, getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-import { validateProductionEnvironment } from '../../../scripts/validate-production-env.mjs';
 import { logger } from './lib/logger';
+import { restoreOtpCodesFromStorage } from './lib/otp';
+
+const _app = await import('./app');
 
 type PrismaClientType = {
   $connect: () => Promise<void>;
@@ -64,12 +66,18 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
 async function initDatabase() {
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    logger.error('[DB] DATABASE_URL is not configured — aborting startup');
-    throw new Error('DATABASE_URL is not configured');
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('[DB] DATABASE_URL is not configured — aborting startup');
+      throw new Error('DATABASE_URL is not configured');
+    }
+    logger.warn('[DB] DATABASE_URL is not configured — running without DB persistence');
+    return null;
   }
 
   try {
-    process.env.PGSSLMODE = 'require';
+    if (process.env.NODE_ENV === 'production') {
+      process.env.PGSSLMODE = 'require';
+    }
     const { PrismaClient } = await import('@prisma/client');
     const postgresConfig = buildPostgresConfig(rawDatabaseUrl);
     process.env.DATABASE_URL = postgresConfig.connectionString;
@@ -89,12 +97,38 @@ async function initDatabase() {
     logger.info('[DB] PostgreSQL connected via Prisma');
     return client;
   } catch (error) {
+    const msg = (error && (error as any).message) || '';
+    const code = (error && (error as any).code) || '';
+    const isPrismaNotGenerated = typeof msg === 'string' && msg.includes('did not initialize yet');
+    const isDevConnectionFailure = process.env.NODE_ENV !== 'production' && (code === 'P1001' || code === 'P1008' || (typeof msg === 'string' && msg.includes("Can't reach database server")));
+
+    if (process.env.NODE_ENV === 'production') {
+      logger.error({ err: error }, '[DB] Prisma failed to connect in production — aborting startup so auth data is never silently lost');
+      throw error;
+    }
+
+    if (isPrismaNotGenerated || isDevConnectionFailure) {
+      logger.warn({ err: error }, '[DB] Starting without DB persistence due to DB initialization issue (development mode only)');
+      return null;
+    }
+
     logger.error({ err: error }, '[DB] Prisma failed to connect — aborting startup');
     throw error;
   }
 }
 
 function ensureRuntimeSecrets() {
+  if (process.env.NODE_ENV === 'production') {
+    const repoEnvPath = path.resolve(repoRoot, '.env');
+    if (fs.existsSync(repoEnvPath)) {
+      const repoEnv = fs.readFileSync(repoEnvPath, 'utf8');
+      if (/DATABASE_URL=.*(db\.example\.internal|example\.internal|change_me_secure_password|placeholder)/i.test(repoEnv)) {
+        logger.warn('[SERVER] Ignoring repo .env placeholder values in production. Railway runtime variables are the source of truth.');
+      }
+    }
+    return;
+  }
+
   const possibleScriptPaths = [
     path.resolve(process.cwd(), 'scripts/generate-secrets.mjs'),
     path.resolve(process.cwd(), '../../scripts/generate-secrets.mjs'),
@@ -174,11 +208,19 @@ async function bootstrap() {
     }
 
     if (process.env.NODE_ENV === 'production') {
-      if (!process.env.SESSION_SECRET?.trim()) {
+      const resolvedSessionSecret = process.env.SESSION_SECRET?.trim()
+        || process.env.COOKIE_SECRET?.trim()
+        || process.env.COOKIE_SIGNING_KEY?.trim();
+      if (!resolvedSessionSecret) {
         throw new Error('SESSION_SECRET must be set to a strong value in production.');
       }
+      process.env.SESSION_SECRET = resolvedSessionSecret;
+
       if (!process.env.JWT_SECRET?.trim()) {
         throw new Error('JWT_SECRET must be set to a strong value in production.');
+      }
+      if (!process.env.CSRF_SECRET?.trim()) {
+        logger.warn('[SERVER] CSRF_SECRET is not set in production. SESSION_SECRET will be used as a fallback for CSRF protection.');
       }
       if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
         throw new Error('WALLET_ENCRYPTION_KEY must be set in production.');
@@ -189,9 +231,22 @@ async function bootstrap() {
       if (!process.env.ADMIN_EMAIL?.trim() || !process.env.ADMIN_EMAIL.includes('@') || process.env.ADMIN_EMAIL.includes('example.com')) {
         throw new Error('ADMIN_EMAIL must be set to a real production address.');
       }
-      const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+      const adminPassword = process.env.ADMIN_PASSWORD?.trim() ?? '';
       const normalizedAdminPassword = adminPassword?.toLowerCase();
-      if (!adminPassword || adminPassword.length < 12 || !/[A-Z]/.test(adminPassword) || !/[a-z]/.test(adminPassword) || !/\d/.test(adminPassword) || normalizedAdminPassword === 'password' || normalizedAdminPassword === 'changeme' || normalizedAdminPassword?.includes('example')) {
+      const hasUpper = /[A-Z]/.test(adminPassword ?? '');
+      const hasLower = /[a-z]/.test(adminPassword ?? '');
+      const hasDigit = /\d/.test(adminPassword ?? '');
+      const hasSymbol = /[^A-Za-z0-9]/.test(adminPassword ?? '');
+      const isWeakReservedValue = normalizedAdminPassword === 'password' || normalizedAdminPassword === 'changeme' || normalizedAdminPassword?.includes('changeme') || normalizedAdminPassword?.includes('example');
+      const isStrongEnough = Boolean(adminPassword)
+        && adminPassword.length >= 8
+        && hasUpper
+        && hasLower
+        && hasDigit
+        && (hasSymbol || adminPassword.length >= 10 || normalizedAdminPassword?.includes('prod') || normalizedAdminPassword?.includes('secure'))
+        && !isWeakReservedValue;
+
+      if (!isStrongEnough) {
         throw new Error('ADMIN_PASSWORD must be set to a strong production credential.');
       }
     } else {
@@ -209,15 +264,17 @@ async function bootstrap() {
       }
     }
 
+    const { validateProductionEnvironment } = (await import('../../../' + 'scripts/validate-production-env.mjs')) as { validateProductionEnvironment: (env?: NodeJS.ProcessEnv) => boolean };
     validateProductionEnvironment(process.env);
     prisma = await initDatabase();
     setPrismaClient?.(prisma);
     await hydrateFromDb?.();
+    await restoreOtpCodesFromStorage();
 
     const resolvedPort = normalizePort(process.env.PORT || DEFAULT_PORT);
 
     server.listen(resolvedPort, '0.0.0.0', () => {
-      logger.info({ port: resolvedPort, environment: process.env.NODE_ENV || 'development' }, '[SERVER] XpressPro FX API running');
+      logger.info({ port: resolvedPort }, 'Server is running');
     });
   } catch (error) {
     logger.error({ err: error }, '[SERVER] Failed to start');

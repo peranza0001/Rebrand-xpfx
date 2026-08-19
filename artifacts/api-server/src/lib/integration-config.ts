@@ -29,3 +29,5 @@ export function getIntegrationStatus() {
     alchemyConfigured: isAlchemyConfigured(env.ALCHEMY_API_KEY),
   };
 }
+
+export default { isSendGridConfigured, isAlchemyConfigured, getIntegrationStatus };

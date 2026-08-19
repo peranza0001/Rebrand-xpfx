@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2, Send, ShieldAlert, Fuel, Lock, Building2 } from "lucide-react";
+import { EnhancedWithdrawalFlow } from "@/components/enhanced-withdrawal-flow";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "secondary",
@@ -302,6 +303,22 @@ export function Withdrawals() {
           </CardContent>
         </Card>
       )}
+
+      {/* Enhanced Withdrawal Flow */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Request a Withdrawal (New Interface)
+          </CardTitle>
+          <CardDescription>
+            Advanced withdrawal options with multiple sources and destinations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EnhancedWithdrawalFlow />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">

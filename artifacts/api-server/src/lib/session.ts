@@ -6,21 +6,60 @@
 import type { NextFunction, Request, Response } from "express";
 import { sessions, users } from "./store";
 import { isProduction } from "./env";
+import { deleteSession, getPersistedSession } from "./db-persist";
 
 export const SESSION_COOKIE = "xpfx_sid";
 
-export function attachSession(req: Request, _res: Response, next: NextFunction): void {
-  const sid = (req.signedCookies?.[SESSION_COOKIE] ?? req.cookies?.[SESSION_COOKIE]) as
-    | string
-    | undefined;
+export function getSessionId(req: Request): string | undefined {
+  const signedSid = req.signedCookies?.[SESSION_COOKIE] as string | undefined;
+  if (signedSid) {
+    return signedSid;
+  }
+
+  // In production we only accept signed session cookies. During development,
+  // a raw cookie may be accepted when no signing secret is configured.
+  if (process.env.NODE_ENV !== 'production') {
+    return req.cookies?.[SESSION_COOKIE] as string | undefined;
+  }
+
+  return undefined;
+}
+
+function isExpired(expiresAt: Date | undefined): boolean {
+  if (!expiresAt) return false;
+  return expiresAt.getTime() <= Date.now();
+}
+
+export async function cleanupExpiredSession(req: Request, res: Response, sid: string): Promise<void> {
+  sessions.delete(sid);
+  // best-effort remove persisted session if present
+  void deleteSession(sid).catch(() => undefined);
+  clearSessionCookie(res);
+}
+
+export async function attachSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const sid = getSessionId(req);
   if (sid) {
-    const rec = sessions.get(sid);
-    const userId = rec?.userId ?? undefined;
-    if (userId) {
-      const stored = users.get(userId);
+    let rec = sessions.get(sid);
+    if (!rec) {
+      const persisted = await getPersistedSession(sid);
+      if (persisted) {
+        rec = { userId: persisted.userId, expiresAt: persisted.expiresAt };
+        sessions.set(sid, rec);
+      }
+    }
+    if (rec) {
+      if (isExpired(rec.expiresAt)) {
+        await cleanupExpiredSession(req, res, sid);
+        return next();
+      }
+
+      const stored = users.get(rec.userId);
       if (stored) {
-        req.userId = userId;
+        req.userId = rec.userId;
+        req.sessionId = sid;
         req.storedUser = stored;
+        (req as any).userRole = stored.role;
       }
     }
   }
@@ -28,7 +67,7 @@ export function attachSession(req: Request, _res: Response, next: NextFunction):
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -36,7 +75,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 export function requireFullAuth(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -48,7 +87,7 @@ export function requireFullAuth(req: Request, res: Response, next: NextFunction)
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.storedUser) {
+  if (!req || !req.storedUser) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }

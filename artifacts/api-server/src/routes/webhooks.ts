@@ -37,7 +37,7 @@ router.post('/webhooks/inbound-email', (req, res) => {
   try {
     const payload = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw || '');
     parsed = payload ? JSON.parse(payload) : null;
-  } catch (err) {
+  } catch {
     // Not JSON — fall back to raw text
     parsed = null;
   }

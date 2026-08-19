@@ -10,6 +10,7 @@ interface LiveChatMessage {
   createdAt: string;
   isFromUser: boolean;
   isBot?: boolean;
+  escalated?: boolean;
 }
 
 interface SessionResponse {
@@ -21,6 +22,8 @@ export function LiveChatWidget() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
@@ -40,7 +43,7 @@ export function LiveChatWidget() {
         const res = await fetch('/api/live-chat', { credentials: 'include' });
         if (!res.ok) return;
         const chatData = await res.json();
-        setMessages(chatData);
+        setMessages(Array.isArray(chatData) ? chatData : []);
       } finally {
         setIsLoading(false);
       }
@@ -79,9 +82,11 @@ export function LiveChatWidget() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!message.trim()) return;
-    const text = message;
+    if (!message.trim() || isSending) return;
+    const text = message.trim();
     setMessage("");
+    setError(null);
+    setIsSending(true);
     try {
       const res = await fetch('/api/live-chat', {
         method: 'POST',
@@ -93,10 +98,28 @@ export function LiveChatWidget() {
         throw new Error('Unable to send message');
       }
       const result = await res.json();
-      setMessages((prev) => [...prev, result.userMessage, result.botReply]);
+      const nextMessages = [
+        ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
+        ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
+      ] as LiveChatMessage[];
+      setMessages((prev) => [...prev, ...nextMessages]);
       qc.invalidateQueries({ queryKey: ['getLiveChatMessages'] });
-    } catch {
-      // best-effort live chat send; do not interrupt the user experience
+    } catch (err) {
+      const fallbackMessage = err instanceof Error ? err.message : 'Unable to send message';
+      setError(fallbackMessage);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          senderName: 'System',
+          content: 'Your message could not be sent right now. Please try again in a moment.',
+          createdAt: new Date().toISOString(),
+          isFromUser: false,
+          isBot: false,
+        },
+      ]);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -161,7 +184,10 @@ export function LiveChatWidget() {
                       : "bg-muted text-foreground rounded-tl-none"
                   }`}
                 >
-                  {m.content}
+                  <div>{m.content}</div>
+                  {m.escalated && (
+                    <div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-600">Escalated</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -169,6 +195,11 @@ export function LiveChatWidget() {
           </div>
 
           {/* Input */}
+          {error && (
+            <div className="border-b border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+              {error}
+            </div>
+          )}
           <div className="p-3 border-t border-border flex gap-2">
             <input
               value={message}
@@ -179,10 +210,10 @@ export function LiveChatWidget() {
             />
             <button
               onClick={handleSend}
-              disabled={!message.trim()}
+              disabled={!message.trim() || isSending}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {isLoading ? (
+              {isSending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />

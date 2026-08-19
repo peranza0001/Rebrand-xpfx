@@ -58,3 +58,12 @@ test('getRawDatabaseUrl prefers DIRECT_DATABASE_URL when present', () => {
 
   assert.equal(url, 'postgresql://user:pass@direct.railway.app:5432/app');
 });
+
+test('getRawDatabaseUrl ignores placeholder example.internal database URLs', () => {
+  const url = getRawDatabaseUrl({
+    DATABASE_URL: 'postgresql://postgres:change_me_secure_password@db.example.internal:5432/railway',
+    DIRECT_DATABASE_URL: 'postgresql://postgres:change_me_secure_password@db.example.internal:5432/railway',
+  });
+
+  assert.equal(url, undefined);
+});

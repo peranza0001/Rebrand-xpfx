@@ -46,6 +46,15 @@ import statementsRouter from "./statements";
 import demoRouter from "./demo";
 import demoTradingRouter from "./demo-trading";
 import webhooksRouter from "./webhooks";
+import forexRouter from "./forex";
+import calendarAlertsRouter from "./calendar-alerts";
+import investmentPlansRouter from "./investment-plans";
+import kycAmlRouter from "./kyc-aml";
+import auditRouter from "./audit";
+import regionRouter from "./region";
+import monitoringRouter from "./monitoring";
+import adminWalletsRouter from "./admin-wallets";
+import digitalPaymentsRouter from "./digital-payments";
 
 const router: IRouter = Router();
 
@@ -67,6 +76,8 @@ router.use(cardsRouter);
 router.use(promotionsRouter);
 router.use(billingRouter);
 router.use(referralsRouter);
+
+// ─── ADMIN ROUTES (with handler-level auth via requireAdmin) ──────────────────
 router.use(adminRouter);
 router.use(gasFeeRouter);
 router.use(platformConfigRouter);
@@ -86,6 +97,8 @@ router.use(withdrawalGasFeeRouter);
 router.use(authPasswordRouter);
 router.use(authPinRouter);
 router.use(adminDepositsRouter);
+router.use(adminWalletsRouter);
+router.use(digitalPaymentsRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);
@@ -93,5 +106,14 @@ router.use(demoRouter);
 router.use(demoTradingRouter);
 router.use('/account', accountTierRouter);
 router.use(statementsRouter);
+router.use('/forex', forexRouter);
+router.use('/calendar', calendarAlertsRouter);
+router.use(investmentPlansRouter);
+
+// ─── COMPLIANCE & KYC/AML ROUTES ─────────────────────────────────────────
+router.use('/verify', kycAmlRouter);
+router.use('/audit', auditRouter);
+router.use('/region', regionRouter);
+router.use('/monitoring', monitoringRouter);
 
 export default router;

@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { once } from 'node:events';
+import appModule from '../artifacts/api-server/src/app.ts';
+import { resolveAppOriginFromRequest } from '../artifacts/api-server/src/routes/auth-password.ts';
 
 process.env.NODE_ENV = 'production';
 process.env.SESSION_SECRET = 'test-session-secret';
-process.env.ALLOWED_ORIGINS = 'https://example.com';
+process.env.ALLOWED_ORIGINS = 'https://example.com,http://127.0.0.1';
 
-import appModule from '../artifacts/api-server/src/app.ts';
-
-// Handle both direct export and ESM wrapper
-const app = appModule.default?.default ?? appModule.default ?? appModule;
+const app = appModule && typeof appModule === 'object' && 'default' in appModule ? appModule.default : appModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');
@@ -47,6 +47,39 @@ test('health endpoints are registered and app imports cleanly', async () => {
   assert(routePaths.includes('/api/healthz'), '/api/healthz route should be registered');
   assert(routePaths.includes('/api/livez'), '/api/livez route should be registered');
   assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
+  assert(routePaths.includes('/metrics'), '/metrics route should be registered');
+});
+
+test('monitoring and admin portal routes are registered', () => {
+  const stack = (app._router?.stack ?? []);
+  const hasMetricsRoute = stack.some((layer) => layer.route?.path === '/metrics');
+  const hasXpAdminRoute = stack.some(
+    (layer) => layer.route?.path === '/xpadmin*' || String(layer.regexp).includes('\\/xpadmin'),
+  );
+
+  assert.ok(hasMetricsRoute, '/metrics route should be registered');
+  assert.ok(hasXpAdminRoute, 'XP Admin static route or fallback should be registered');
+});
+
+test('GET /metrics returns Prometheus exposition format', async () => {
+  await withTestServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/metrics`, {
+      method: 'GET',
+      redirect: 'manual',
+    });
+
+    assert.equal(response.status, 200, '/metrics should return successfully');
+    assert.equal(
+      response.headers.get('content-type'),
+      'text/plain; version=0.0.4; charset=utf-8',
+      'metrics endpoint should return Prometheus content type',
+    );
+    const body = await response.text();
+    assert.ok(
+      body.includes('# HELP') || body.includes('# TYPE'),
+      'metrics endpoint should return Prometheus formatted text',
+    );
+  });
 });
 
 test('production health endpoints remain reachable over http for platform probes', async () => {
@@ -66,6 +99,7 @@ test('production health endpoints remain reachable over http for platform probes
 
 test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;
     const response = await fetch(`${baseUrl}/api/live-chat`, {
       method: 'POST',
       redirect: 'manual',
@@ -105,8 +139,16 @@ test('preview-host POST requests are not blocked by CSRF middleware before auth 
   });
 });
 
+test('first-party live chat is the only chat widget loaded in the frontend', async () => {
+  const html = await fs.promises.readFile(new URL('../artifacts/nextrade/index.html', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(html, /chatway|cdn\.chatway\.app|widget\.js\?id=/i, 'Chatway script should not be embedded alongside the first-party live chat stack');
+  assert.match(html, /src="\/src\/main\.tsx"/i, 'Frontend entry should still load normally');
+});
+
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
     const response = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',
@@ -124,8 +166,29 @@ test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async 
   });
 });
 
+test('sensitive financial endpoints enforce no-store browser safety headers', async () => {
+  await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
+    const response = await fetch(`${baseUrl}/api/readyz`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        origin: baseUrl,
+        'x-forwarded-host': new URL(baseUrl).host,
+        'x-forwarded-proto': 'https',
+      },
+    });
+
+    assert.equal(response.status, 200, '/api/readyz should return successfully');
+    assert.match(response.headers.get('cache-control') ?? '', /no-store/i, 'financial readiness responses should not be cached');
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff', 'financial responses should disable MIME sniffing');
+    assert.equal(response.headers.get('x-frame-options'), 'DENY', 'financial responses should prevent framing');
+  });
+});
+
 test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_ORIGINS is configured without one', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;
     const response = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',
@@ -144,6 +207,7 @@ test('GET /api/csrf-token accepts an origin with a trailing slash when ALLOWED_O
 
 test('GET /api/csrf-token issues a fresh token on each request even when the previous cookie is present', async () => {
   await withTestServer(async (baseUrl) => {
+    process.env.ALLOWED_ORIGINS = baseUrl;
     const first = await fetch(`${baseUrl}/api/csrf-token`, {
       method: 'GET',
       redirect: 'manual',
@@ -177,4 +241,36 @@ test('GET /api/csrf-token issues a fresh token on each request even when the pre
     assert.equal(typeof secondBody.csrfToken, 'string');
     assert.notEqual(secondBody.csrfToken, firstBody.csrfToken, 'CSRF token should be refreshed on each GET issuance');
   });
+});
+
+test('resolveAppOriginFromRequest prefers the live custom-domain host over the default Railway origin', () => {
+  const req = {
+    headers: {
+      host: 'xpressprofx.com',
+      origin: 'https://xpressprofx.com',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'xpressprofx.com',
+    },
+    get(name) {
+      return this.headers[name] ?? undefined;
+    },
+  };
+
+  assert.equal(resolveAppOriginFromRequest(req), 'https://xpressprofx.com');
+});
+
+test('resolveAppOriginFromRequest uses the first forwarded host when a proxy provides a comma-separated host list', () => {
+  const req = {
+    headers: {
+      host: 'internal-service:3000',
+      origin: 'https://xpressprofx.com',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'xpressprofx.com, internal-service:3000',
+    },
+    get(name) {
+      return this.headers[name] ?? undefined;
+    },
+  };
+
+  assert.equal(resolveAppOriginFromRequest(req), 'https://xpressprofx.com');
 });

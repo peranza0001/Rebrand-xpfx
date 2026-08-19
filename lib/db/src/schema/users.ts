@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, uuid, numeric, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, uuid, numeric, doublePrecision, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -49,11 +49,13 @@ export const usersTable = pgTable("users", {
 
 export const otpCodesTable = pgTable("otp_codes", {
   id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
   userId: uuid("user_id").notNull(),
   code: text("code").notNull(),
   type: text("type").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   used: boolean("used").notNull().default(false),
+  signupPayload: jsonb("signup_payload"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

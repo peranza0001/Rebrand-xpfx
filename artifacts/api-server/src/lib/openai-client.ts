@@ -12,14 +12,28 @@ import { env } from "./env";
 
 let cached: OpenAI | null = null;
 
+export function resolveOpenAIModel(
+  rawEnv: Record<string, string | undefined> = process.env,
+): string {
+  const selected =
+    rawEnv.OPENAI_MODEL ||
+    rawEnv.AI_INTEGRATIONS_OPENAI_MODEL ||
+    rawEnv.OPENAI_CHAT_MODEL ||
+    "gpt-4.1-mini";
+
+  return selected.trim() || "gpt-4.1-mini";
+}
+
 export function getOpenAI(): OpenAI | null {
   if (cached) return cached;
-  const apiKey = env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  if (!apiKey || !baseURL) {
-    logger.warn("openai-client: AI_INTEGRATIONS_OPENAI_* not configured");
+  const apiKey = env.OPENAI_API_KEY || env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseURL = env.OPENAI_BASE_URL || env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+
+  if (!apiKey) {
+    logger.warn("openai-client: OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY not configured");
     return null;
   }
+
   cached = new OpenAI({ apiKey, baseURL });
   return cached;
 }
@@ -53,10 +67,11 @@ export async function generateAIReply(opts: {
   const client = getOpenAI();
   if (!client) return null;
   const OPENAI_TIMEOUT_MS = 15_000;
+  const model = resolveOpenAIModel();
   try {
     const res = await client.chat.completions.create(
       {
-        model: "gpt-5.4",
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "system", content: `User's display name: ${opts.userName}.` },
@@ -76,7 +91,7 @@ export async function generateAIReply(opts: {
     const cleaned = raw.replace(/\[HANDOFF\]/gi, "").trim();
     return { content: cleaned, escalated };
   } catch (err) {
-    logger.warn({ err: (err as Error).message }, "openai-client: chat failed");
+    logger.warn({ err: (err as Error).message, model }, "openai-client: chat failed");
     return null;
   }
 }

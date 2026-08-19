@@ -1,0 +1,76 @@
+# VPS/PM2 Production Environment
+# Generated: 2026-08-14
+# Save as: /var/www/Rebrand-xpfx/.env on your VPS
+# Or use: DEPLOYMENT/vps-deploy.sh to automate setup
+
+# ========== CORE APPLICATION ==========
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0
+LOG_LEVEL=info
+
+# ========== ALLOWED ORIGINS (CRITICAL - Update with your domain) ==========
+# Format: comma-separated list of trusted origins
+# REPLACE with your actual domain and IP
+ALLOWED_ORIGINS=https://xpressprofx.com,https://www.xpressprofx.com,http://localhost:3000,http://127.0.0.1:3000
+
+# ========== DATABASE (Local PostgreSQL on VPS) ==========
+# Ensure PostgreSQL 14+ is running on VPS
+# Default: postgresql://postgres:password@localhost:5432/xpressprofx
+DATABASE_URL=postgresql://postgres:CHANGE_ME_PASSWORD@localhost:5432/xpressprofx
+DIRECT_DATABASE_URL=postgresql://postgres:CHANGE_ME_PASSWORD@localhost:5432/xpressprofx
+
+# ========== SESSION & AUTH SECRETS (Generated - DO NOT MODIFY) ==========
+SESSION_SECRET=2874e3b6e13184c018e17b2207f502cf4f0905113150b84c3d06941c5d59bd83
+JWT_SECRET=cdfc2da751a11ecf68bc4790cfa1dd60202c16cba1bb6363440d2d6de8a98d12
+COOKIE_SECRET=be2387598d1f1d2b9599bee858861a353952f3aee964b07662ba21eec43fdd6d
+CSRF_SECRET=78ee0706371916b9cd87d4e03ddeb0609a53b50075542eedd4c8a11afe6cd160
+JWT_REFRESH_SECRET=86e1cd08e80b56c386c95089c3c8a4c24a3afc7fe58dd06b91392f21889eb66c
+COOKIE_SIGNING_KEY=e3a8ce1138e7b5bfa403f1efebc75bbbd550ee085a0d85a50bd3901e027461c4
+
+# ========== WALLET ENCRYPTION (Generated - DO NOT MODIFY) ==========
+WALLET_ENCRYPTION_KEY=099b804506bc65614ee48abe4ee1de6313752f141638629adbf992e558f9f5fc8e600a68d6f0e27bd307b0748b18e9e96cbb92a0dc1c060f94b6ed7a29fc504f
+
+# ========== ADMIN CREDENTIALS (CRITICAL - Create strong password) ==========
+# Set to your admin email and a strong password (min 16 chars, mixed case, numbers, symbols)
+ADMIN_EMAIL=admin@xpressprofx.com
+ADMIN_PASSWORD=CHANGE_ME_TO_STRONG_PASSWORD_16_CHARS_MIN
+ADMIN_NOTIFY_EMAIL=admin@xpressprofx.com
+
+# ========== EMAIL SERVICE (SMTP - SendGrid Recommended) ==========
+# Get free SendGrid account at sendgrid.com
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASS=SG.YOUR_SENDGRID_API_KEY_HERE
+SMTP_FROM=noreply@xpressprofx.com
+
+# ========== BLOCKCHAIN & PAYMENT INTEGRATIONS ==========
+# Alchemy (get free key at alchemy.com)
+ALCHEMY_API_KEY=your-alchemy-api-key-here
+
+# MoonPay (optional - for fiat on/off ramps; leave empty for sandbox mode)
+MOONPAY_API_KEY=your-moonpay-api-key-here
+MOONPAY_SECRET_KEY=your-moonpay-secret-key-here
+
+# Coinbase (optional - for crypto payments; leave empty for permissive webhook mode)
+COINBASE_API_KEY=your-coinbase-api-key-here
+COINBASE_SECRET_KEY=your-coinbase-secret-key-here
+COINBASE_WEBHOOK_SECRET=your-coinbase-webhook-secret-here
+
+# Paystack (optional - for African payments)
+PAYSTACK_PUBLIC_KEY=your-paystack-public-key-here
+PAYSTACK_SECRET_KEY=your-paystack-secret-key-here
+
+# ========== AI INTEGRATIONS (Optional) ==========
+AI_INTEGRATIONS_ENABLED=false
+OPENAI_API_KEY=your-openai-api-key-if-enabled
+
+# ========== BUSINESS SETTINGS ==========
+REFERRAL_REWARD_USD=500
+PREVIEW_MODE=false
+
+# ========== DEPLOYMENT PLATFORM DETECTION ==========
+# Not used on VPS (leave empty)
+RAILWAY_ENVIRONMENT_NAME=
+REPLIT_DOMAINS=

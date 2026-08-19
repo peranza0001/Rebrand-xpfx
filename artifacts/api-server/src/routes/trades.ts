@@ -40,13 +40,13 @@ router.post("/trades/:tradeId/release", requireAuth, requireLiveTrading, (req, r
   }
   
   // Check daily trading limit
+  const data = getUserData(req.userId!);
   const userTier = determineAccountTier({
     buyVerified: req.storedUser!.user.buyVerified,
     kycVerified: req.storedUser!.user.kycVerified,
-    bankAccountsCount: 0,
+    bankAccountsCount: data.bankAccounts.length,
     role: req.storedUser!.role,
   });
-  const data = getUserData(req.userId!);
   const tradedToday = data.trades
     .filter(t => {
       const createdDate = new Date(t.createdAt).toDateString();

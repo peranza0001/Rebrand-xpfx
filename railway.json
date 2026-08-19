@@ -1,11 +1,10 @@
 {
   "$schema": "https://railway.app/railway-schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npm install && npm run build --workspace=artifacts/api-server"
+    "buildCommand": "npm install --include=dev --legacy-peer-deps --no-audit --no-fund && npm cache clean --force && sleep 1 && find artifacts -type d -name .vite -exec rm -rf {} + 2>/dev/null || true && npm run predeploy --skip-env-check && npm run build"
   },
   "deploy": {
-    "startCommand": "node artifacts/api-server/dist/index.mjs",
+    "startCommand": "NODE_ENV=production node scripts/ensure-db-ready.mjs && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "healthcheckPath": "/healthz",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",

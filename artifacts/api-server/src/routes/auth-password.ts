@@ -6,13 +6,18 @@
  * These are NEW additive routes; no existing auth logic is modified.
  */
 import { Router } from "express";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 import { requireAuth } from "../lib/session";
 import { users, usersByEmail, hashPassword, logActivity } from "../lib/store";
 import { persistUser, persistResetPasswordToken, getPrismaClient } from "../lib/db-persist";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { env } from "../lib/env";
+import {
+  generatePasswordResetToken,
+  getResetTokenInfo,
+  markResetTokenAsUsed,
+} from "../lib/password-reset";
 
 const router = Router();
 
@@ -22,10 +27,6 @@ interface ResetRecord {
 }
 
 const resetTokens = new Map<string, ResetRecord>();
-
-function generateToken(): string {
-  return randomBytes(32).toString("hex");
-}
 
 function verifyPassword(supplied: string, stored: string): boolean {
   try {
@@ -43,11 +44,21 @@ async function getTokenRecord(token: string): Promise<ResetRecord | null> {
   const record = resetTokens.get(token);
   if (record) return record;
 
+  const tokenInfo = getResetTokenInfo(token);
+  if (tokenInfo) {
+    const userId = usersByEmail.get(tokenInfo.email.toLowerCase());
+    if (!userId) return null;
+    return {
+      userId,
+      expiresAt: Date.now() + tokenInfo.expiresInSeconds * 1000,
+    };
+  }
+
   const prisma = getPrismaClient();
-  if (!prisma) return null;
+  if (!prisma?.user) return null;
 
   try {
-    const user = await prisma.users.findFirst({
+    const user = await prisma.user.findFirst({
       where: { resetPasswordToken: token },
       select: { id: true, resetPasswordExpiry: true },
     });
@@ -69,12 +80,35 @@ function clearResetTokensForUser(userId: string): void {
   }
 }
 
-function getAppOrigin(): string {
-  const allowed = env.ALLOWED_ORIGINS?.split(",")[0]?.trim();
-  if (allowed) return allowed;
-  const replit = env.REPLIT_DOMAINS?.split(",")[0]?.trim();
-  if (replit) return `https://${replit}`;
-  return "https://xpressprofx.app";
+function normalizeHostHeader(value?: string): string | undefined {
+  if (!value) return undefined;
+  const first = value.split(",")[0]?.trim();
+  if (!first) return undefined;
+  return first.replace(/\/+$/, "");
+}
+
+export function resolveAppOriginFromRequest(req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> } | undefined): string {
+  const headers = req?.headers ?? {};
+  const headerHost = normalizeHostHeader(req?.get?.("host") || (typeof headers.host === "string" ? headers.host : Array.isArray(headers.host) ? headers.host[0] : undefined));
+  const forwardedHost = normalizeHostHeader(req?.get?.("x-forwarded-host") || (typeof headers["x-forwarded-host"] === "string"
+    ? headers["x-forwarded-host"]
+    : Array.isArray(headers["x-forwarded-host"])
+      ? headers["x-forwarded-host"][0]
+      : undefined));
+  const origin = typeof headers.origin === "string" ? headers.origin : undefined;
+  const protocolHeader = req?.get?.("x-forwarded-proto") || (typeof headers["x-forwarded-proto"] === "string" ? headers["x-forwarded-proto"] : undefined);
+  const protocol = protocolHeader?.split(",")[0]?.trim() || (origin ? new URL(origin).protocol.replace(":", "") : "https");
+
+  const preferredHost = forwardedHost || headerHost || (origin ? normalizeHostHeader(new URL(origin).host) : undefined);
+  if (preferredHost) {
+    return `${protocol}://${preferredHost}`;
+  }
+
+  const allowed = env.ALLOWED_ORIGINS?.split(",").map((candidate) => candidate.trim()).find(Boolean);
+  if (allowed) return allowed.replace(/\/+$/, "");
+  const replit = env.REPLIT_DOMAINS?.split(",").map((candidate) => candidate.trim()).find(Boolean);
+  if (replit) return `https://${replit.replace(/\/+$/, "")}`;
+  return "https://xpressprofx.com";
 }
 
 /**
@@ -94,14 +128,22 @@ router.post("/auth/forgot-password", async (req, res) => {
     const stored = users.get(userId);
     if (stored && !stored.disabled && stored.role !== "demo") {
       clearResetTokensForUser(userId);
-      const token = generateToken();
+      const token = generatePasswordResetToken(normalized);
       const expiresAt = Date.now() + 30 * 60 * 1000;
       resetTokens.set(token, {
         userId,
         expiresAt,
       });
-      void persistResetPasswordToken(userId, token, new Date(expiresAt));
-      const resetUrl = `${getAppOrigin()}/reset-password?token=${token}`;
+      const tokenPersisted = await persistResetPasswordToken(userId, token, new Date(expiresAt));
+      if (!tokenPersisted) {
+        resetTokens.delete(token);
+        logger.error({ userId }, "[auth-password] Reset token persistence failed");
+        return res.json({
+          ok: true,
+          message: "If that email address is registered, a reset link has been sent.",
+        });
+      }
+      const resetUrl = `${resolveAppOriginFromRequest(req)}/reset-password?token=${token}`;
       try {
         await sendEmail({
           to: normalized,
@@ -165,6 +207,7 @@ router.post("/auth/reset-password", async (req, res) => {
       void persistResetPasswordToken(record.userId, null, null);
     }
     resetTokens.delete(token);
+    markResetTokenAsUsed(token);
     return res.status(400).json({
       error: "This reset link is invalid or has expired. Please request a new one.",
     });
@@ -175,24 +218,35 @@ router.post("/auth/reset-password", async (req, res) => {
     // If the user exists in DB but is not loaded into memory, we still
     // want the reset operation to succeed for the persisted account.
     const prisma = getPrismaClient();
-    if (prisma) {
+    const userDelegate = prisma?.user?.findUnique
+      ? prisma.user
+      : prisma?.users?.findUnique
+        ? prisma.users
+        : null;
+    if (userDelegate) {
       try {
-        const dbUser = await prisma.users.findUnique({
+        const dbUser = await userDelegate.findUnique({
           where: { id: record.userId },
-          select: { email: true, passwordHash: true },
         });
         if (dbUser) {
           // We don't have a fully hydrated in-memory user, but the reset
           // can still proceed by clearing the persistent token and letting
           // future login use the updated hashed password from the DB.
           const newHash = hashPassword(newPassword);
-          await prisma.users.update({
+          const isSnakeCaseDelegate = userDelegate === prisma.users;
+          await userDelegate.update({
             where: { id: record.userId },
-            data: {
-              passwordHash: newHash,
-              resetPasswordToken: null,
-              resetPasswordExpiry: null,
-            },
+            data: isSnakeCaseDelegate
+              ? {
+                password_hash: newHash,
+                reset_password_token: null,
+                reset_password_expiry: null,
+              }
+              : {
+                passwordHash: newHash,
+                resetPasswordToken: null,
+                resetPasswordExpiry: null,
+              },
           });
           clearResetTokensForUser(record.userId);
           return res.json({ ok: true, message: "Password updated successfully. You can now log in." });
@@ -208,7 +262,8 @@ router.post("/auth/reset-password", async (req, res) => {
   stored.passwordHash = hashPassword(newPassword);
   clearResetTokensForUser(record.userId);
   resetTokens.delete(token);
-  void persistUser(record.userId, {
+  markResetTokenAsUsed(token);
+  const userPersisted = await persistUser(record.userId, {
     email: stored.user.email,
     username: stored.user.username,
     passwordHash: stored.passwordHash,
@@ -216,7 +271,10 @@ router.post("/auth/reset-password", async (req, res) => {
     country: stored.user.country,
     phone: stored.phone,
   });
-  void persistResetPasswordToken(record.userId, null, null);
+  const tokenCleared = await persistResetPasswordToken(record.userId, null, null);
+  if (!userPersisted || !tokenCleared) {
+    logger.warn({ userId: record.userId }, "[auth-password] reset persistence failed; continuing with in-memory password update");
+  }
 
   logActivity({
     actorId: record.userId,

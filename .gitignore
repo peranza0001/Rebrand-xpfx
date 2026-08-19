@@ -1,10 +1,8 @@
 # Dependencies
 node_modules
 
-# Lock files (keep package-lock.json, exclude pnpm)
+# Lock files (keep package-lock.json)
 yarn.lock
-pnpm-lock.yaml
-pnpm-workspace.yaml
 
 # Environment
 .env
@@ -45,3 +43,5 @@ replit.nix
 replit.md
 attached_assets/
 
+
+*.tsbuildinfo

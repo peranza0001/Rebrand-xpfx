@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
 
 function DemoConfigEditor() {
   const [config, setConfig] = useState<any | null>(null);

@@ -35,6 +35,8 @@ import { Education } from "@/pages/education";
 import { SmartVest } from "@/pages/smartvest";
 import { Statements } from "@/pages/statements";
 import { DemoTradingPage } from "@/pages/demo-trading";
+import { Trading } from "@/pages/trading";
+import { InvestmentPlans } from "@/pages/investment-plans";
 
 import { PublicHome } from "@/pages/public/home";
 import { PublicMarkets } from "@/pages/public/markets";
@@ -80,7 +82,9 @@ function ProtectedShell() {
           <Route path="/billing" component={Billing} />
           <Route path="/smartvest" component={SmartVest} />
           <Route path="/statements" component={Statements} />
+          <Route path="/trading" component={Trading} />
           <Route path="/demo-trading" component={DemoTradingPage} />
+          <Route path="/investment-plans" component={InvestmentPlans} />
           <Route path="/education/*" component={Education} />
           <Route path="/admin">
             <RequireAdmin>
@@ -105,7 +109,13 @@ function ProtectedShell() {
  */
 function RootRoute() {
   const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <PublicLayout>
+        <PublicHome />
+      </PublicLayout>
+    );
+  }
   if (isAuthenticated) return <ProtectedShell />;
   return (
     <PublicLayout>

@@ -1,1 +1,1 @@
-console.log("Hello from @workspace/scripts");
+export const helloMessage = "Hello from @workspace/scripts";

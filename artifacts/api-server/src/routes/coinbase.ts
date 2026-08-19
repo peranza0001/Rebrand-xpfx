@@ -27,6 +27,7 @@ import {
 import { requireAuth } from "../lib/session";
 import { logger } from "../lib/logger";
 import { env, isProduction } from "../lib/env";
+import { persistWalletBalance } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -340,6 +341,8 @@ router.post("/coinbase/webhook", (req, res) => {
   const wallet = platformByAddress;
   if (cryptoAmount > 0) {
     wallet.balance += cryptoAmount;
+    // PHASE 1 FIX: Persist balance change to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
   }
   data.transactions.unshift({
     id: newId("tx"),

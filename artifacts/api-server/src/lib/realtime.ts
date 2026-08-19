@@ -4,11 +4,26 @@ import cookieParser from 'cookie-parser';
 import { sessions, users, userData } from './store';
 import { SESSION_COOKIE } from './session';
 import { logger } from './logger';
+import { getAllowedOrigins, normalizeOrigin } from './cors';
 
 export async function initRealtime(server: http.Server) {
   const io = new IOServer(server, {
     cors: {
-      origin: (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+
+        const normalizedOrigin = normalizeOrigin(origin);
+        const allowedOrigins = getAllowedOrigins();
+        if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error('Origin not allowed by CORS'));
+      },
       credentials: true,
     },
     path: '/socket.io',
@@ -20,13 +35,13 @@ export async function initRealtime(server: http.Server) {
   (globalThis as any).__xpfx_io = io;
 
   // Simple auth: read cookie header, unsign using cookie-parser's signedCookie
-  io.use((socket, next) => {
+  io.use((socket: any, next: (err?: Error) => void) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie || '';
-      const cookies = Object.fromEntries(cookieHeader.split(';').map((pair) => {
+      const cookies = Object.fromEntries(cookieHeader.split(';').map((pair: string) => {
         const [k, ...v] = pair.split('=');
         return [k?.trim(), v.join('=')];
-      }).filter(([k]) => k));
+      }).filter(([k]: [string | undefined]) => Boolean(k)));
 
       const raw = cookies[SESSION_COOKIE];
       if (!raw) {
@@ -124,7 +139,16 @@ export async function initRealtime(server: http.Server) {
     logger.warn({ err }, '[realtime] Failed to initialize simulation engine');
   }
 
-  logger.info('[realtime] Socket.IO initialized with /demo-trading and /live-chat namespaces');
+  // Initialize price feed for forex, stocks, commodities
+  try {
+    const { initPriceFeed } = await import('./price-feed');
+    initPriceFeed(io);
+    logger.info('[realtime] Price feed initialized for forex, stocks, commodities');
+  } catch (err) {
+    logger.warn({ err }, '[realtime] Failed to initialize price feed');
+  }
+
+  logger.info('[realtime] Socket.IO initialized with /demo-trading, /live-chat, and /prices namespaces');
   return io;
 }
 

@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { getUserData, newId, NOW } from "../lib/store";
 import { requireFullAuth } from "../lib/session";
+import * as walletLedger from "../lib/wallet-ledger";
+import { logger } from "../lib/logger";
 
 const planMeta = {
   conservative: {
@@ -78,6 +80,113 @@ router.post("/smartvest", requireFullAuth, (req, res) => {
     returnPercent: 4.8,
   };
   return res.status(201).json(present(data));
+});
+
+/**
+ * PHASE 5: POST /smartvest/complete-plan - Complete plan and credit payout to trading wallet
+ * Creates a ledger entry recording the SmartVest payout
+ */
+router.post("/smartvest/complete-plan", requireFullAuth, async (req, res) => {
+  try {
+    const data = getUserData(req.userId!);
+
+    if (!data.smartVest) {
+      return res.status(400).json({
+        error: "No active SmartVest plan",
+        message: "Create a plan first with POST /smartvest",
+      });
+    }
+
+    const account = data.smartVest;
+    const simulatedBalance = data.wallets.reduce((total, wallet) => total + wallet.balance, 0);
+    const returnPercent = account.returnPercent ?? 4.8;
+    const payout = Math.round(simulatedBalance * (returnPercent / 100));
+
+    if (payout <= 0) {
+      return res.status(400).json({
+        error: "No funds to payout",
+        message: "Deposit funds to your account before completing a plan",
+      });
+    }
+
+    // Get or create main wallet
+    let mainWallet = data.wallets.find((wallet) => wallet.type === "main");
+    if (!mainWallet) {
+      mainWallet = {
+        id: `wallet_${Date.now()}`,
+        type: "main",
+        label: "Main Wallet",
+        currency: "USD",
+        balance: 0,
+        pendingBalance: 0,
+        address: "",
+      };
+      data.wallets.push(mainWallet);
+    }
+
+    // Record ledger entry for SmartVest payout
+    const entryCreated = await walletLedger.recordLedgerEntry({
+      userId: req.userId!,
+      walletId: mainWallet.id,
+      entryType: "smartvest_payout",
+      assetSymbol: "USD",
+      amount: payout,
+      status: "completed",
+      sourceType: "smartvest_plan_completion",
+      sourceId: account.id,
+      description: `SmartVest ${account.plan} plan payout: ${returnPercent}% return on ${simulatedBalance} USD`,
+      metadata: {
+        planName: account.plan,
+        initialBalance: simulatedBalance,
+        returnPercent,
+        payoutAmount: payout,
+        planDuration: "simulation",
+      },
+    });
+
+    if (!entryCreated) {
+      logger.warn(
+        { userId: req.userId, payout, accountId: account.id },
+        "[smartvest] Ledger entry creation failed - balance may not reflect"
+      );
+    }
+
+    // Update user's trading wallet balance
+    await walletLedger.updateWalletSubBalance(req.userId!, "trading", payout, "USD");
+
+    // Mark plan as completed and reset
+    const now = NOW();
+    data.smartVest = {
+      id: newId("sv"),
+      plan: account.plan,
+      allocation: account.allocation,
+      disclaimerAcknowledged: true,
+      createdAt: now,
+      updatedAt: now,
+      returnPercent: 4.8,
+      lastPayoutAt: now,
+      totalPayoutsReceived: (account.totalPayoutsReceived ?? 0) + payout,
+    };
+
+    return res.status(200).json({
+      status: "ok",
+      message: "Plan completed successfully",
+      payout: {
+        amount: payout,
+        returnPercent,
+        initialBalance: simulatedBalance,
+        currency: "USD",
+      },
+      newPlan: present(data),
+      ledgerEntryCreated: entryCreated,
+    });
+  } catch (err) {
+    logger.error({ err, userId: req.userId }, "[smartvest] Failed to complete plan");
+    return res.status(500).json({
+      error: "Failed to complete plan",
+      message: (err as Error).message,
+    });
+  }
 });
 
 export default router;

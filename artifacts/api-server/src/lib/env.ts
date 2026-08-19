@@ -37,15 +37,15 @@ export const env = {
   LOG_LEVEL: get("LOG_LEVEL") ?? "info",
 
   // Demo auth
-  // Demo auth: allow explicit true/false via env; defaults to true when missing
-  // so the demo endpoint is available in production unless explicitly disabled.
+  // Production should default to secure mode: demo auth is disabled unless
+  // explicitly enabled for a controlled environment or testing deployment.
   ENABLE_DEMO_AUTH: (() => {
     const raw = resolveEnvValue(process.env, "ENABLE_DEMO_AUTH");
-    if (raw === undefined) return true;
+    if (raw === undefined) return false;
     const val = raw.trim().toLowerCase();
     if (val === "true") return true;
     if (val === "false") return false;
-    return true;
+    return false;
   })(),
 
   // Admin provisioning
@@ -59,6 +59,12 @@ export const env = {
   SMTP_USER: get("SMTP_USER"),
   SMTP_PASS: get("SMTP_PASS"),
   SMTP_FROM: get("SMTP_FROM"),
+  SMTP_SECURE: (() => {
+    const raw = get("SMTP_SECURE");
+    if (!raw) return undefined;
+    const normalized = raw.trim().toLowerCase();
+    return normalized === "true" || normalized === "1";
+  })(),
 
   // Additional deployment aliases for production platforms
   COOKIE_SIGNING_KEY: resolveEnvValue(process.env, "COOKIE_SIGNING_KEY"),
@@ -96,8 +102,15 @@ export const env = {
   SESSION_SECRET: get("SESSION_SECRET"),
 
   // OpenAI integration (optional — chat features degrade without it)
+  OPENAI_API_KEY: resolveEnvValue(process.env, "OPENAI_API_KEY", ["AI_INTEGRATIONS_OPENAI_API_KEY"]),
   AI_INTEGRATIONS_OPENAI_API_KEY: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_API_KEY", ["OPENAI_API_KEY"]),
-  AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL"]),
+  OPENAI_MODEL: resolveEnvValue(process.env, "OPENAI_MODEL", ["AI_INTEGRATIONS_OPENAI_MODEL", "OPENAI_CHAT_MODEL"]),
+  AI_INTEGRATIONS_OPENAI_MODEL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_MODEL", ["OPENAI_MODEL", "OPENAI_CHAT_MODEL"]),
+  OPENAI_BASE_URL: resolveEnvValue(process.env, "OPENAI_BASE_URL", ["AI_INTEGRATIONS_OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
+  AI_INTEGRATIONS_OPENAI_BASE_URL: resolveEnvValue(process.env, "AI_INTEGRATIONS_OPENAI_BASE_URL", ["OPENAI_BASE_URL", "OPENAI_API_BASE_URL"]),
+
+  // Sentry (optional — errors are logged locally when absent)
+  SENTRY_DSN: resolveEnvValue(process.env, "SENTRY_DSN", ["PUBLIC_SENTRY_DSN", "CLIENT_SENTRY_DSN"]),
 
   // SendGrid (optional — email.ts falls back to SMTP, then to logged-only)
   SENDGRID_API_KEY: get("SENDGRID_API_KEY"),
@@ -107,6 +120,8 @@ export const env = {
 
   // Frontend runtime exposure
   VITE_API_URL: resolveEnvValue(process.env, "VITE_API_URL", ["API_PROXY_TARGET"]),
+  PUBLIC_APP_URL: resolveEnvValue(process.env, "PUBLIC_APP_URL", ["APP_URL", "PRODUCTION_URL", "FRONTEND_URL"]),
+  FRONTEND_URL: resolveEnvValue(process.env, "FRONTEND_URL", ["PUBLIC_APP_URL", "APP_URL", "PRODUCTION_URL"]) ?? "https://app.xpressprofx.com",
 
   // CORS allowlist — comma-separated list of allowed frontend origins.
   // Use this on Railway, Render, VPS, and any non-Replit deployment:
@@ -143,7 +158,7 @@ export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined
   const explicitValue = rawEnv["ENABLE_DEMO_AUTH"]?.trim().toLowerCase();
   if (explicitValue === "true") return true;
   if (explicitValue === "false") return false;
-  return true;
+  return false;
 }
 
 export const isDemoAuthEnabled = resolveDemoAuthEnabled();

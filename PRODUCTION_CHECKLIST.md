@@ -277,6 +277,18 @@
   - Run in CI before deployment
   - Prevents bad builds reaching production
 
+- [ ] **Security audit**:
+  ```bash
+  npm run audit:ci
+  ```
+  - Run before any production release
+  - Fail on high or critical dependency vulnerabilities
+
+- [ ] **Operational readiness**:
+  - Confirm `/health`, `/healthz`, `/readyz`, and `/metrics` are reachable in production.
+  - Verify `ALLOWED_ORIGINS` contains all app and admin origins.
+  - Confirm incident handling: alert routing, rollback process, and post-mortem documentation.
+
 ### Platform-Specific Deployment
 
 #### Railway
@@ -303,8 +315,11 @@ ALLOWED_ORIGINS=https://yourapp.railway.app
 # 1. Create account at render.com
 # 2. New Web Service > Connect GitHub repo
 # 3. Build Command:
-npm install -g pnpm && node build.js
+npm ci && npm run predeploy && npm run build --workspace=artifacts/api-server
 
+    if [ "${BUILD_ALL:-false}" = "true" ]; then
+      npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal
+    fi
 # 4. Start Command:
 node artifacts/api-server/dist/index.mjs
 
@@ -338,7 +353,7 @@ ssh user@vps.example.com
 
 # 2. Install dependencies
 apt update && apt install -y nodejs npm git postgresql-client
-npm install -g pnpm pm2
+npm install -g pm2
 
 # 3. Clone repo
 git clone https://github.com/your-org/your-repo /var/www/xpressfx
@@ -496,7 +511,7 @@ pm2 monit
   - Enable Dependabot in GitHub settings
 
 - [ ] **Locked Versions**:
-  - Use `pnpm-lock.yaml` (committed)
+  - Use `package-lock.json` (committed)
   - Prevents supply-chain attacks
 
 ---

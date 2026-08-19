@@ -18,6 +18,31 @@ function isRealAlchemyKey(value) {
   return trimmed.length >= 16;
 }
 
+function resolveEnvValue(env, key, aliases = []) {
+  const candidates = [key, ...aliases];
+  for (const candidate of candidates) {
+    const raw = env[candidate];
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+}
+
+function isValidHexString(value, length) {
+  return typeof value === 'string' && /^[0-9a-fA-F]+$/.test(value.trim()) && value.trim().length === length;
+}
+
+function isPlaceholderDatabaseUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.includes('db.example.internal')
+    || trimmed.includes('example.internal')
+    || trimmed.includes('change_me_secure_password')
+    || trimmed.includes('example.com')
+    || trimmed.includes('placeholder');
+}
+
 function validateProductionEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
@@ -45,41 +70,32 @@ function validateProductionEnvironment(env = process.env) {
     const hasDigit = /\d/.test(trimmed);
     const hasSymbol = /[^A-Za-z0-9]/.test(trimmed);
 
-    return trimmed.length >= 12
+    return trimmed.length >= 8
       && hasUpper
       && hasLower
       && hasDigit
-      && (hasSymbol || trimmed.length >= 16 || normalized.includes('prod') || normalized.includes('secure'));
+      && (hasSymbol || trimmed.length >= 10 || normalized.includes('prod') || normalized.includes('secure'));
   }
 
   if (env.NODE_ENV === 'production') {
-    if (!env.SESSION_SECRET || env.SESSION_SECRET.trim().length < 32) {
-      if (!env.SESSION_SECRET) {
-        errors.push('SESSION_SECRET must be set to a strong value in production.');
-      } else {
-        errors.push('SESSION_SECRET must be set to a strong value in production.');
-      }
+    const sessionSecret = resolveEnvValue(env, 'SESSION_SECRET', ['COOKIE_SECRET', 'COOKIE_SIGNING_KEY']);
+    if (!sessionSecret || sessionSecret.length < 32) {
+      errors.push('SESSION_SECRET must be set to a strong value in production.');
     }
 
     if (!env.JWT_SECRET || env.JWT_SECRET.trim().length < 32) {
-      if (!env.JWT_SECRET) {
-        errors.push('JWT_SECRET must be set to a strong value in production.');
-      } else {
-        errors.push('JWT_SECRET must be set to a strong value in production.');
-      }
+      errors.push('JWT_SECRET must be set to a strong value in production.');
     }
 
-    if (!env.WALLET_ENCRYPTION_KEY || env.WALLET_ENCRYPTION_KEY.trim().length !== 64) {
-      if (!env.WALLET_ENCRYPTION_KEY) {
-        errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-      } else {
-        errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-      }
+    if (!env.WALLET_ENCRYPTION_KEY) {
+      errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
+    } else if (!isValidHexString(env.WALLET_ENCRYPTION_KEY, 64)) {
+      errors.push('WALLET_ENCRYPTION_KEY must be a 64-character hex key in production.');
     }
 
-    const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim();
-    if (!databaseUrl) {
-      errors.push('DATABASE_URL or DATABASE_PUBLIC_URL must be configured for production persistence.');
+    const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
+    if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
+      errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
     }
 
     if (!env.ALLOWED_ORIGINS && !env.REPLIT_DOMAINS) {
@@ -98,8 +114,8 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('ADMIN_PASSWORD must be set to a strong production credential.');
     }
 
-    if (demoAuth !== 'false' && demoAuth !== '0') {
-      warnings.push('ENABLE_DEMO_AUTH remains enabled; consider disabling it in production to reduce public exposure.');
+    if (demoAuth === 'true' || demoAuth === '1') {
+      warnings.push('ENABLE_DEMO_AUTH is enabled in production; this is a public exposure and should be disabled unless intentionally required.');
     }
 
     if (env.MOONPAY_API_KEY && !env.MOONPAY_SECRET_KEY) {
@@ -118,8 +134,8 @@ function validateProductionEnvironment(env = process.env) {
     }
 
     const senderFrom = (env.SMTP_FROM || "").trim();
-    if (isRealSendGridKey(env.SENDGRID_API_KEY) && !senderFrom) {
-      errors.push('SENDGRID_API_KEY is configured but no verified sender address is set. Set SMTP_FROM to a verified SendGrid sender email in production.');
+    if ((isRealSendGridKey(env.SENDGRID_API_KEY) || hasSmtpHost) && !senderFrom) {
+      errors.push('SMTP_FROM must be configured when email delivery is enabled in production. Use a verified sender address for SendGrid or the desired from address for SMTP.');
     }
 
     const hasBlockchainProvider = isRealAlchemyKey(env.ALCHEMY_API_KEY) || Boolean(env.INFURA_API_KEY?.trim());

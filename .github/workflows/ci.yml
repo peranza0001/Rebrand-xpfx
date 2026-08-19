@@ -19,7 +19,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --include=dev --legacy-peer-deps --no-audit --no-fund
 
       - name: Generate Prisma client
         run: ./node_modules/.bin/prisma generate
@@ -36,11 +36,8 @@ jobs:
       - name: Build API server
         run: npm run build --workspace=artifacts/api-server
 
-      - name: Build NeXTrade frontend
-        run: npm run build --workspace=artifacts/nextrade
-
-      - name: Build Admin Portal
-        run: npm run build --workspace=artifacts/admin-portal
+      - name: Build frontend packages
+        run: npm run build:frontend:xpadmin
 
       - name: Build API Zod package
         run: npm run build --workspace=lib/api-zod

@@ -8,7 +8,8 @@
 import { Link } from "wouter";
 import {
   TrendingUp, ShieldCheck, Zap, Globe2, BarChart3, Layers,
-  Headphones, Award, Lock, Wallet, ArrowRight, Check,
+  Headphones, Award, Lock, Wallet, ArrowRight, Check, Briefcase,
+  Landmark, Sparkles, Rocket, Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,7 +145,7 @@ export function PublicHome() {
             { icon: Globe2, label: "Forex", desc: "60+ pairs" },
             { icon: BarChart3, label: "Crypto", desc: "200+ coins" },
             { icon: Layers, label: "Indices", desc: "Global indices" },
-            { icon: TrendingUp, label: "Stocks", desc: "5,000+ shares" },
+            { icon: TrendingUp, label: "US Stocks", desc: "3,000+ equities" },
             { icon: Award, label: "Commodities", desc: "Metals & energy" },
           ].map(({ icon: Icon, label, desc }) => (
             <Card key={label} className="hover-elevate">
@@ -152,6 +153,54 @@ export function PublicHome() {
                 <Icon className="h-8 w-8 text-primary mx-auto mb-2" />
                 <div className="font-semibold">{label}</div>
                 <div className="text-xs text-muted-foreground">{desc}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Professional investment plans" subtitle="A unified structure for forex trading, US stock investing, crypto exposure, and digital portfolio growth.">
+        <div className="grid gap-4 lg:grid-cols-4">
+          {INVESTMENT_PLANS.map((plan) => (
+            <Card key={plan.name} className={plan.featured ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/8 to-background" : "border-border/70"}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <plan.icon className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  </div>
+                  {plan.featured && <Badge>Featured</Badge>}
+                </div>
+                <div className="mt-3 text-3xl font-bold">${plan.minDeposit}</div>
+                <div className="text-xs text-muted-foreground">starting deposit</div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <ul className="space-y-2 text-sm">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild className="w-full" variant={plan.featured ? "default" : "outline"}>
+                  <Link href="/signup">Choose {plan.name}</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="US stocks investment features" subtitle="A modern stock investing layer designed for long-term capital growth and active equity trading.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {US_STOCK_FEATURES.map(({ icon: Icon, title, text }) => (
+            <Card key={title}>
+              <CardContent className="p-6">
+                <Icon className="h-6 w-6 text-primary mb-3" />
+                <div className="font-semibold mb-2">{title}</div>
+                <p className="text-sm text-muted-foreground">{text}</p>
               </CardContent>
             </Card>
           ))}
@@ -293,6 +342,88 @@ function Stat({ value, label }: { value: string; label: string }) {
     </div>
   );
 }
+
+const INVESTMENT_PLANS = [
+  {
+    name: "Starter Growth",
+    minDeposit: 250,
+    featured: false,
+    description: "Build confidence with diversified trading and long-term crypto, forex, and US stock exposure.",
+    icon: Rocket,
+    features: [
+      "Multi-asset access across forex, crypto, indices and equities",
+      "1:50 leverage for balanced risk management",
+      "Recurring investment automation and dollar-cost averaging",
+      "Paper trading simulator and guided setup",
+      "Market commentary and weekly strategy briefings",
+    ],
+  },
+  {
+    name: "Standard Trader",
+    minDeposit: 1500,
+    featured: true,
+    description: "Our flagship plan for active traders who want real-time execution across digital assets and equities.",
+    icon: Briefcase,
+    features: [
+      "Access to 3,000+ US stocks and 60+ forex pairs",
+      "Advanced charting with execution alerts and trade signals",
+      "Priority support, risk dashboard and portfolio analytics",
+      "1:200 leverage with tighter spreads on major instruments",
+      "Automated stop-loss and profit-taking workflows",
+    ],
+  },
+  {
+    name: "Elite Investor",
+    minDeposit: 10000,
+    featured: false,
+    description: "A premium portfolio plan with deeper capital markets exposure, structured risk controls, and analyst insight.",
+    icon: Landmark,
+    features: [
+      "Portfolio rebalancing across stocks, ETFs, crypto and commodities",
+      "Dedicated account manager and custom trading allocation models",
+      "Expanded leverage and reduced commissions",
+      "Private market updates and institutional research briefs",
+      "Quarterly portfolio review with macro strategy guidance",
+    ],
+  },
+  {
+    name: "US Stocks Plus",
+    minDeposit: 5000,
+    featured: false,
+    description: "Focused on long-term equity growth with dividend tracking, market sentiment tools, and recurring buy plans.",
+    icon: Building2,
+    features: [
+      "Fractional shares on top NASDAQ and NYSE listings",
+      "Dividend and earnings calendar tracking",
+      "Recurring weekly or monthly investment automation",
+      "Portfolio allocation for blue-chip growth and value names",
+      "Institutional-grade risk scoring and buy-zone alerts",
+    ],
+  },
+];
+
+const US_STOCK_FEATURES = [
+  {
+    icon: TrendingUp,
+    title: "Fractional investing",
+    text: "Build exposure to leading US companies with flexible position sizing and recurring investment contributions.",
+  },
+  {
+    icon: Sparkles,
+    title: "AI trade signals",
+    text: "Use momentum and trend filters to help identify ideal entry, hold, and exit zones across equities and ETFs.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Capital protection",
+    text: "Set automated risk controls, alerts and diversified allocations that keep portfolio volatility under control.",
+  },
+  {
+    icon: Globe2,
+    title: "Global market access",
+    text: "Trade US equities alongside forex, crypto, commodities and indices from a single enterprise-grade account structure.",
+  },
+];
 
 const ACCOUNTS = [
   {

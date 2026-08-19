@@ -85,22 +85,19 @@ async function loadRowsFromDb<T>(
   loadDrizzle: (db: any) => Promise<T[]>,
   loadPrisma: () => Promise<T[]>,
 ): Promise<T[]> {
-  const drizzleRows = await dbGet(label, (db) => loadDrizzle(db), [] as T[]);
-  if (drizzleRows.length > 0) {
-    return drizzleRows;
-  }
-
   const prisma = getPrismaClient();
-  if (!prisma) {
-    return drizzleRows;
+  if (prisma) {
+    try {
+      const prismaRows = await loadPrisma();
+      if (prismaRows.length > 0) {
+        return prismaRows;
+      }
+    } catch (err) {
+      logger.warn({ label, err }, "[hydrate] Prisma load failed; trying compatibility reader");
+    }
   }
 
-  try {
-    return await loadPrisma();
-  } catch (err) {
-    logger.warn({ label, err }, "[hydrate] Prisma fallback failed");
-    return drizzleRows;
-  }
+  return dbGet(label, (db) => loadDrizzle(db), [] as T[]);
 }
 
 export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, existingEmails: Map<string, string>): StoredUser | null {
@@ -110,7 +107,8 @@ export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, exi
     return null;
   }
 
-  if (existingEmails.has(email.toLowerCase())) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (existingEmails.has(normalizedEmail)) {
     return null;
   }
 
@@ -118,7 +116,7 @@ export function buildStoredUserFromHydratedRow(row: Record<string, unknown>, exi
     user: {
       id,
       username: getHydratedRowValue<string>(row, "username") ?? "",
-      email,
+      email: normalizedEmail,
       fullName: getHydratedRowValue<string>(row, "fullName", "full_name") ?? "",
       country: getHydratedRowValue<string>(row, "country") ?? "US",
       kycVerified: Boolean(getHydratedRowValue<boolean>(row, "kycVerified", "kyc_verified")),
@@ -156,29 +154,29 @@ export async function hydrateFromDb(): Promise<void> {
       (db) => db.select().from(usersTable),
       async () => {
         const prisma = getPrismaClient();
-        if (!prisma?.users) {
+        if (!prisma?.user) {
           return [];
         }
-        return prisma.users.findMany({
+        return prisma.user.findMany({
           select: {
             id: true,
             username: true,
             email: true,
-            full_name: true,
+            fullName: true,
             country: true,
-            kyc_verified: true,
-            avatar_url: true,
-            created_at: true,
-            selected_manager_id: true,
+            kycVerified: true,
+            avatarUrl: true,
+            createdAt: true,
+            selectedManagerId: true,
             phone: true,
-            moonpay_email: true,
-            buy_verified: true,
-            password_hash: true,
+            moonpayEmail: true,
+            buyVerified: true,
+            passwordHash: true,
             role: true,
-            referral_code: true,
-            referred_by: true,
-            trading_locked: true,
-            demo_mode: true,
+            referralCode: true,
+            referredBy: true,
+            tradingLocked: true,
+            demoMode: true,
           },
         });
       },
@@ -197,9 +195,10 @@ export async function hydrateFromDb(): Promise<void> {
         continue;
       }
 
+      const normalizedEmail = rowEmail.trim().toLowerCase();
       const referralCode = getHydratedRowValue<string>(row, "referralCode", "referral_code");
       users.set(rowId, stored);
-      usersByEmail.set(rowEmail.toLowerCase(), rowId);
+      usersByEmail.set(normalizedEmail, rowId);
       if (referralCode) referralCodeIndex.set(referralCode, rowId);
       if (!referrals.has(rowId)) referrals.set(rowId, []);
       if (!userData.has(rowId)) {
@@ -377,13 +376,15 @@ export async function hydrateFromDb(): Promise<void> {
     for (const s of dbSessions) {
       const sessionId = getHydratedRowValue<string>(s, "id");
       const userId = getHydratedRowValue<string>(s, "userId", "user_id");
+      const expiresAtRaw = getHydratedRowValue<string | Date>(s, "expiresAt", "expires_at");
+      const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : undefined;
       if (!sessionId || !userId) {
         continue;
       }
 
       // Only restore sessions for users we have in memory
       if (users.has(userId)) {
-        sessions.set(sessionId, { userId });
+        sessions.set(sessionId, { userId, expiresAt });
         sessionsLoaded++;
       }
     }

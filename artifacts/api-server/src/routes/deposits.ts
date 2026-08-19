@@ -29,10 +29,11 @@ router.post("/deposits", requireAuth, async (req, res) => {
   if (!enforceGasFee(req, res, "deposit")) return;
   
   // Check tier permissions for fiat deposits
+  const data = getUserData(req.userId!);
   const userTier = determineAccountTier({
     buyVerified: req.storedUser!.user.buyVerified,
     kycVerified: req.storedUser!.user.kycVerified,
-    bankAccountsCount: 0,
+    bankAccountsCount: data.bankAccounts.length,
     role: req.storedUser!.role,
   });
   
@@ -45,7 +46,6 @@ router.post("/deposits", requireAuth, async (req, res) => {
   }
   
   const u = req.storedUser!.user;
-  const data = getUserData(req.userId!);
   const mainWallet = data.wallets.find((w) => w.type === "main");
 
   if (parsed.data.externalWalletId) {

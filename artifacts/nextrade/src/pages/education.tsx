@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useRoute } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +78,7 @@ function EducationCoursesView() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState<EducationStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,8 +97,7 @@ function EducationCoursesView() {
           const data = await statsRes.json();
           setStats(data.stats);
         }
-      } catch (error) {
-        console.error("Error fetching education data:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -240,7 +239,7 @@ function CourseLessonsView({ courseId }: { courseId: string }) {
   const [course, setCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -251,8 +250,7 @@ function CourseLessonsView({ courseId }: { courseId: string }) {
           setCourse(data.course);
           setLessons(data.lessons || []);
         }
-      } catch (error) {
-        console.error("Error fetching course lessons:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -347,7 +345,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
-  const [, setLocation] = useRoute();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -357,8 +355,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
           const data = await res.json();
           setLesson(data.lesson);
         }
-      } catch (error) {
-        console.error("Error fetching lesson:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -390,8 +387,7 @@ function LessonDetailView({ lessonId }: { lessonId: string }) {
           );
         }
       }
-    } catch (error) {
-      console.error("Error completing lesson:", error);
+    } catch {
     } finally {
       setCompleting(false);
     }

@@ -23,6 +23,12 @@ const app = (await import('../artifacts/api-server/src/app.ts')).default;
 let server;
 let baseUrl;
 
+function parseCookie(setCookie) {
+  if (!setCookie) return '';
+  if (Array.isArray(setCookie)) setCookie = setCookie[0];
+  return setCookie.split(';')[0];
+}
+
 test.before(async () => {
   server = createServer(app);
   server.listen(0, '127.0.0.1');
@@ -63,4 +69,43 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(Array.isArray(payload));
   assert.ok(payload.length > 0);
   assert.ok(payload[0].key);
+});
+
+test('demo trading endpoints are available for authenticated sessions', async () => {
+  const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@example.com', password: 'admin-password' }),
+  });
+  assert.equal(loginResponse.status, 200);
+  const cookie = parseCookie(loginResponse.headers.get('set-cookie'));
+  assert.ok(cookie.includes('xpfx_sid='));
+
+  const accountResponse = await fetch(`${baseUrl}/api/demo/account`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(accountResponse.status, 200);
+  const accountPayload = await accountResponse.json();
+  assert.ok(typeof accountPayload.balance === 'number');
+  assert.ok(Array.isArray(accountPayload.positions));
+
+  const instrumentsResponse = await fetch(`${baseUrl}/api/demo/instruments`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(instrumentsResponse.status, 200);
+  const instrumentsPayload = await instrumentsResponse.json();
+  assert.ok(Array.isArray(instrumentsPayload));
+  assert.ok(instrumentsPayload.length > 0);
+
+  const orderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'EUR/USD', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
+  });
+  assert.equal(orderResponse.status, 200);
+  const orderPayload = await orderResponse.json();
+  assert.equal(orderPayload.success, true);
 });

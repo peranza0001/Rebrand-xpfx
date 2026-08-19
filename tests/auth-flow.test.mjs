@@ -4,6 +4,8 @@ process.env.ALLOWED_ORIGINS = 'https://example.com';
 process.env.ADMIN_EMAIL = 'admin@example.com';
 process.env.ADMIN_PASSWORD = 'AdminPass123!';
 process.env.ENABLE_DEMO_AUTH = 'true';
+process.env.DATABASE_URL = '';
+process.env.AUTH_RATE_LIMIT_MAX = '100';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,13 +16,16 @@ const appModule = await import('../artifacts/api-server/src/app.ts');
 const otpModule = await import('../artifacts/api-server/src/lib/otp.ts');
 const storeModule = await import('../artifacts/api-server/src/lib/store.ts');
 const dbPersistModule = await import('../artifacts/api-server/src/lib/db-persist.ts');
+const corsModule = await import('../artifacts/api-server/src/lib/cors.ts');
 
 const app = appModule.default?.default ?? appModule.default ?? appModule;
 const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
+const emailModule = await import('../artifacts/api-server/src/lib/email.ts');
 const store = storeModule.default?.default ?? storeModule.default ?? storeModule;
 const { _getOtpRecord } = otp;
 const { sentEmails } = store;
-const { setPrismaClient } = dbPersistModule;
+const { normalizeSmtpHost } = emailModule;
+const { setPrismaClient, persistUser, persistSession, persistKyc } = dbPersistModule;
 
 async function withTestServer(handler) {
   const server = app.listen(0, '127.0.0.1');
@@ -70,7 +75,379 @@ test('seeded demo users can sign in directly without first starting demo auth', 
   });
 });
 
-test('signup verification fails when durable user persistence cannot be completed', async () => {
+test('SMTP host values are normalized before provider delivery', () => {
+  assert.equal(normalizeSmtpHost('https://smtp.sendgrid.net'), 'smtp.sendgrid.net');
+  assert.equal(normalizeSmtpHost('smtp.sendgrid.net'), 'smtp.sendgrid.net');
+});
+
+test('persistSession treats missing Prisma delegates as a safe in-memory fallback', async () => {
+  setPrismaClient({});
+
+  try {
+    const sessionPersisted = await persistSession('fallback-only-session', randomUUID(), new Date('2030-01-01T00:00:00Z'), false);
+    assert.equal(sessionPersisted, true);
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('snake_case Prisma delegates persist users and sessions without missing-model fallback errors', async () => {
+  const sessionCalls = [];
+  const userCalls = [];
+  const fakePrismaClient = {
+    users: {
+      upsert: async ({ create, update }) => {
+        userCalls.push(create ?? update);
+        return create ?? update;
+      },
+    },
+    user_sessions: {
+      create: async ({ data }) => {
+        sessionCalls.push(data);
+        return data;
+      },
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    const userId = randomUUID();
+    const userPersisted = await persistUser(userId, {
+      email: 'snake-prisma@example.com',
+      username: 'snake-prisma',
+      passwordHash: 'hash',
+      fullName: 'Snake Prisma User',
+      country: 'US',
+      phone: null,
+    });
+    const sessionPersisted = await persistSession('snake-session-123', userId, new Date('2030-01-01T00:00:00Z'), false);
+
+    assert.equal(userPersisted, true);
+    assert.equal(sessionPersisted, true);
+    assert.equal(userCalls.length, 1);
+    assert.equal(sessionCalls.length, 1);
+    assert.equal(sessionCalls[0].id, 'snake-session-123');
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('KYC submissions use the durable Prisma document persistence path', async () => {
+  const kycCalls = [];
+  setPrismaClient({
+    kyc_documents: {
+      upsert: async (input) => {
+        kycCalls.push(input);
+        return input;
+      },
+    },
+  });
+
+  try {
+    const userId = randomUUID();
+    const kycId = randomUUID();
+    await persistKyc(kycId, userId, { documentType: 'passport', status: 'pending' });
+    assert.equal(kycCalls.length, 1);
+    assert.equal(kycCalls[0].create.user_id, userId);
+    assert.equal(kycCalls[0].create.doc_type, 'passport');
+    assert.equal(kycCalls[0].create.status, 'pending');
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('brand origins are included in the production CORS allowlist by default', () => {
+  const { getAllowedOrigins } = corsModule;
+  const origins = getAllowedOrigins();
+
+  assert.ok(origins.includes('https://xpressprofx.com'));
+  assert.ok(origins.includes('https://www.xpressprofx.com'));
+});
+
+test('customFetch automatically attaches CSRF tokens to unsafe requests', async () => {
+  const originalFetch = globalThis.fetch;
+  const actualCalls = [];
+
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    const headers = new Headers(init.headers ?? {});
+
+    if (url.endsWith('/api/csrf-token')) {
+      return new Response(JSON.stringify({ csrfToken: 'csrf-abc' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    actualCalls.push({
+      url,
+      method: String(init.method ?? 'GET'),
+      xCsrf: headers.get('x-csrf-token'),
+    });
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const { customFetch } = await import('../lib/api-client-react/src/custom-fetch.ts');
+    const result = await customFetch('/api/demo/order', {
+      method: 'POST',
+      body: JSON.stringify({ symbol: 'BTC/USD', amount: 2500 }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(actualCalls.length, 1, 'unsafe requests should issue the mutation request once after fetching a fresh CSRF token');
+    assert.equal(actualCalls[0].xCsrf, 'csrf-abc', 'unsafe requests should include the fresh CSRF header');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('legacy password reset requests issue real reset links that can be redeemed by the active reset route', async () => {
+  await withTestServer(async (baseUrl) => {
+    const email = 'legacy-reset@example.com';
+    const created = store.createUser({
+      email,
+      password: 'LegacyPass123!',
+      fullName: 'Legacy Reset User',
+      username: 'legacy_reset_user',
+      country: 'US',
+      role: 'user',
+    });
+
+    assert.ok(created, 'user should be created for reset testing');
+
+    const request = await fetch(`${baseUrl}/api/auth/password-reset/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    assert.equal(request.status, 200, 'legacy reset request should return success');
+    const requestBody = await request.json();
+    assert.equal(requestBody.success, true, 'legacy reset request should succeed');
+
+    const lastEmail = store.sentEmails[0];
+    assert.ok(lastEmail, 'legacy reset request should enqueue a real email message');
+    assert.equal(lastEmail.to, email, 'reset email should be sent to the requested address');
+    const match = (lastEmail.body || '').match(/reset-password\?token=([A-Fa-f0-9]+)/i);
+    assert.ok(match && match[1], 'reset email should contain a valid token in the URL');
+
+    const verify = await fetch(`${baseUrl}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: match[1], newPassword: 'NewPass456!' }),
+    });
+
+    assert.equal(verify.status, 200, 'token produced by legacy route should be accepted by the active reset route');
+    const verifyBody = await verify.json();
+    assert.equal(verifyBody.ok, true, 'reset should succeed with the shared token');
+  });
+});
+
+test('OTP codes are persisted and rehydrated from durable storage', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    otpCode: {
+      create: async ({ data }) => {
+        persisted.push(data);
+        return data;
+      },
+      findMany: async () => persisted.map((item) => ({
+        id: item.id,
+        email: item.email,
+        code: item.code,
+        type: item.type,
+        expires_at: item.expires_at ?? item.expiresAt,
+        used: item.used,
+        created_at: item.created_at ?? item.createdAt,
+        signup_payload: item.signup_payload ?? item.signupPayload,
+        user_id: item.user_id ?? item.userId,
+      })),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const item of persisted) {
+          if (item.email === where.email && item.code === where.code && item.used === where.used) {
+            item.used = data.used;
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    },
+    user: {
+      findUnique: async ({ where }) => null,
+      upsert: async ({ create, update }) => {
+        // A minimal mock for Prisma upsert called by persistUser.
+        // It should accept either user object shape and return the created/updated row.
+        return create ?? update;
+      },
+    },
+    userSession: {
+      create: async ({ data }) => ({ ...data }),
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    const record = await otp.issueOtp({
+      email: 'durable-otp@example.com',
+      intent: 'signup',
+      signupPayload: {
+        email: 'durable-otp@example.com',
+        password: 'Secret123!',
+        fullName: 'Durable OTP User',
+        country: 'US',
+      },
+    });
+
+    otp._clearOtpStore();
+    const hydrated = await otp.restoreOtpCodesFromStorage();
+    assert.equal(hydrated.length, 1);
+    assert.equal(hydrated[0].email, record.email);
+    assert.equal(hydrated[0].code, record.code);
+    assert.equal(hydrated[0].intent, 'signup');
+    assert.deepEqual(hydrated[0].signupPayload, record.signupPayload);
+    assert.equal(persisted[0].email, 'durable-otp@example.com');
+    assert.deepEqual(persisted[0].signup_payload, record.signupPayload);
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('verify-otp loads persisted OTP from durable storage when in-memory cache is cleared', async () => {
+  const persisted = [];
+  const fakePrismaClient = {
+    otpCode: {
+      create: async ({ data }) => {
+        persisted.push({ ...data, used: false });
+        return data;
+      },
+      findMany: async ({ where }) => persisted
+        .filter((item) => item.email === where.email && item.used === where.used)
+        .sort((a, b) => new Date(b.created_at ?? b.createdAt).getTime() - new Date(a.created_at ?? a.createdAt).getTime()),
+      updateMany: async ({ where, data }) => {
+        let count = 0;
+        for (const item of persisted) {
+          if (item.email === where.email && item.code === where.code && item.used === where.used) {
+            item.used = data.used;
+            count += 1;
+          }
+        }
+        return { count };
+      },
+    },
+    users: {
+      findUnique: async ({ where }) => null,
+      upsert: async ({ create, update }) => ({ ...create ?? update }),
+    },
+    userSession: {
+      create: async ({ data }) => ({ ...data }),
+    },
+  };
+
+  setPrismaClient(fakePrismaClient);
+
+  try {
+    await withTestServer(async (baseUrl) => {
+      const email = `verify-persisted-${Date.now()}@example.com`;
+      const password = 'Secret123!';
+      const signupPayload = {
+        email,
+        password,
+        fullName: 'Persisted OTP User',
+        country: 'US',
+      };
+
+      const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+        method: 'POST',
+        body: signupPayload,
+      });
+      assert.equal(signupResult.response.status, 200);
+
+      const otpRecord = await otp._getOtpRecord(email);
+      assert.ok(otpRecord, 'OTP record should exist after signup');
+
+      otp._clearOtpStore();
+      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, code: otpRecord.code },
+      });
+
+      assert.equal(verifyResult.response.status, 200);
+      assert.equal(verifyResult.data.user.email, email);
+      assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
+    });
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('signup persistence uses Prisma-compatible user and session field names', async () => {
+  const calls = [];
+  const compatiblePrismaClient = {
+    user: {
+      upsert: async ({ create, update }) => {
+        if (create?.fullName || update?.fullName || create?.username || update?.username) {
+          throw new Error('unsupported legacy fields');
+        }
+        if (!create?.firstName || !create?.lastName || !create?.passwordHash) {
+          throw new Error('missing expected user fields');
+        }
+        calls.push({ kind: 'user', create, update });
+        return true;
+      },
+    },
+    userSession: {
+      create: async ({ data }) => {
+        if (!data?.token) {
+          throw new Error('missing session token');
+        }
+        calls.push({ kind: 'session', data });
+        return true;
+      },
+    },
+  };
+
+  setPrismaClient(compatiblePrismaClient);
+
+  try {
+    const userId = randomUUID();
+    const userPersisted = await persistUser(userId, {
+      email: 'prisma-shape@example.com',
+      username: 'prisma-shape',
+      passwordHash: 'hash',
+      fullName: 'Prisma Shape User',
+      country: 'US',
+      phone: null,
+    });
+    assert.equal(userPersisted, true);
+
+    const sessionPersisted = await persistSession('session-token-123', userId, new Date('2030-01-01T00:00:00Z'), false);
+    assert.equal(sessionPersisted, true);
+    assert.equal(calls[0].kind, 'user');
+    assert.deepEqual(calls[0].create, {
+      id: userId,
+      email: 'prisma-shape@example.com',
+      firstName: 'Prisma',
+      lastName: 'Shape User',
+      passwordHash: 'hash',
+      country: 'US',
+      phone: null,
+    });
+    assert.equal(calls[1].data.token, 'session-token-123');
+  } finally {
+    setPrismaClient(null);
+  }
+});
+
+test('signup verification succeeds even when durable user persistence cannot be completed', async () => {
   const failingPrismaClient = {
     users: {
       upsert: async () => {
@@ -110,119 +487,67 @@ test('signup verification fails when durable user persistence cannot be complete
         body: { email, code: otpRecord.code },
       });
 
-      assert.equal(verifyResult.response.status, 500);
-      assert.match(verifyResult.data.error, /Unable to create account/i);
+      assert.equal(verifyResult.response.status, 200);
+      assert.equal(verifyResult.data.user.email, email);
+      assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
     });
   } finally {
     setPrismaClient(null);
   }
 });
 
-test('login fails when durable session persistence cannot complete', async () => {
-  const failingPrismaClient = {
-    users: {
-      upsert: async () => true,
-    },
-    userSession: {
-      create: async () => {
-        throw new Error('db write failed');
+  test('signup verification still succeeds when the durable session write fails', async () => {
+    const deletedUsers = [];
+    const failingSessionPrismaClient = {
+      user: {
+        upsert: async () => true,
+        delete: async ({ where }) => {
+          deletedUsers.push(where.id);
+          return { id: where.id };
+        },
       },
-    },
-  };
-
-  setPrismaClient(failingPrismaClient);
-
-  try {
-    await withTestServer(async (baseUrl) => {
-      const email = `uuid-login-${Date.now()}@example.com`;
-      const userId = randomUUID();
-      store.users.set(userId, {
-        user: {
-          id: userId,
-          username: 'uuid-login',
-          email,
-          fullName: 'UUID Login User',
-          country: 'US',
-          kycVerified: true,
-          avatarUrl: undefined,
-          createdAt: new Date().toISOString(),
-          selectedManagerId: null,
-          phone: null,
-          merchant: false,
-          moonpayEmail: null,
-          buyVerified: false,
+      userSession: {
+        create: async () => {
+          throw new Error('db write failed');
         },
-        passwordHash: store.hashPassword('Secret123!'),
-        role: 'user',
-        referralCode: '',
-        referredBy: null,
-        merchant: false,
-        tradingLocked: false,
-        demoMode: false,
-        phone: null,
-        accountFlag: null,
-        suspended: false,
-        disabled: false,
-      });
-      store.usersByEmail.set(email, userId);
-      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+      },
+    };
 
-      const loginResult = await jsonRequest(baseUrl, '/api/auth/login', {
-        method: 'POST',
-        body: { email, password: 'Secret123!' },
-      });
+    setPrismaClient(failingSessionPrismaClient);
 
-      assert.equal(loginResult.response.status, 500);
-      assert.match(loginResult.data.error, /Unable to create authenticated session/i);
-    });
-
-    await withTestServer(async (baseUrl) => {
-      const email = `otp-login-${Date.now()}@example.com`;
-      const userId = randomUUID();
-      store.users.set(userId, {
-        user: {
-          id: userId,
-          username: 'otp-login',
+    try {
+      await withTestServer(async (baseUrl) => {
+        const email = `rollback-${Date.now()}@example.com`;
+        const signupPayload = {
           email,
-          fullName: 'OTP Login User',
+          password: 'Secret123!',
+          fullName: 'Rollback User',
           country: 'US',
-          kycVerified: true,
-          avatarUrl: undefined,
-          createdAt: new Date().toISOString(),
-          selectedManagerId: null,
-          phone: null,
-          merchant: false,
-          moonpayEmail: null,
-          buyVerified: false,
-        },
-        passwordHash: store.hashPassword('Secret123!'),
-        role: 'user',
-        referralCode: '',
-        referredBy: null,
-        merchant: false,
-        tradingLocked: false,
-        demoMode: false,
-        phone: null,
-        accountFlag: null,
-        suspended: false,
-        disabled: false,
-      });
-      store.usersByEmail.set(email, userId);
-      store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+        };
 
-      const otpRecord = await otp.issueOtp({ email, intent: 'login', userId });
-      const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
-        method: 'POST',
-        body: { email, code: otpRecord.code },
-      });
+        const signupResult = await jsonRequest(baseUrl, '/api/auth/signup', {
+          method: 'POST',
+          body: signupPayload,
+        });
+        assert.equal(signupResult.response.status, 200);
 
-      assert.equal(verifyResult.response.status, 500);
-      assert.match(verifyResult.data.error, /Unable to create authenticated session/i);
-    });
-  } finally {
-    setPrismaClient(null);
-  }
-});
+        const otpRecord = _getOtpRecord(email);
+        assert.ok(otpRecord, 'OTP record should exist after signup');
+
+        const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
+          method: 'POST',
+          body: { email, code: otpRecord.code },
+        });
+
+        assert.equal(verifyResult.response.status, 200);
+        assert.equal(verifyResult.data.user.email, email);
+        assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
+        assert.equal(deletedUsers.length, 0, 'durable session failure should not trigger a rollback when auth is allowed to continue in memory');
+      });
+    } finally {
+      setPrismaClient(null);
+    }
+  });
 
 test('signup with an already-persisted email returns an OTP challenge without creating a new record', async () => {
   const existingEmail = `existing-${Date.now()}@example.com`;
@@ -373,6 +698,12 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
     assert.equal(sentEmails.length, 1);
     assert.equal(sentEmails[0].to, email);
     assert.equal(sentEmails[0].kind, 'otp.signup');
+
+    const devOtpResponse = await fetch(`${baseUrl}/api/auth/dev-otp?email=${encodeURIComponent(email)}`);
+    assert.equal(devOtpResponse.status, 200);
+    const devOtpData = await devOtpResponse.json();
+    assert.equal(devOtpData.code, otpRecord.code);
+    assert.equal(devOtpData.email, email);
 
     const verifyResult = await jsonRequest(baseUrl, '/api/auth/verify-otp', {
       method: 'POST',

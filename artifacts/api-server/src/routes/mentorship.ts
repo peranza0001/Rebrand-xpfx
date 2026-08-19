@@ -4,6 +4,7 @@ import { applyWalletDebit, getUserData, logActivity, newId, NOW } from "../lib/s
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { logger } from "../lib/logger";
+import { persistWalletBalance } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -242,7 +243,12 @@ router.post("/mentors/:mentorId/book", requireAuth, (req, res) => {
     const mentorId = req.params.mentorId;
     const { scheduledDate, duration, topic, notes, walletId, slot } = parsed.data;
 
-    const mentor = mentors.find((m) => m.id === mentorId);
+    const resolvedMentorId = mentorId ?? "";
+    const resolvedDuration = duration ?? 60;
+    const resolvedTopic = topic ?? "Mentorship session";
+    const resolvedScheduledDate = scheduledDate ?? slot ?? NOW();
+
+    const mentor = mentors.find((m) => m.id === resolvedMentorId);
     if (!mentor) {
       return res.status(404).json({
         success: false,
@@ -250,9 +256,6 @@ router.post("/mentors/:mentorId/book", requireAuth, (req, res) => {
       });
     }
 
-    const resolvedScheduledDate = scheduledDate ?? slot ?? NOW();
-    const resolvedDuration = duration ?? 60;
-    const resolvedTopic = topic ?? `Mentorship session with ${mentor.name}`;
     const durationHours = resolvedDuration / 60;
     const cost = Number((mentor.hourlyRate * durationHours).toFixed(2));
 
@@ -277,7 +280,7 @@ router.post("/mentors/:mentorId/book", requireAuth, (req, res) => {
     const session: MentorshipSession = {
       id: sessionId,
       userId: req.userId!,
-      mentorId,
+      mentorId: resolvedMentorId,
       status: "scheduled",
       scheduledDate: resolvedScheduledDate,
       duration: resolvedDuration,
@@ -294,23 +297,32 @@ router.post("/mentors/:mentorId/book", requireAuth, (req, res) => {
 
     logActivity({
       actorId: req.userId!,
+      actorName: "user",
       action: "mentorship_booked",
-      detail: `Booked mentorship session with ${mentor.name}. Session ${sessionId}, cost $${cost}, duration ${resolvedDuration} min, scheduled ${resolvedScheduledDate}.`,
+      detail: `Booked mentorship session with ${mentor.name}`,
+      metadata: {
+        sessionId,
+        mentorId: resolvedMentorId,
+        cost,
+        duration: resolvedDuration,
+        scheduledDate: resolvedScheduledDate,
+      },
     });
 
     notifyUser({
       userId: req.userId!,
-      kind: "success",
+      kind: "mentorship",
       title: "Mentorship Session Booked! 📅",
       body: `Session with ${mentor.name} scheduled for ${new Date(resolvedScheduledDate).toLocaleDateString()}`,
+      link: null,
     });
 
     pushAdminAlert({
-      kind: "mentorship.booked",
-      severity: "info",
+      kind: "mentorship.booking",
       title: "New Mentorship Booking",
       body: `User booked ${resolvedDuration}min session with ${mentor.name} for $${cost}`,
       userId: req.userId,
+      severity: "info",
     });
 
     return res.json({
@@ -346,8 +358,13 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
     const { mentorId, scheduledDate, duration, topic, notes, walletId } =
       parsed.data;
 
+    const resolvedMentorId = mentorId ?? "";
+    const resolvedDuration = duration ?? 60;
+    const resolvedTopic = topic ?? "Mentorship session";
+    const resolvedScheduledDate = scheduledDate ?? NOW();
+
     // Verify mentor exists
-    const mentor = mentors.find((m) => m.id === mentorId);
+    const mentor = mentors.find((m) => m.id === resolvedMentorId);
     if (!mentor) {
       return res.status(404).json({
         success: false,
@@ -356,7 +373,7 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
     }
 
     // Calculate cost
-    const durationHours = duration / 60;
+    const durationHours = resolvedDuration / 60;
     const cost = Number((mentor.hourlyRate * durationHours).toFixed(2));
 
     // Get user data
@@ -388,12 +405,12 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
     const session: MentorshipSession = {
       id: sessionId,
       userId: req.userId!,
-      mentorId,
+      mentorId: resolvedMentorId,
       status: "scheduled",
-      scheduledDate,
-      duration,
+      scheduledDate: resolvedScheduledDate,
+      duration: resolvedDuration,
       cost,
-      topic,
+      topic: resolvedTopic,
       notes: notes || "",
       createdAt: NOW(),
     };
@@ -406,6 +423,8 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
 
     // Deduct from wallet
     wallet.balance = Number((wallet.balance - cost).toFixed(2));
+    // PHASE 1 FIX: Persist balance change to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
 
     // Record transaction
     data.transactions.unshift({
@@ -415,32 +434,41 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
       amount: -cost,
       currency: "USD",
       status: "completed",
-      description: `Mentorship session: ${mentor.name} - ${topic}`,
+      description: `Mentorship session: ${mentor.name} - ${resolvedTopic}`,
       createdAt: NOW(),
     });
 
     // Log activity
     logActivity({
       actorId: req.userId!,
+      actorName: "user",
       action: "mentorship_booked",
-      detail: `Booked mentorship session with ${mentor.name}. Session ${sessionId}, cost $${cost}, duration ${duration} min, scheduled ${scheduledDate}.`,
+      detail: `Booked mentorship session with ${mentor.name}`,
+      metadata: {
+        sessionId,
+        mentorId: resolvedMentorId,
+        cost,
+        duration: resolvedDuration,
+        scheduledDate: resolvedScheduledDate,
+      },
     });
 
     // Notify user
     notifyUser({
       userId: req.userId!,
-      kind: "success",
+      kind: "mentorship",
       title: "Mentorship Session Booked! 📅",
-      body: `Session with ${mentor.name} scheduled for ${new Date(scheduledDate).toLocaleDateString()}`,
+      body: `Session with ${mentor.name} scheduled for ${new Date(resolvedScheduledDate).toLocaleDateString()}`,
+      link: null,
     });
 
     // Alert admin
     pushAdminAlert({
-      kind: "mentorship.booked",
-      severity: "info",
+      kind: "mentorship.booking",
       title: "New Mentorship Booking",
-      body: `User booked ${duration}min session with ${mentor.name} for $${cost}`,
+      body: `User booked ${resolvedDuration}min session with ${mentor.name} for $${cost}`,
       userId: req.userId,
+      severity: "info",
     });
 
     return res.json({
@@ -548,15 +576,21 @@ router.post("/mentors/bookings/:bookingId/cancel", requireAuth, (req, res) => {
 
     logActivity({
       actorId: req.userId!,
+      actorName: "user",
       action: "mentorship_cancelled",
-      detail: `Cancelled mentorship session ${bookingId}, refunded $${session.cost}.`,
+      detail: `Cancelled mentorship session`,
+      metadata: {
+        sessionId: bookingId,
+        refundAmount: session.cost,
+      },
     });
 
     notifyUser({
       userId: req.userId!,
-      kind: "info",
+      kind: "mentorship",
       title: "Session Cancelled",
       body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
+      link: null,
     });
 
     return res.json({
@@ -619,16 +653,22 @@ router.post("/mentorship/sessions/:sessionId/cancel", requireAuth, (req, res) =>
     // Log activity
     logActivity({
       actorId: req.userId!,
+      actorName: "user",
       action: "mentorship_cancelled",
-      detail: `Cancelled mentorship session ${sessionId}, refunded $${session.cost}.`,
+      detail: `Cancelled mentorship session`,
+      metadata: {
+        sessionId,
+        refundAmount: session.cost,
+      },
     });
 
     // Notify user
     notifyUser({
       userId: req.userId!,
-      kind: "info",
+      kind: "mentorship",
       title: "Session Cancelled",
       body: `Your mentorship session has been cancelled. $${session.cost} has been refunded.`,
+      link: null,
     });
 
     return res.json({

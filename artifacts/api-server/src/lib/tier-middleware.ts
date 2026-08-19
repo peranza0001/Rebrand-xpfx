@@ -3,6 +3,7 @@
  */
 import type { NextFunction, Request, Response } from 'express';
 import { AccountTier, TIER_SPECS, determineAccountTier, canPerformAction } from './account-tiers';
+import { getUserData } from './store';
 
 /**
  * Middleware to require a minimum account tier.
@@ -14,10 +15,12 @@ export function requireTier(minTier: AccountTier) {
       return;
     }
 
+    const data = req.userId ? getUserData(req.userId) : null;
+    const bankAccountsCount = data?.bankAccounts?.length ?? 0;
     const userTier = determineAccountTier({
       kycVerified: req.storedUser.user.kycVerified,
       buyVerified: req.storedUser.user.buyVerified,
-      bankAccountsCount: 0,
+      bankAccountsCount,
       role: req.storedUser.role,
     });
 
@@ -26,6 +29,11 @@ export function requireTier(minTier: AccountTier) {
       [AccountTier.TIER_1]: 1,
       [AccountTier.TIER_2]: 2,
       [AccountTier.TIER_3]: 3,
+      [AccountTier.TIER_4]: 4,
+      [AccountTier.TIER_5]: 5,
+      [AccountTier.TIER_6]: 6,
+      [AccountTier.TIER_7]: 7,
+      [AccountTier.TIER_8]: 8,
     };
 
     if (tierHierarchy[userTier] < tierHierarchy[minTier]) {
@@ -53,10 +61,12 @@ export function requireLiveTrading(req: Request, res: Response, next: NextFuncti
     return;
   }
 
+  const data = req.userId ? getUserData(req.userId) : null;
+  const bankAccountsCount = data?.bankAccounts?.length ?? 0;
   const userTier = determineAccountTier({
     kycVerified: req.storedUser.user.kycVerified,
     buyVerified: req.storedUser.user.buyVerified,
-    bankAccountsCount: 0,
+    bankAccountsCount,
     role: req.storedUser.role,
   });
 
@@ -102,10 +112,12 @@ export function requireP2pAccess(req: Request, res: Response, next: NextFunction
     return;
   }
 
+  const data = req.userId ? getUserData(req.userId) : null;
+  const bankAccountsCount = data?.bankAccounts?.length ?? 0;
   const userTier = determineAccountTier({
     kycVerified: req.storedUser.user.kycVerified,
     buyVerified: req.storedUser.user.buyVerified,
-    bankAccountsCount: 0,
+    bankAccountsCount,
     role: req.storedUser.role,
   });
 
@@ -131,10 +143,12 @@ export function requireSmartvestAccess(req: Request, res: Response, next: NextFu
     return;
   }
 
+  const data = req.userId ? getUserData(req.userId) : null;
+  const bankAccountsCount = data?.bankAccounts?.length ?? 0;
   const userTier = determineAccountTier({
     kycVerified: req.storedUser.user.kycVerified,
     buyVerified: req.storedUser.user.buyVerified,
-    bankAccountsCount: 0,
+    bankAccountsCount,
     role: req.storedUser.role,
   });
 

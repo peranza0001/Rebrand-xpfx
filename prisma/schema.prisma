@@ -141,14 +141,18 @@ model notifications {
   created_at DateTime @default(now()) @db.Timestamp(6)
 }
 
-model otp_codes {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
-  code       String
-  type       String
-  expires_at DateTime @db.Timestamp(6)
-  used       Boolean  @default(false)
-  created_at DateTime @default(now()) @db.Timestamp(6)
+model OtpCode {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String
+  user_id        String   @db.Uuid
+  code           String
+  type           String
+  expires_at     DateTime @db.Timestamp(6)
+  used           Boolean  @default(false)
+  signup_payload Json?
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("otp_codes")
 }
 
 model p2p_chat {
@@ -322,6 +326,9 @@ model users {
   kyc_status                 String    @default("unverified")
   email_verified             Boolean   @default(false)
   phone_verified             Boolean   @default(false)
+  email_verify_token         String?
+  reset_password_token       String?
+  reset_password_expiry      DateTime? @db.Timestamp(6)
   avatar_url                 String?
   selected_manager_id        String?
   demo_mode                  Boolean   @default(false)
@@ -447,4 +454,252 @@ enum sender_type {
   user
   admin
   bot
+}
+
+enum plan_status {
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum plan_trading_type {
+  long_term
+  short_term
+  mixed
+}
+
+enum checklist_item_type {
+  identity_verification
+  address_verification
+  payment_method
+  bank_account
+  emergency_contact
+  risk_acknowledgment
+  profile_completion
+}
+
+model investment_plans {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String              @unique
+  description       String
+  min_deposit       Decimal             @db.Decimal(20, 2)
+  max_deposit       Decimal?            @db.Decimal(20, 2)
+  trading_type      plan_trading_type
+  expected_return   Decimal             @db.Decimal(5, 2)
+  duration_days     Int
+  leverage          Int                 @default(1)
+  assets            String[]            @default([])
+  rebalance_days    Int                 @default(7)
+  stop_loss_percent Decimal             @default(5) @db.Decimal(5, 2)
+  take_profit_percent Decimal           @default(15) @db.Decimal(5, 2)
+  active            Boolean             @default(true)
+  created_at        DateTime            @default(now()) @db.Timestamp(6)
+  updated_at        DateTime            @updatedAt @db.Timestamp(6)
+  subscriptions     user_plan_subscriptions[]
+}
+
+model user_plan_subscriptions {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String          @db.Uuid
+  plan_id               String          @db.Uuid
+  status                plan_status     @default(active)
+  initial_deposit       Decimal         @db.Decimal(20, 2)
+  current_balance       Decimal         @db.Decimal(20, 2)
+  estimated_profit      Decimal         @default(0) @db.Decimal(20, 2)
+  estimated_profit_pct  Decimal         @default(0) @db.Decimal(5, 2)
+  account_manager_id    String?         @db.Uuid
+  subscription_started  DateTime        @default(now()) @db.Timestamp(6)
+  subscription_end      DateTime?       @db.Timestamp(6)
+  last_rebalance        DateTime        @default(now()) @db.Timestamp(6)
+  created_at            DateTime        @default(now()) @db.Timestamp(6)
+  updated_at            DateTime        @updatedAt @db.Timestamp(6)
+  plan                  investment_plans @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, plan_id])
+  @@index([user_id])
+  @@index([status])
+}
+
+model account_checklist {
+  id          String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_type   checklist_item_type
+  title       String
+  description String
+  required    Boolean                 @default(true)
+  order_index Int                     @default(0)
+  active      Boolean                 @default(true)
+  created_at  DateTime                @default(now()) @db.Timestamp(6)
+  statuses    user_checklist_status[]
+}
+
+model user_checklist_status {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  item_id       String    @db.Uuid
+  completed     Boolean   @default(false)
+  completed_at  DateTime? @db.Timestamp(6)
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+  checklist     account_checklist @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, item_id])
+  @@index([user_id])
+  @@index([completed])
+}
+
+model gas_fee_wallets {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @unique @db.Uuid
+  wallet_address String
+  balance       Decimal   @default(0) @db.Decimal(20, 8)
+  currency      String    @default("ETH")
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+}
+
+// ─── PHASE 4: MULTI-BALANCE WALLET LEDGER SYSTEM ──────────────────────────
+
+model wallet_ledger_entries {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  wallet_id     String    @db.Uuid
+  entry_type    String
+  asset_symbol  String    @default("USD")
+  amount        Decimal   @db.Decimal(20, 8)
+  status        String    @default("completed")
+  source_type   String?
+  source_id     String?
+  description   String?
+  metadata      Json      @default("{}")
+  created_at    DateTime  @default(now()) @db.Timestamp(6)
+  updated_at    DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id])
+  @@index([wallet_id])
+  @@index([created_at])
+}
+
+model trading_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  total_balance     Decimal  @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model social_trading_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @unique @db.Uuid
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  total_balance     Decimal  @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+}
+
+model connected_wallet_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_address   String
+  asset_symbol     String    @default("ETH")
+  balance          Decimal   @default(0) @db.Decimal(20, 8)
+  currency         String    @default("USD")
+  provider         String    @default("metamask")
+  last_synced_at   DateTime? @db.Timestamp(6)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([user_id, wallet_address, asset_symbol])
+  @@index([user_id])
+}
+
+model asset_balances {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_type      String
+  asset_symbol     String
+  available_balance Decimal  @default(0) @db.Decimal(20, 8)
+  locked_balance    Decimal  @default(0) @db.Decimal(20, 8)
+  pending_balance   Decimal  @default(0) @db.Decimal(20, 8)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@unique([user_id, wallet_type, asset_symbol])
+  @@index([user_id])
+}
+
+model deposit_addresses {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  asset_symbol    String
+  address         String
+  label           String?
+  is_active       Boolean   @default(true)
+  created_by_admin String?
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+
+  @@unique([user_id, asset_symbol])
+  @@index([user_id])
+}
+
+model withdrawal_requests {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_id        String?   @db.Uuid
+  asset_symbol     String
+  amount           Decimal   @db.Decimal(20, 8)
+  recipient_address String
+  withdrawal_type  String    @default("crypto")
+  status           String    @default("pending")
+  approved_by_admin String?
+  approval_timestamp DateTime? @db.Timestamp(6)
+  rejection_reason String?
+  transaction_hash String?
+  gas_fee          Decimal?  @db.Decimal(20, 8)
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id, status])
+}
+
+model deposit_requests {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  wallet_id        String?   @db.Uuid
+  asset_symbol     String
+  amount           Decimal   @db.Decimal(20, 8)
+  source_address   String?
+  status           String    @default("pending")
+  approved_by_admin String?
+  approval_timestamp DateTime? @db.Timestamp(6)
+  rejection_reason String?
+  transaction_hash String?
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+  updated_at       DateTime  @updatedAt @db.Timestamp(6)
+
+  @@index([user_id, status])
+}
+
+model user_financial_limits {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                 String    @unique @db.Uuid
+  kyc_tier                Int       @default(1)
+  daily_deposit_limit     Decimal   @default(10000) @db.Decimal(20, 8)
+  daily_withdrawal_limit  Decimal   @default(10000) @db.Decimal(20, 8)
+  monthly_deposit_limit   Decimal   @default(100000) @db.Decimal(20, 8)
+  monthly_withdrawal_limit Decimal  @default(100000) @db.Decimal(20, 8)
+  daily_deposits_used     Decimal   @default(0) @db.Decimal(20, 8)
+  daily_withdrawals_used  Decimal   @default(0) @db.Decimal(20, 8)
+  monthly_deposits_used   Decimal   @default(0) @db.Decimal(20, 8)
+  monthly_withdrawals_used Decimal  @default(0) @db.Decimal(20, 8)
+  last_reset_at           DateTime? @db.Timestamp(6)
+  created_at              DateTime  @default(now()) @db.Timestamp(6)
+  updated_at              DateTime  @updatedAt @db.Timestamp(6)
 }

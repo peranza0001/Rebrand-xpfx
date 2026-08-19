@@ -10,6 +10,10 @@ import { logger } from "./logger";
 import { env, hasSmtpCredentials, isProduction } from "./env";
 import { isSendGridConfigured } from "./integration-config";
 import { sendEmail } from "./email";
+import { getPrismaClient } from "./db-persist";
+import { getDb } from "./db-client";
+import { and, desc, eq } from "drizzle-orm";
+import { otpCodesTable } from "@workspace/db/schema";
 
 interface SignupPayload {
   email: string;
@@ -37,6 +41,148 @@ export const RESEND_THROTTLE_MS = 15 * 1000;
 
 const otpCodes = new Map<string, OtpRecord>();
 const lastSentAt = new Map<string, number>();
+
+function toDbOtpRecord(record: OtpRecord, userId?: string) {
+  return {
+    email: record.email,
+    userId: userId ?? "00000000-0000-0000-0000-000000000000",
+    code: record.code,
+    type: record.intent,
+    expiresAt: new Date(record.expiresAt),
+    used: false,
+    signupPayload: record.signupPayload ?? null,
+    createdAt: new Date(),
+  };
+}
+
+function toPrismaOtpRecord(record: OtpRecord) {
+  return {
+    email: record.email,
+    user_id: record.userId ?? "00000000-0000-0000-0000-000000000000",
+    code: record.code,
+    type: record.intent,
+    expires_at: new Date(record.expiresAt),
+    used: false,
+    signup_payload: record.signupPayload ?? null,
+    created_at: new Date(),
+  };
+}
+
+async function persistOtpRecord(record: OtpRecord): Promise<void> {
+  const db = getDb();
+  if (db) {
+    try {
+      await db.insert(otpCodesTable).values(toDbOtpRecord(record));
+      return;
+    } catch (err) {
+      logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.create) {
+    try {
+      await prismaOtpDelegate.create({ data: toPrismaOtpRecord(record) });
+    } catch (err) {
+      logger.warn({ err, email: record.email }, "[otp] failed to persist OTP to Prisma");
+    }
+  }
+}
+
+async function markOtpUsed(emailRaw: string, code: string): Promise<void> {
+  const email = emailRaw.toLowerCase();
+  const db = getDb();
+  if (db) {
+    try {
+      await db.update(otpCodesTable)
+        .set({ used: true })
+        .where(
+          and(
+            eq(otpCodesTable.email, email),
+            eq(otpCodesTable.code, code),
+            eq(otpCodesTable.used, false),
+          ),
+        );
+    } catch (_err) {
+      logger.warn({ err: _err, email, code }, "[otp] failed to mark OTP record as used in Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.otpCode?.updateMany) {
+    try {
+      await prisma.otpCode.updateMany({
+        where: { email, code, used: false },
+        data: { used: true },
+      });
+    } catch (_err) {
+      logger.warn({ err: _err, email, code }, "[otp] failed to mark OTP record as used in Prisma");
+    }
+  }
+}
+
+function normalizeOtpRow(row: any): OtpRecord | undefined {
+  const email = String(row?.email ?? "").toLowerCase();
+  if (!email || !row?.code || !row?.type) return undefined;
+  const expiresAtValue = row.expiresAt ?? row.expires_at;
+  const expiresAt = expiresAtValue ? new Date(expiresAtValue).getTime() : Date.now();
+  return {
+    email,
+    code: String(row.code),
+    intent: row.type as OtpIntent,
+    expiresAt,
+    attempts: 0,
+    signupPayload: row.signup_payload ?? row.signupPayload ?? undefined,
+    userId: row.user_id ?? row.userId ?? undefined,
+  };
+}
+
+async function loadOtpRecordFromStorage(emailRaw: string): Promise<OtpRecord | undefined> {
+  const email = emailRaw.toLowerCase();
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db
+        .select()
+        .from(otpCodesTable)
+        .where(and(eq(otpCodesTable.email, email), eq(otpCodesTable.used, false)))
+        .orderBy(desc(otpCodesTable.createdAt));
+      if (rows.length > 0) {
+        const record = normalizeOtpRow(rows[0]);
+        if (record) {
+          otpCodes.set(email, record);
+          return record;
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, email }, "[otp] failed to load OTP record from Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.findMany) {
+    try {
+      const rows = await prismaOtpDelegate.findMany({
+        where: { email, used: false },
+        orderBy: { created_at: 'desc' },
+        take: 1,
+      });
+      if (rows.length > 0) {
+        const record = normalizeOtpRow(rows[0]);
+        if (record) {
+          otpCodes.set(email, record);
+          return record;
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, email }, "[otp] failed to load OTP record from Prisma");
+    }
+  }
+
+  return undefined;
+}
 
 function generateCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -108,6 +254,7 @@ export async function issueOtp(args: {
   lastSentAt.set(email, Date.now());
 
   try {
+    await persistOtpRecord(record);
     await sendOtpEmail(email, code, args.intent);
   } catch (err) {
     otpCodes.delete(email);
@@ -126,7 +273,10 @@ export interface ResendResult {
 
 export async function resendOtp(emailRaw: string): Promise<ResendResult> {
   const email = emailRaw.toLowerCase();
-  const existing = otpCodes.get(email);
+  let existing = otpCodes.get(email);
+  if (!existing) {
+    existing = await loadOtpRecordFromStorage(email);
+  }
   if (!existing) {
     return { ok: false, reason: "No pending verification for that email." };
   }
@@ -158,9 +308,12 @@ export interface VerifyResult {
   record?: OtpRecord;
 }
 
-export function verifyOtp(emailRaw: string, code: string): VerifyResult {
+export async function verifyOtp(emailRaw: string, code: string): Promise<VerifyResult> {
   const email = emailRaw.toLowerCase();
-  const record = otpCodes.get(email);
+  let record = otpCodes.get(email);
+  if (!record) {
+    record = await loadOtpRecordFromStorage(email);
+  }
   if (!record) {
     // Return the same generic message as an incorrect code to prevent callers
     // from probing whether an OTP record (and therefore an account) exists.
@@ -181,13 +334,90 @@ export function verifyOtp(emailRaw: string, code: string): VerifyResult {
   if (record.code !== code) {
     return { ok: false, reason: "Incorrect code. Please try again." };
   }
+  await markOtpUsed(email, code);
   otpCodes.delete(email);
   lastSentAt.delete(email);
   return { ok: true, record };
 }
 
+export async function restoreOtpCodesFromStorage(): Promise<OtpRecord[]> {
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db
+        .select()
+        .from(otpCodesTable)
+        .where(eq(otpCodesTable.used, false))
+        .orderBy(desc(otpCodesTable.createdAt));
+      const restored: OtpRecord[] = [];
+      const restoredEmails = new Set<string>();
+      for (const row of rows) {
+        const email = (row as any).email ?? "";
+        if (!email || !row.code || !row.type) continue;
+        if (restoredEmails.has(email)) continue;
+        const normalized = {
+          email,
+          code: row.code,
+          intent: row.type as OtpIntent,
+          expiresAt: new Date(row.expiresAt).getTime(),
+          attempts: 0,
+          signupPayload: (row as any).signupPayload ?? undefined,
+          userId: row.userId ?? undefined,
+        };
+        restoredEmails.add(email);
+        if (!otpCodes.has(email)) {
+          otpCodes.set(email, normalized);
+        }
+        restored.push(normalized);
+      }
+      return restored;
+    } catch (err) {
+      logger.warn({ err }, "[otp] failed to restore OTPs from Drizzle");
+    }
+  }
+
+  const prisma = getPrismaClient();
+  const prismaOtpDelegate = prisma?.otpCode ?? prisma?.otp_codes ?? prisma?.OtpCode ?? prisma?.OtpCode;
+  if (prismaOtpDelegate?.findMany) {
+    try {
+      const rows = await prismaOtpDelegate.findMany({ where: { used: false }, orderBy: { created_at: 'desc' } });
+      logger.info({ rowCount: rows.length, sample: rows[0] }, '[otp] restoring OTPs from Prisma');
+      const restored: OtpRecord[] = [];
+      for (const row of rows) {
+        const email = (row as any).email ?? "";
+        if (!email || !row?.code || !row?.type) continue;
+        if (otpCodes.has(email)) continue;
+        const normalized = {
+          email,
+          code: row.code,
+          intent: row.type as OtpIntent,
+          expiresAt: new Date((row as any).expires_at ?? (row as any).expiresAt).getTime(),
+          attempts: 0,
+          signupPayload: (row as any).signup_payload ?? (row as any).signupPayload ?? undefined,
+          userId: (row as any).user_id ?? (row as any).userId ?? undefined,
+        };
+        logger.info({ normalized, row }, '[otp] restored OTP row');
+        if (!otpCodes.has(email)) {
+          otpCodes.set(email, normalized);
+        }
+        restored.push(normalized);
+      }
+      return restored;
+    } catch (err) {
+      logger.warn({ err }, "[otp] failed to restore OTPs from Prisma");
+    }
+  }
+
+  return [];
+}
+
 export function _otpStoreSize(): number {
   return otpCodes.size;
+}
+
+export function _clearOtpStore(): void {
+  otpCodes.clear();
+  lastSentAt.clear();
 }
 
 export function _getOtpRecord(email: string): OtpRecord | undefined {

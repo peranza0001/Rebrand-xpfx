@@ -5,12 +5,14 @@
 module.exports = {
   apps: [{
     name: 'xpresspro-api',
-    script: './dist/index.mjs',
+    script: 'node artifacts/api-server/dist/index.mjs',
+    interpreter: 'none',
     instances: 1,
     exec_mode: 'fork',
     env_production: {
       NODE_ENV: 'production',
-      PORT: 8080
+      PORT: 3000,
+      HOST: '0.0.0.0'
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',

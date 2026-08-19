@@ -5,7 +5,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
-import { doubleCsrf } from 'csrf-csrf';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,15 +12,22 @@ import { randomBytes } from 'crypto';
 import client from 'prom-client';
 import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
-import { attachSession, SESSION_COOKIE } from './lib/session';
+import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
 import { logger } from './lib/logger';
+import { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } from './lib/cors';
+import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
+import { registerUnhandledHandlers, trackRequestMetric, captureException } from './lib/observability';
+import { initServerSentry } from './lib/sentry';
 import apiRoutes from './routes/index';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+export { app };
+initServerSentry();
+registerUnhandledHandlers();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -87,87 +93,76 @@ async function _dbHealthHandler(_req: Request, res: Response) {
 }
 
 async function _readinessHandler(_req: Request, res: Response) {
+  // Platform health checks must remain reachable even when the database is
+  // temporarily unavailable or intentionally isolated from a worker. The deep
+  // database probe is handled by /healthz/db, which is where DB outages should
+  // surface as degraded or failed conditions.
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
   }
 
-  try {
-    const db = getDb();
-    if (!db) {
-      return res.status(200).json({ ready: true, reason: 'no-db-client' });
-    }
-
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ ready: true, reason: 'database-ok' });
-  } catch (err) {
-    return res.status(503).json({ ready: false, error: String(err) });
+  const db = getDb();
+  if (!db) {
+    return res.status(200).json({ ready: true, reason: 'no-db-client' });
   }
+
+  return res.status(200).json({ ready: true, reason: 'app-ready' });
 }
 
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(self)');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+
+  const sensitivePath = req.path.startsWith('/api/auth/')
+    || req.path.startsWith('/api/account/')
+    || req.path.startsWith('/api/admin/')
+    || req.path.startsWith('/api/transactions/')
+    || req.path.startsWith('/api/wallets/')
+    || req.path.startsWith('/api/live-chat')
+    || req.path === '/api/csrf-token'
+    || req.path === '/api/readyz'
+    || req.path === '/api/healthz'
+    || req.path.startsWith('/xpadmin');
+
+  if (sensitivePath) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
+  next();
+});
+
 app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/healthz', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/livez', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/healthz', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
 app.get('/api/livez', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json(buildHealthPayload());
 });
 
-app.get('/healthz/db', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ db: 'connected' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ db: 'connected' });
-  } catch (err) {
-    return res.status(503).json({ db: 'disconnected', error: (err as Error).message });
-  }
-});
-app.get('/readyz', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ status: 'ok' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    return res.status(503).json({ status: 'error', error: (err as Error).message });
-  }
-});
-app.get('/api/readyz', async (_req: Request, res: Response) => {
-  const db = getDb();
-  if (!db) {
-    return res.status(200).json({ status: 'ok' });
-  }
-
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ status: 'ok' });
-  } catch (err) {
-    return res.status(503).json({ status: 'error', error: (err as Error).message });
-  }
-});
+app.get('/healthz/db', _dbHealthHandler);
+app.get('/readyz', _readinessHandler);
+app.get('/api/readyz', _readinessHandler);
 
 // ─── LOGGING ──────────────────────────────────────────────────────────────────
 app.use((pinoHttp as unknown as any)({
@@ -180,19 +175,28 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https:"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com"
+      ],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https:'],
-      fontSrc: ["'self'", 'https:'],
+      connectSrc: ["'self'", 'https:', 'wss:'],
+      fontSrc: ["'self'", 'data:', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
-      baseSrc: ["'self'"],
-      baseUri: ["'self'"],
+      frameSrc: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
   },
+  referrerPolicy: { policy: 'no-referrer-when-downgrade' },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'same-site' },
   strictTransportSecurity: process.env.NODE_ENV === 'production'
@@ -201,48 +205,29 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-function normalizeOrigin(origin: string | undefined): string | null {
-  if (!origin) return null;
-  try {
-    const url = new URL(origin);
-    const port = url.port ? `:${url.port}` : '';
-    return `${url.protocol}//${url.hostname}${port}`;
-  } catch {
-    const trimmed = origin.trim().replace(/\/+$/, '');
-    try {
-      const url = new URL(trimmed);
-      const port = url.port ? `:${url.port}` : '';
-      return `${url.protocol}//${url.hostname}${port}`;
-    } catch {
-      return null;
-    }
-  }
-}
-
-function normalizeAllowedOrigins(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
-    .map(normalizeOrigin)
-    .filter(Boolean) as string[];
-}
-
-const getAllowedOrigins = (): string[] => {
-  const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
-  return normalizeAllowedOrigins(raw);
-};
 
 function isPreviewHost(hostname: string | undefined): boolean {
   if (!hostname) return false;
   const normalized = hostname.toLowerCase();
-  return ['localhost', '127.0.0.1', '::1'].includes(normalized)
-    || normalized.endsWith('.replit.app')
+  return normalized.endsWith('.replit.app')
     || normalized.endsWith('.replit.dev')
     || normalized.endsWith('.github.dev')
     || normalized.endsWith('.railway.app')
     || normalized.endsWith('.render.com')
     || normalized.endsWith('.vercel.app');
+}
+
+function isDevelopmentHost(hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  const normalized = hostname.toLowerCase();
+  return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(normalized) || normalized.endsWith('.localhost');
+}
+
+function isPreviewModeEnabled(): boolean {
+  return process.env.PREVIEW_MODE === 'true'
+    || process.env.PREVIEW_MODE === '1'
+    || Boolean(process.env.CODESPACE_NAME)
+    || Boolean(process.env.REPLIT_DOMAINS);
 }
 
 app.use(cors({
@@ -252,7 +237,6 @@ app.use(cors({
       return;
     }
 
-    const normalizedOrigin = normalizeOrigin(origin);
     const hostname = (() => {
       try {
         return new URL(origin).hostname;
@@ -261,16 +245,29 @@ app.use(cors({
       }
     })();
 
-    const allowedOrigins = getAllowedOrigins();
-    if ((normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) || isPreviewHost(hostname)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
-    } else {
-      callback(null, false);
+      return;
     }
+
+    if (process.env.NODE_ENV !== 'production' && isDevelopmentHost(hostname)) {
+      callback(null, true);
+      return;
+    }
+
+    if (isPreviewModeEnabled() && isPreviewHost(hostname)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token', 'Set-Cookie'],
+  exposedHeaders: ['X-Request-Id'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
 
 // ─── CORS REJECTION HANDLER ───────────────────────────────────────────────────
@@ -290,11 +287,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   })();
 
   const allowedOrigins = getAllowedOrigins();
-  if (!(normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) && !isPreviewHost(hostname)) {
-    logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
-    return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
+  if (isAllowedOrigin(origin)) {
+    return next();
   }
-  next();
+
+  if (process.env.NODE_ENV !== 'production' && isDevelopmentHost(hostname)) {
+    return next();
+  }
+
+  if (isPreviewModeEnabled() && isPreviewHost(hostname)) {
+    return next();
+  }
+
+  logger.warn({ origin, normalizedOrigin, allowedOrigins, hostname }, '[CORS] origin not allowed');
+  return res.status(403).json({ success: false, message: 'CORS policy: origin not allowed' });
 });
 
 // ─── METRICS (Prometheus) ───────────────────────────────────────────────────
@@ -333,19 +339,16 @@ app.use(cookieParser(cookieSecret));
 // ─── SESSION ──────────────────────────────────────────────────────────────────
 app.use(attachSession);
 
-const { doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.SESSION_SECRET || 'dev-csrf-secret',
-  getSessionIdentifier: (req) =>
-    req.signedCookies?.[SESSION_COOKIE] || req.cookies?.[SESSION_COOKIE] || req.ip || 'anonymous',
-  cookieName: 'xcsrf',
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  },
-  size: 32,
-  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
+// Track session activity for timeout enforcement
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if ((req as any).sessionId) {
+    recordSessionActivity((req as any).sessionId);
+  }
+  next();
 });
+
+// Enforce session timeout (idle and lifetime)
+app.use(sessionTimeoutMiddleware());
 
 function isTrustedSameOriginRequest(req: Request): boolean {
   const extractHostname = (value: string | undefined): string | undefined => {
@@ -385,22 +388,56 @@ function isTrustedSameOriginRequest(req: Request): boolean {
   return false;
 }
 
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/')) {
+function shouldSkipCsrf(req: Request): boolean {
+  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/auth/') || req.path === '/api/csrf-token') {
+    return true;
+  }
+
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return true;
+  }
+
+  return isTrustedSameOriginRequest(req);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBuffer = Buffer.from(a || '');
+  const bBuffer = Buffer.from(b || '');
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+
+  let diff = 0;
+  for (let i = 0; i < aBuffer.length; i += 1) {
+    diff |= aBuffer[i] ^ bBuffer[i];
+  }
+  return diff === 0;
+}
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (shouldSkipCsrf(req)) {
     return next();
   }
 
-  if (process.env.NODE_ENV !== 'production' || (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && isTrustedSameOriginRequest(req))) {
-    return next();
+  const cookieToken = req.cookies?.xcsrf || req.signedCookies?.xcsrf;
+  const headerToken = req.get('x-csrf-token') || req.get('x-csrftoken') || req.get('csrf-token');
+
+  if (!cookieToken || !headerToken || !timingSafeEqual(String(cookieToken), String(headerToken))) {
+    return res.status(403).json({ success: false, message: 'Invalid CSRF token.' });
   }
 
-  return doubleCsrfProtection(req, res, next);
+  return next();
 });
 
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
+function positiveRateLimitEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: positiveRateLimitEnv('GENERAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  max: positiveRateLimitEnv('GENERAL_RATE_LIMIT_MAX', 100),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests' }
@@ -408,8 +445,8 @@ const globalLimiter = rateLimit({
 
 // ─── AUTH RATE LIMITER ────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+  windowMs: positiveRateLimitEnv('AUTH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+  max: positiveRateLimitEnv('AUTH_RATE_LIMIT_MAX', 10),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests' }
@@ -417,16 +454,31 @@ const authLimiter = rateLimit({
 
 // ─── LIVE CHAT RATE LIMITER ───────────────────────────────────────────────────
 const liveChatLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 30,
+  windowMs: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_WINDOW_MS', 1 * 60 * 1000),
+  max: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_MAX', 30),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Live chat rate limit reached.' }
 });
 
+const financialActionLimiter = rateLimit({
+  windowMs: positiveRateLimitEnv('FINANCIAL_RATE_LIMIT_WINDOW_MS', 60 * 60 * 1000),
+  max: positiveRateLimitEnv('FINANCIAL_RATE_LIMIT_MAX', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Financial action rate limit reached' },
+});
+
 app.use('/api/', globalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/live-chat/', liveChatLimiter);
+app.use([
+  '/api/deposits',
+  '/api/withdrawals',
+  '/api/wallets',
+  '/api/p2p',
+  '/api/moonpay/initiate',
+], financialActionLimiter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestId = req.get('x-request-id') || randomBytes(8).toString('hex');
@@ -444,18 +496,34 @@ const candidateRoots = [
   path.resolve(__dirname)
 ].filter((value, index, array) => array.indexOf(value) === index);
 
-const candidateStaticPaths = candidateRoots
-  .flatMap((root) => [
-    path.join(root, 'artifacts', 'nextrade', 'dist', 'public'),
-    path.join(root, 'artifacts', 'nextrade', 'public'),
-    path.join(root, 'public')
-  ])
-  .filter((value, index, array) => array.indexOf(value) === index);
+const nextradeStaticPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'nextrade', 'dist', 'public'))
+  .find((candidate) => fs.existsSync(candidate));
 
-const frontendStaticPath = candidateStaticPaths.find((candidate) => fs.existsSync(candidate)) || candidateStaticPaths[0];
+const adminPortalStaticPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'admin-portal', 'dist', 'public'))
+  .find((candidate) => fs.existsSync(candidate));
+
+const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artifacts', 'nextrade', 'dist', 'public');
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
+const fallbackFrontendIndexPath = candidateRoots
+  .map((root) => path.join(root, 'artifacts', 'nextrade', 'index.html'))
+  .find((candidate) => fs.existsSync(candidate));
+const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
+const fallbackAdminIndexPath = adminPortalStaticPath
+  ? undefined
+  : candidateRoots
+      .map((root) => path.join(root, 'artifacts', 'admin-portal', 'index.html'))
+      .find((candidate) => fs.existsSync(candidate));
+const hasFrontendBuild = fs.existsSync(frontendIndexPath) || Boolean(fallbackFrontendIndexPath);
 
-app.use(express.static(frontendStaticPath, { index: false }));
+if (adminPortalStaticPath) {
+  app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
+}
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendStaticPath, { index: false }));
+}
 
 // ─── PLATFORM GATE ────────────────────────────────────────────────────────────
 app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
@@ -490,19 +558,38 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ─── API ROUTES ───────────────────────────────────────────────────────────────
-let apiRoutesHandler: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
-
 function mountApiRoutes(req: Request, res: Response, next: NextFunction) {
   return apiRoutes(req, res, next);
 }
 
-app.get('/api/csrf-token', doubleCsrfProtection, (req, res) => {
-  const csrfToken = (req as any).csrfToken?.({ overwrite: true });
-  if (!csrfToken) {
-    return res.status(500).json({ success: false, message: 'CSRF token unavailable' });
-  }
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = randomBytes(32).toString('hex');
+  res.cookie('xcsrf', csrfToken, {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
 
+  (req as any).csrfToken = () => csrfToken;
   return res.json({ csrfToken });
+});
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const startedAt = Date.now();
+  const finish = () => {
+    trackRequestMetric(req, res, Date.now() - startedAt);
+  };
+  res.on('finish', finish);
+  res.on('close', finish);
+  next();
+});
+
+app.use('/api/live-chat', (req: Request, res: Response, next: NextFunction) => {
+  if (!req.storedUser) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  return next();
 });
 
 app.use('/api', mountApiRoutes);
@@ -515,13 +602,29 @@ app.use('/api', (_req, res) => {
 });
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
+app.get('/xpadmin*', (_req: Request, res: Response) => {
+  const adminIndex = adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)
+    ? adminPortalIndexPath
+    : fallbackAdminIndexPath;
+
+  if (adminIndex) {
+    return res.sendFile(adminIndex);
+  }
+
+  return res.status(404).send('Admin portal build not found. Build the admin portal first.');
+});
+
 app.get('*', (req: Request, res: Response) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: 'Route not found.' });
   }
 
-  if (fs.existsSync(frontendIndexPath)) {
-    return res.sendFile(frontendIndexPath);
+  const frontendIndex = fs.existsSync(frontendIndexPath)
+    ? frontendIndexPath
+    : fallbackFrontendIndexPath;
+
+  if (frontendIndex) {
+    return res.sendFile(frontendIndex);
   }
 
   return res.status(404).send('Frontend build not found. Build the website app first.');
@@ -530,6 +633,7 @@ app.get('*', (req: Request, res: Response) => {
 // ─── GLOBAL ERROR HANDLER ─────────────────────────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const status = (err as any).status || 500;
+  captureException(err, { route: _req.path, method: _req.method });
   logger.error({ err }, '[ERROR] Global middleware error');
   res.status(status).json({
     success: false,

@@ -10,6 +10,9 @@ import { logger } from "./logger";
 
 let prismaClient: any = null;
 
+// Cache for discovered columns to avoid repeated information_schema queries
+const hasColumnCache: Map<string, boolean> = new Map();
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isUuid(value: string): boolean {
@@ -26,7 +29,6 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 3, delayMs = 300):
       logger.warn({ attempt: i, attempts, err }, '[retry] operation failed, retrying');
       if (i < attempts) {
         // backoff
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, delayMs * i));
       }
     }
@@ -42,9 +44,40 @@ export function getPrismaClient(): any {
   return prismaClient;
 }
 
-/**
- * Persists a new user to the database. Silent fail if DB unavailable.
- */
+export function getPrismaModelDelegate(modelName: string): any | null {
+  if (!prismaClient) return null;
+  const camel = `${modelName.charAt(0).toLowerCase()}${modelName.slice(1)}`;
+  const pluralCamel = `${camel}s`;
+  const snake = modelName.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+  const snakePlural = `${snake}s`;
+  const candidates = new Set<string>([
+    modelName,
+    camel,
+    pluralCamel,
+    snake,
+    snakePlural,
+    `${snake}_s`,
+    `${camel}_s`,
+    `${modelName}s`,
+    `${modelName.toLowerCase()}s`,
+  ]);
+
+  for (const key of candidates) {
+    const value = prismaClient[key];
+    if (value) return value;
+  }
+
+  return null;
+}
+
+function getPrismaUserDelegate(): any | null {
+  return getPrismaModelDelegate("User");
+}
+
+function getPrismaUserSessionDelegate(): any | null {
+  return getPrismaModelDelegate("UserSession") ?? getPrismaModelDelegate("user_session") ?? getPrismaModelDelegate("user_sessions");
+}
+
 function deriveFirstLastName(fullName: string): { firstName: string; lastName: string } {
   const trimmed = fullName.trim();
   if (!trimmed) return { firstName: "", lastName: "" };
@@ -55,6 +88,63 @@ function deriveFirstLastName(fullName: string): { firstName: string; lastName: s
   };
 }
 
+function buildPrismaUserPayloadCandidates(userId: string, userData: {
+  email: string;
+  username: string;
+  passwordHash: string;
+  fullName: string;
+  country: string;
+  phone?: string | null;
+}): Array<Record<string, unknown>> {
+  const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+  const modernBase = {
+    id: userId,
+    email: userData.email,
+    firstName,
+    lastName,
+    passwordHash: userData.passwordHash,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  const legacyBase = {
+    id: userId,
+    email: userData.email,
+    username: userData.username,
+    fullName: userData.fullName,
+    passwordHash: userData.passwordHash,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  const snakeBase = {
+    id: userId,
+    email: userData.email,
+    username: userData.username,
+    password_hash: userData.passwordHash,
+    full_name: userData.fullName,
+    country: userData.country,
+    phone: userData.phone ?? null,
+  };
+
+  return [
+    { ...modernBase },
+    { ...legacyBase },
+    { ...snakeBase },
+    { ...snakeBase, full_name: userData.fullName, password_hash: userData.passwordHash },
+  ];
+}
+
+async function tryPrismaUserUpsert(userDelegate: any, userId: string, createData: Record<string, unknown>, updateData: Record<string, unknown>): Promise<void> {
+  await retryAsync(async () => {
+    await userDelegate.upsert({
+      where: { id: userId },
+      create: createData,
+      update: updateData,
+    });
+  }, 3, 300);
+}
+
 export async function persistUser(userId: string, userData: {
   email: string;
   username: string;
@@ -63,79 +153,28 @@ export async function persistUser(userId: string, userData: {
   country: string;
   phone?: string | null;
 }): Promise<boolean> {
-  if (!isUuid(userId)) return true;
+  if (!isUuid(userId)) return false;
 
-  const prismaFallback = async (): Promise<boolean> => {
-    if (!prismaClient) return true;
-    const { firstName, lastName } = deriveFirstLastName(userData.fullName);
+  const userDelegate = getPrismaUserDelegate();
+  if (!userDelegate) {
+    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable; continuing with in-memory user state");
+    return true;
+  }
+
+  const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
+  let lastErr: unknown = null;
+  for (const payload of payloadCandidates) {
     try {
-      await retryAsync(async () => {
-        await prismaClient.users.upsert({
-          where: { id: userId },
-          update: {
-            email: userData.email,
-            username: userData.username,
-            firstName,
-            lastName,
-            passwordHash: userData.passwordHash,
-            country: userData.country,
-            phone: userData.phone ?? null,
-          },
-          create: {
-            id: userId,
-            email: userData.email,
-            username: userData.username,
-            passwordHash: userData.passwordHash,
-            firstName,
-            lastName,
-            country: userData.country,
-            phone: userData.phone ?? null,
-          },
-        });
-      }, 3, 300);
+      await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
       return true;
     } catch (err) {
-      const errMessage = err instanceof Error ? err.message : String(err);
-      logger.warn({ errMessage, err, userId }, "[db-persist] persistUser failed using Prisma");
-      return false;
-    }
-  };
-
-  const db = getDb();
-  if (db) {
-    try {
-      const existing = await retryAsync(async () => db.select().from(usersTable).where(eq(usersTable.id, userId)), 3, 200);
-      if (existing.length > 0) {
-        await retryAsync(async () => db.update(usersTable)
-          .set({
-            email: userData.email,
-            username: userData.username,
-            fullName: userData.fullName,
-            passwordHash: userData.passwordHash,
-            country: userData.country,
-            phone: userData.phone ?? "",
-          })
-          .where(eq(usersTable.id, userId)), 3, 200);
-        return true;
-      }
-
-      await retryAsync(async () => db.insert(usersTable).values({
-        id: userId,
-        email: userData.email,
-        username: userData.username,
-        fullName: userData.fullName,
-        passwordHash: userData.passwordHash,
-        country: userData.country,
-        phone: userData.phone ?? "",
-      }), 3, 200);
-      return true;
-    } catch (err) {
-      logger.warn({ err, userId }, "[db-persist] persistUser failed using Drizzle");
-      return await prismaFallback();
+      lastErr = err;
     }
   }
 
-  return prismaFallback();
+  const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+  return false;
 }
 
 export async function persistResetPasswordToken(
@@ -145,33 +184,22 @@ export async function persistResetPasswordToken(
 ): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
-  const db = getDb();
-  if (db) {
-    try {
-      await db.update(usersTable)
-        .set({
-          resetPasswordToken: token,
-          resetPasswordExpiry: expiresAt,
-        })
-        .where(eq(usersTable.id, userId));
-      return true;
-    } catch (err) {
-      logger.warn({ err, userId }, "[db-persist] persistResetPasswordToken failed using Drizzle");
-      return false;
-    }
+  const userDelegate = getPrismaUserDelegate();
+  if (!userDelegate) {
+    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable for reset-token persistence; using in-memory fallback");
+    return true;
   }
-
-  if (!prismaClient) return true;
   try {
-    await prismaClient.users.update({
+    const isSnakeCaseDelegate = prismaClient?.users === userDelegate;
+    await userDelegate.update({
       where: { id: userId },
-      data: {
-        resetPasswordToken: token,
-        resetPasswordExpiry: expiresAt,
-      },
+      data: isSnakeCaseDelegate
+        ? { reset_password_token: token, reset_password_expiry: expiresAt }
+        : { resetPasswordToken: token, resetPasswordExpiry: expiresAt },
     });
     return true;
-  } catch (_err) {
+  } catch (err) {
+    logger.error({ err, userId }, "[db-persist] persistResetPasswordToken failed using Prisma");
     return false;
   }
 }
@@ -189,41 +217,41 @@ export async function persistSession(
   if (!isUuid(userId)) return true;
 
   const prismaFallback = async (): Promise<boolean> => {
-    if (!prismaClient) return true;
-    try {
-      await retryAsync(async () => {
-        await prismaClient.userSession.create({
-          data: {
-            id: sessionId,
-            token: sessionId,
-            userId,
-            expiresAt,
-            isAdmin,
-          },
-        });
-      }, 3, 300);
+    const sessionDelegate = getPrismaUserSessionDelegate();
+    if (!sessionDelegate) {
+      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; using in-memory session fallback");
       return true;
+    }
+    const sessionPayloadCandidates = [
+      { id: sessionId, token: sessionId, userId, user_id: userId, expiresAt, expires_at: expiresAt, isAdmin, is_admin: isAdmin },
+      { id: sessionId, userId, expiresAt, isAdmin },
+      { id: sessionId, user_id: userId, is_admin: isAdmin, expires_at: expiresAt },
+      { token: sessionId, userId, expiresAt, isAdmin },
+      { token: sessionId, user_id: userId, expires_at: expiresAt, is_admin: isAdmin },
+      { id: sessionId, userId, expires_at: expiresAt, is_admin: isAdmin },
+      { token: sessionId, userId: userId, expiresAt: expiresAt, isAdmin: isAdmin },
+    ];
+    let lastErr: unknown = null;
+
+    try {
+      for (const data of sessionPayloadCandidates) {
+        try {
+          await retryAsync(async () => {
+            const call = sessionDelegate.create ?? sessionDelegate.upsert ?? sessionDelegate.insert ?? null;
+            if (!call) throw new Error('No session create delegate available');
+            await call({ data });
+          }, 3, 300);
+          return true;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr;
     } catch (err) {
       logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Prisma");
       return false;
     }
   };
-
-  const db = getDb();
-  if (db) {
-    try {
-      await retryAsync(async () => db.insert(userSessionsTable).values({
-        id: sessionId,
-        userId,
-        isAdmin,
-        expiresAt,
-      }), 3, 200);
-      return true;
-    } catch (err) {
-      logger.warn({ err, sessionId, userId, isAdmin }, "[db-persist] persistSession failed using Drizzle");
-      return await prismaFallback();
-    }
-  }
 
   return prismaFallback();
 }
@@ -244,9 +272,54 @@ export async function deleteSession(sessionId: string): Promise<void> {
   if (prismaClient) {
     try {
       await prismaClient.userSession.delete({ where: { id: sessionId } });
-    } catch (err) {
+    } catch {
       // ignore missing or other errors — deletion is best-effort
     }
+  }
+}
+
+export async function getPersistedSession(sessionId: string): Promise<{
+  id: string;
+  userId: string;
+  expiresAt: Date;
+  isAdmin: boolean;
+} | null> {
+  const sessionDelegate = getPrismaUserSessionDelegate();
+  if (sessionDelegate?.findUnique) {
+    try {
+      const row = await sessionDelegate.findUnique({ where: { id: sessionId } });
+      if (row) {
+        const userId = String(row.userId ?? row.user_id ?? "");
+        const expiresAt = new Date(row.expiresAt ?? row.expires_at);
+        if (userId && !Number.isNaN(expiresAt.getTime())) {
+          return {
+            id: String(row.id ?? sessionId),
+            userId,
+            expiresAt,
+            isAdmin: Boolean(row.isAdmin ?? row.is_admin),
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, sessionId }, "[db-persist] getPersistedSession failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(userSessionsTable).where(eq(userSessionsTable.id, sessionId));
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      userId: row.userId,
+      expiresAt: row.expiresAt,
+      isAdmin: row.isAdmin,
+    };
+  } catch (err) {
+    logger.warn({ err, sessionId }, "[db-persist] getPersistedSession failed using Drizzle");
+    return null;
   }
 }
 
@@ -299,10 +372,39 @@ export async function deleteSessionsForUser(userId: string): Promise<void> {
   if (prismaClient && prismaClient.userSession && prismaClient.userSession.deleteMany) {
     try {
       await prismaClient.userSession.deleteMany({ where: { userId } });
-    } catch (err) {
+    } catch {
       // ignore
     }
   }
+}
+
+export async function deleteUser(userId: string): Promise<boolean> {
+  if (!isUuid(userId)) return true;
+
+  const db = getDb();
+  let deleted = false;
+  if (db) {
+    try {
+      await db.delete(usersTable).where(eq(usersTable.id, userId));
+      deleted = true;
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] deleteUser failed using Drizzle");
+    }
+  }
+
+  if (prismaClient) {
+    const userDelegate = getPrismaUserDelegate();
+    if (userDelegate?.delete) {
+      try {
+        await userDelegate.delete({ where: { id: userId } });
+        deleted = true;
+      } catch (err) {
+        logger.warn({ err, userId }, "[db-persist] deleteUser failed using Prisma");
+      }
+    }
+  }
+
+  return deleted;
 }
 
 /**
@@ -338,7 +440,7 @@ export async function persistWallet(walletId: string, userId: string, walletData
         address: walletData.address,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -385,8 +487,32 @@ export async function persistConnectedWallet(
         synced_profile: walletData.syncedProfile,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
+  }
+}
+
+/**
+ * CRITICAL FIX FOR PHASE 1: Persist wallet balance to database after every balance-affecting operation.
+ * This ensures that wallet balances survive server restarts.
+ * Previously, balance changes were only kept in memory and lost on redeploy.
+ */
+export async function persistWalletBalance(
+  walletId: string,
+  balance: number,
+  pendingBalance: number = 0,
+): Promise<void> {
+  if (!prismaClient || !isUuid(walletId)) return;
+  try {
+    await prismaClient.wallets.update({
+      where: { id: walletId },
+      data: {
+        balance,
+        pending_balance: pendingBalance,
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, walletId, balance }, '[db-persist] persistWalletBalance failed; balance may be lost on redeploy');
   }
 }
 
@@ -408,30 +534,52 @@ export async function persistTransaction(
 ): Promise<void> {
   if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
   try {
+    const columnCacheKey = 'transactions.is_demo';
+    if (!hasColumnCache.has(columnCacheKey)) {
+      try {
+        const rows: any = await prismaClient.$queryRaw`
+          SELECT column_name FROM information_schema.columns
+          WHERE table_name = 'transactions' AND column_name = 'is_demo'
+        `;
+        hasColumnCache.set(columnCacheKey, Array.isArray(rows) && rows.length > 0);
+      } catch (_err) {
+        void _err;
+        hasColumnCache.set(columnCacheKey, false);
+      }
+    }
+
+    const includeIsDemo = hasColumnCache.get(columnCacheKey) === true;
+
+    const updateObj: any = {
+      type: transactionData.type,
+      amount: transactionData.amount,
+      currency: transactionData.currency,
+      status: transactionData.status,
+      description: transactionData.description,
+    };
+    const createObj: any = {
+      id: transactionId,
+      wallet_id: walletId,
+      user_id: userId,
+      type: transactionData.type,
+      amount: transactionData.amount,
+      currency: transactionData.currency,
+      status: transactionData.status,
+      description: transactionData.description,
+    };
+
+    if (includeIsDemo) {
+      updateObj.is_demo = transactionData.isDemo ?? false;
+      createObj.is_demo = transactionData.isDemo ?? false;
+    }
+
     await prismaClient.transactions.upsert({
       where: { id: transactionId },
-      update: {
-        type: transactionData.type,
-        amount: transactionData.amount,
-        currency: transactionData.currency,
-        status: transactionData.status,
-        description: transactionData.description,
-        is_demo: transactionData.isDemo ?? false,
-      },
-      create: {
-        id: transactionId,
-        wallet_id: walletId,
-        user_id: userId,
-        type: transactionData.type,
-        amount: transactionData.amount,
-        currency: transactionData.currency,
-        status: transactionData.status,
-        description: transactionData.description,
-        is_demo: transactionData.isDemo ?? false,
-      },
+      update: updateObj,
+      create: createObj,
     });
-  } catch (_err) {
-    // Silent fail
+  } catch (err) {
+    logger.warn({ err, transactionId }, '[db-persist] persistTransaction failed; continuing without DB persistence');
   }
 }
 
@@ -445,22 +593,67 @@ export async function persistKyc(kycId: string, userId: string, kycData: {
 }): Promise<void> {
   if (!prismaClient || !isUuid(kycId) || !isUuid(userId)) return;
   try {
-    await prismaClient.kyc_documents.upsert({
+    const legacyDelegate = prismaClient.kyc_documents;
+    if (legacyDelegate?.upsert) {
+      await legacyDelegate.upsert({
+        where: { id: kycId },
+        update: { status: kycData.status, doc_url: kycData.fileUrl ?? "" },
+        create: { id: kycId, user_id: userId, doc_type: kycData.documentType, doc_url: kycData.fileUrl ?? "", status: kycData.status },
+      });
+      return;
+    }
+    const delegate = getPrismaModelDelegate("KYCDocument");
+    if (!delegate) return;
+    const status = kycData.status === "approved" ? "APPROVED" : kycData.status === "rejected" ? "REJECTED" : kycData.status === "in_review" ? "UNDER_REVIEW" : "PENDING";
+    const type = kycData.documentType.toUpperCase();
+    await delegate.upsert({
       where: { id: kycId },
       update: {
-        status: kycData.status,
-        doc_url: kycData.fileUrl ?? "",
+        status,
+        fileUrl: kycData.fileUrl ?? "",
       },
       create: {
         id: kycId,
-        user_id: userId,
-        doc_type: kycData.documentType,
-        doc_url: kycData.fileUrl ?? "",
-        status: kycData.status,
+        userId,
+        type,
+        fileUrl: kycData.fileUrl ?? "",
+        status,
       },
     });
-  } catch (_err) {
-    // Silent fail
+  } catch (err) {
+    logger.warn({ err, kycId, userId }, "[db-persist] persistKyc failed");
+  }
+}
+
+export async function persistKycStatus(userId: string, status: string, reviewedBy?: string, rejectionReason?: string | null): Promise<void> {
+  if (!prismaClient || !isUuid(userId)) return;
+  try {
+    const normalizedStatus = status === "approved" ? "APPROVED" : status === "rejected" ? "REJECTED" : status === "in_review" ? "UNDER_REVIEW" : "PENDING";
+    const delegate = getPrismaModelDelegate("KYCDocument");
+    const legacyDelegate = prismaClient.kyc_documents;
+    if (legacyDelegate?.findFirst) {
+      const latest = await legacyDelegate.findFirst({ where: { user_id: userId }, orderBy: { created_at: "desc" } });
+      if (latest) await legacyDelegate.update({ where: { id: latest.id }, data: { status, reviewed_at: new Date(), reviewed_by: reviewedBy ?? null } });
+    }
+    if (delegate) {
+      const latest = await delegate.findFirst({ where: { userId }, orderBy: { createdAt: "desc" } });
+      if (latest) await delegate.update({ where: { id: latest.id }, data: { status: normalizedStatus, reviewedAt: new Date(), reviewedBy: reviewedBy ?? null } });
+    }
+    const userDelegate = getPrismaModelDelegate("User");
+    await userDelegate?.update({ where: { id: userId }, data: { kycStatus: status, kycVerified: status === "approved" } });
+    void rejectionReason;
+  } catch (err) {
+    logger.warn({ err, userId, status }, "[db-persist] persistKycStatus failed");
+  }
+}
+
+export async function persistKycVerification(input: { id: string; userId: string; provider: string; providerRef?: string; status: string; rejectionReason?: string }): Promise<void> {
+  if (!prismaClient || !isUuid(input.userId)) return;
+  try {
+    const delegate = getPrismaModelDelegate("KYCVerification");
+    await delegate?.upsert({ where: { id: input.id }, update: { provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null }, create: { id: input.id, userId: input.userId, provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null } });
+  } catch (err) {
+    logger.warn({ err, userId: input.userId, verificationId: input.id }, "[db-persist] persistKycVerification failed");
   }
 }
 
@@ -535,7 +728,7 @@ export async function persistBankAccount(
         fiat_currency: bankData.fiatCurrency,
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -546,7 +739,7 @@ export async function deleteBankAccount(bankAccountId: string): Promise<void> {
     await prismaClient.bank_accounts.delete({
       where: { id: bankAccountId },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -586,7 +779,7 @@ export async function persistNotification(
         created_at: new Date(notificationData.createdAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -621,7 +814,7 @@ export async function persistSupportTicket(
         updated_at: new Date(ticketData.updatedAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -653,7 +846,7 @@ export async function persistChatMessage(
         content,
       },
     });
-  } catch (_err) {
+  } catch {
     // silent
   }
 }
@@ -716,7 +909,7 @@ export async function persistP2PMerchantApplication(
         submitted_at: new Date(applicationData.submittedAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }
@@ -771,7 +964,7 @@ export async function persistP2PNotification(
         created_at: new Date(notificationData.createdAt),
       },
     });
-  } catch (_err) {
+  } catch {
     // Silent fail
   }
 }

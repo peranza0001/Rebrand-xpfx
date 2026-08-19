@@ -22,6 +22,7 @@ import {
   users,
 } from "../lib/store";
 import { requireAdmin } from "../lib/session";
+import { persistWalletBalance } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -65,6 +66,8 @@ router.post("/admin/users/:userId/wallet-adjust", requireAdmin, (req, res) => {
   if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
   wallet.balance = Math.max(0, wallet.balance + b.data.delta);
+  // PHASE 1 FIX: Persist balance change to survive server restarts
+  void persistWalletBalance(wallet.id, wallet.balance, 0);
 
   // Log transaction
   data.transactions.unshift({

@@ -24,17 +24,28 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
 
   const port = normalizeString(env.PORT);
   if (!port) {
-    missing.push('PORT');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('PORT');
+    } else {
+      warnings.push('PORT');
+    }
   }
   resolved.PORT = port || '8080';
 
   const databaseUrl = normalizeString(getRawDatabaseUrl(env as Record<string, string | undefined>));
-  if (!databaseUrl) {
-    missing.push('DATABASE_URL');
+  if (!databaseUrl || /db\.example\.internal|example\.internal|change_me_secure_password|placeholder/i.test(databaseUrl)) {
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('DATABASE_URL');
+    } else {
+      warnings.push('DATABASE_URL');
+    }
   }
   resolved.DATABASE_URL = databaseUrl;
 
-  const sessionSecret = normalizeString(env.SESSION_SECRET);
+  const sessionSecret =
+    normalizeString(env.SESSION_SECRET) ||
+    normalizeString(env.COOKIE_SECRET) ||
+    normalizeString(env.COOKIE_SIGNING_KEY);
   if (!sessionSecret) {
     missing.push('SESSION_SECRET');
   }
@@ -48,37 +59,55 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
 
   const allowedOrigins = normalizeString(env.ALLOWED_ORIGINS) || normalizeString(env.REPLIT_DOMAINS);
   if (!allowedOrigins) {
-    missing.push('ALLOWED_ORIGINS');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('ALLOWED_ORIGINS');
+    } else {
+      warnings.push('ALLOWED_ORIGINS');
+    }
   }
   resolved.ALLOWED_ORIGINS = allowedOrigins;
 
   const moonpayApiKey = normalizeString(env.MOONPAY_API_KEY);
   if (!moonpayApiKey) {
-    missing.push('MOONPAY_API_KEY');
+    // MoonPay is optional — app will use sandbox mode if not configured
+    warnings.push('MOONPAY_API_KEY');
   }
   resolved.MOONPAY_API_KEY = moonpayApiKey;
 
   const coinbaseWebhookSecret = normalizeString(env.COINBASE_WEBHOOK_SECRET);
   if (!coinbaseWebhookSecret) {
-    missing.push('COINBASE_WEBHOOK_SECRET');
+    // Coinbase webhook is optional — webhooks will be in permissive mode if not configured
+    warnings.push('COINBASE_WEBHOOK_SECRET');
   }
   resolved.COINBASE_WEBHOOK_SECRET = coinbaseWebhookSecret;
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
   if (!walletEncryptionKey) {
-    warnings.push('WALLET_ENCRYPTION_KEY');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('WALLET_ENCRYPTION_KEY');
+    } else {
+      warnings.push('WALLET_ENCRYPTION_KEY');
+    }
   }
   resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
   const adminEmail = normalizeString(env.ADMIN_EMAIL);
   if (!adminEmail) {
-    warnings.push('ADMIN_EMAIL');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('ADMIN_EMAIL');
+    } else {
+      warnings.push('ADMIN_EMAIL');
+    }
   }
   resolved.ADMIN_EMAIL = adminEmail;
 
   const adminPassword = normalizeString(env.ADMIN_PASSWORD);
   if (!adminPassword) {
-    warnings.push('ADMIN_PASSWORD');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('ADMIN_PASSWORD');
+    } else {
+      warnings.push('ADMIN_PASSWORD');
+    }
   }
   resolved.ADMIN_PASSWORD = adminPassword;
 
@@ -89,9 +118,18 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
     warnings.push('MOONPAY_WEBHOOK_SECRET');
   }
 
+  if (normalizeString(env.COINBASE_API_KEY) && !normalizeString(env.COINBASE_API_SECRET)) {
+    warnings.push('COINBASE_API_SECRET');
+  }
+  if (normalizeString(env.COINBASE_API_KEY) && !coinbaseWebhookSecret) {
+    warnings.push('COINBASE_WEBHOOK_SECRET');
+  }
+
   const optionalWarnings = [
     ['AI_INTEGRATIONS_OPENAI_API_KEY', env.AI_INTEGRATIONS_OPENAI_API_KEY],
     ['ALCHEMY_API_KEY', env.ALCHEMY_API_KEY],
+    ['MOONPAY_API_KEY', env.MOONPAY_API_KEY],
+    ['COINBASE_WEBHOOK_SECRET', env.COINBASE_WEBHOOK_SECRET],
   ] as Array<[string, string | undefined]>;
 
   const missingOptionalWarnings = optionalWarnings.filter(

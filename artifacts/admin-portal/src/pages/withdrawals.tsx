@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { Loader2, Search, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import { useDecideWithdrawal } from "@workspace/api-client-react";
 import { customFetch } from "@workspace/api-client-react";
@@ -25,7 +24,6 @@ export function WithdrawalsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | WithdrawalRecord["status"]>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [, navigate] = useLocation();
   const decideWithdrawalMutation = useDecideWithdrawal();
 
   useEffect(() => {
@@ -58,7 +56,7 @@ export function WithdrawalsPage() {
 
   const updateStatus = async (withdrawalId: string, action: "approve" | "reject") => {
     try {
-      await decideWithdrawalMutation.mutateAsync({ withdrawalId, data: { decision: action === "approve" ? "approved" : "rejected", reason: action === "reject" ? "Manual review" : undefined } });
+      await decideWithdrawalMutation.mutateAsync({ withdrawalId, data: { decision: action, reason: action === "reject" ? "Manual review" : undefined } });
       setRecords((rows) => rows.map((row) => (row.id === withdrawalId ? { ...row, status: action === "approve" ? "completed" : "rejected" } : row)));
       if (selected?.id === withdrawalId) {
         setSelectedId(null);

@@ -1,4 +1,4 @@
-You are working on a production-grade hybrid fintech forex broker and investment trading platform called "nextrade" / "Rebranded-xpfx" / "XpressProFx.com". The tech stack is: Node.js + Express (API server), React + Vite + Tailwind CSS + shadcn/ui (frontend: nextrade user app + admin-portal), Drizzle ORM, PostgreSQL (Neon or any DATABASE_URL), pnpm workspaces, and cookie-based sessions.
+You are working on a production-grade hybrid fintech forex broker and investment trading platform called "nextrade" / "Rebranded-xpfx" / "XpressProFx.com". The tech stack is: Node.js + Express (API server), React + Vite + Tailwind CSS + shadcn/ui (frontend: nextrade user app + admin-portal), Drizzle ORM, PostgreSQL (Neon or any DATABASE_URL), npm workspaces, and cookie-based sessions.
 
 Your job is TWO things in ONE run:
   PART A — Full production hardening, auth fix, and security pass
@@ -11,7 +11,7 @@ PART A — PRODUCTION HARDENING & AUTH
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 PRESERVE EXACTLY AS-IS:
-- pnpm workspaces (keep pnpm-lock.yaml and pnpm-workspace.yaml)
+- npm workspaces (remove pnpm-lock.yaml and pnpm-workspace.yaml)
 - Drizzle ORM (do NOT replace with Prisma)
 - Cookie-based sessions (do NOT switch to JWT)
 - All working auth flows as currently implemented
@@ -95,7 +95,7 @@ middleware in this exact order. Add any that are missing:
       });
     });
 
-Install any missing packages with pnpm, not npm.
+Install any missing packages with npm, not pnpm.
 
 ══════════════════════════════════════════════
 PHASE 2 — AUTH SYSTEM: SIGN-UP, SIGN-IN, SIGN-OUT
@@ -313,7 +313,7 @@ Create .devcontainer/devcontainer.json:
 {
   "name": "XpressProFx Dev",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-  "postCreateCommand": "pnpm install && node scripts/generate-secrets.js",
+  "postCreateCommand": "npm install && node scripts/generate-secrets.js",
   "forwardPorts": [5000, 5173, 5174],
   "remoteEnv": { "NODE_ENV": "development" },
   "customizations": {
@@ -333,11 +333,11 @@ PHASE 9 — FULL AUDIT, BUILD & START
 
 Run in sequence. Fix ALL errors before moving on:
 
-1. pnpm install — must complete with 0 errors
+1. npm install — must complete with 0 errors
 2. node scripts/generate-secrets.js — confirm secrets in .env
 3. npx tsc --noEmit across all workspaces — fix ALL TS errors
-4. pnpm run build — must exit with code 0
-5. pnpm start — server must start cleanly
+4. npm run build — must exit with code 0
+5. npm start — server must start cleanly
 6. Test: GET /healthz → { status: "ok" }
 7. Test: GET /readyz → 200
 
@@ -413,7 +413,7 @@ Slide 8 — TECHNOLOGY
   Frontend: React + Vite + Tailwind CSS + shadcn/ui
   Backend: Node.js + Express
   Database: PostgreSQL + Drizzle ORM
-  Monorepo: pnpm workspaces
+  Monorepo: npm workspaces
   Infrastructure: VPS with Nginx + PM2, SSL/TLS
   Security: Rate limiting, helmet, encrypted sessions, KYC
 
@@ -451,10 +451,10 @@ DESIGN REQUIREMENTS:
 FINAL CHECKLIST — DO NOT CLOSE UNTIL ALL ARE DONE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] pnpm install completes with 0 errors
-[ ] pnpm audit shows 0 critical vulnerabilities
+[ ] npm install completes with 0 errors
+[ ] npm audit shows 0 critical vulnerabilities
 [ ] TypeScript compiles with 0 errors across all workspaces
-[ ] pnpm run build exits 0
+[ ] npm run build exits 0
 [ ] .env has all required secrets (auto-generated)
 [ ] .env is in .gitignore
 [ ] Server starts and /healthz returns 200

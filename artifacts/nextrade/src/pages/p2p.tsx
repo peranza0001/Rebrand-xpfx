@@ -40,10 +40,18 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { PaymentSourceSelector, type PaymentSource } from "@/components/payment-source-selector";
 import { ManualTxHashInput } from "@/components/manual-tx-hash-input";
+import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 
 export function P2PMarket() {
   const [typeFilter, setTypeFilter] = useState<'buy' | 'sell' | 'all'>('all');
   const [assetFilter, setAssetFilter] = useState<string>('all');
+  const [featureAccess, setFeatureAccess] = useState<FeatureAccessState>(getFeatureAccess({}));
+
+  useEffect(() => {
+    void fetchFeatureAccess()
+      .then(setFeatureAccess)
+      .catch(() => setFeatureAccess(getFeatureAccess({})));
+  }, []);
 
   const { data: listings, isLoading: isLoadingListings } = useGetP2PListings({
     type: typeFilter !== 'all' ? typeFilter : undefined,
@@ -75,6 +83,28 @@ export function P2PMarket() {
     (o) => o.status === "pending" || o.status === "payment_sent" || o.status === "disputed",
   );
   const showMerchantChat = isMerchant && (hasActiveListing || hasActiveP2PTrade);
+
+  if (!featureAccess.canAccessP2P) {
+    return (
+      <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">P2P Marketplace</h1>
+            <p className="text-muted-foreground mt-1">Trade directly with other users</p>
+          </div>
+        </div>
+
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="py-6 space-y-3">
+            <p className="text-sm">P2P trading unlocks after your account reaches the KYC-ready tier.</p>
+            <Button asChild>
+              <a href="/kyc">Complete KYC to unlock</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleMarkRead = (id: string, alreadyRead: boolean) => {
     if (alreadyRead) return;

@@ -3,7 +3,8 @@
  */
 import { Router, type IRouter } from "express";
 import { SubmitKycBody } from "@workspace/api-zod";
-import { getUserData, logActivity, NOW } from "../lib/store";
+import { getUserData, logActivity, newUuid, NOW } from "../lib/store";
+import { persistKyc } from "../lib/db-persist";
 import { requireAuth } from "../lib/session";
 import { pushAdminAlert } from "../lib/notify";
 
@@ -13,7 +14,7 @@ router.get("/kyc", requireAuth, (req, res) => {
   return res.json(getUserData(req.userId!).kyc);
 });
 
-router.post("/kyc", requireAuth, (req, res) => {
+router.post("/kyc", requireAuth, async (req, res) => {
   const parsed = SubmitKycBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid KYC submission", details: parsed.error.issues });
@@ -31,6 +32,11 @@ router.post("/kyc", requireAuth, (req, res) => {
     submittedAt: NOW(),
     decidedAt: null,
   };
+  const kycId = newUuid();
+  await persistKyc(kycId, req.userId!, {
+    documentType: parsed.data.idType,
+    status: "pending",
+  });
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,

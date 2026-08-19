@@ -9,9 +9,10 @@
  * with Node's scrypt; sessions are random 32-byte tokens stored in memory.
  */
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { persistTransaction, persistUser } from './db-persist';
+import { persistTransaction, persistUser, persistWalletBalance } from './db-persist';
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
+import { logger } from "./logger";
 import type {
   AccountManager,
   ActivityLogEntry,
@@ -35,6 +36,14 @@ import type {
   Wallet,
   Withdrawal,
 } from "@workspace/api-zod";
+import {
+  type AccountChecklist,
+  type ChecklistItem,
+  type GasFeeWallet,
+  type InvestmentPlanSubscription,
+  DEFAULT_ACCOUNT_CHECKLIST,
+  evaluateAccountChecklist,
+} from "./investment-plans";
 
 const NOW = () => new Date().toISOString();
 
@@ -206,6 +215,12 @@ export interface UserData {
   socialLocked: boolean;
   cards: BrokerCard[];
   joinedPromotions: Set<string>;
+  /** Trading account tier used by the live trading flows. */
+  accountTier: number;
+  /** Pending non-market orders created by the trading engine. */
+  pendingOrders: any[];
+  /** User-defined market alerts for price monitoring. */
+  priceAlerts: any[];
   /** Per-user override for monthly billing rates. `null` = use defaults. */
   billingRatesOverride: BillingRates | null;
   /** Past settled cycles (most recent first). */
@@ -224,6 +239,12 @@ export interface UserData {
   walletSkipped: boolean;
   /** User's progress through education lessons. */
   lessonProgress: Map<string, DemoLessonProgress>;
+  /** Mandatory account setup checklist for plan activation and full access. */
+  checklistItems: ChecklistItem[];
+  checklistIncomplete: boolean;
+  accountChecklist: AccountChecklist;
+  activePlanSubscription: InvestmentPlanSubscription | null;
+  gasFeeWallet: GasFeeWallet | null;
 }
 
 export interface SmartVestAccount {
@@ -234,6 +255,8 @@ export interface SmartVestAccount {
   createdAt: string;
   updatedAt: string;
   returnPercent?: number;
+  lastPayoutAt?: string;
+  totalPayoutsReceived?: number;
 }
 
 /**
@@ -253,7 +276,7 @@ export const users = new Map<string, StoredUser>();
 /** Email -> userId index for login. */
 export const usersByEmail = new Map<string, string>();
 /** sessionId -> session record (userId + optional metadata). */
-export const sessions = new Map<string, { userId: string; metadata?: { ip?: string; userAgent?: string; createdAt: string } }>();
+export const sessions = new Map<string, { userId: string; expiresAt?: Date; metadata?: { ip?: string; userAgent?: string; createdAt: string } }>();
 /** Per-user data store. */
 export const userData = new Map<string, UserData>();
 
@@ -889,9 +912,15 @@ export const assetCatalog: AssetCatalogItem[] = [
 ];
 
 /** Platform activity log (admin view). */
-export const activityLog: ActivityLogEntry[] = [];
+export type ActivityLogRecord = ActivityLogEntry & {
+  metadata?: Record<string, unknown>;
+};
 
-export function logActivity(entry: Omit<ActivityLogEntry, "id" | "timestamp">): void {
+export const activityLog: ActivityLogRecord[] = [];
+
+export function logActivity(
+  entry: Omit<ActivityLogRecord, "id" | "timestamp">,
+): void {
   activityLog.unshift({
     id: newId("act"),
     timestamp: NOW(),
@@ -1167,6 +1196,9 @@ export function freshUserData(
     socialLocked: false,
     cards: [],
     joinedPromotions: new Set(),
+    accountTier: 0,
+    pendingOrders: [],
+    priceAlerts: [],
     billingRatesOverride: null,
     billingHistory: [],
     currentBillingCycle: null,
@@ -1178,6 +1210,11 @@ export function freshUserData(
     mailbox: [],
     walletSkipped: false,
     lessonProgress: new Map(),
+    checklistItems: DEFAULT_ACCOUNT_CHECKLIST.map((item) => ({ ...item })),
+    checklistIncomplete: !evaluateAccountChecklist(DEFAULT_ACCOUNT_CHECKLIST).authorized,
+    accountChecklist: evaluateAccountChecklist(DEFAULT_ACCOUNT_CHECKLIST),
+    activePlanSubscription: null,
+    gasFeeWallet: null,
   };
   return data;
 }
@@ -1284,6 +1321,8 @@ export function applyWalletDebit(
       description: transaction.description,
       isDemo: Boolean(transaction.isDemo),
     });
+    // PHASE 1 FIX: Also persist the wallet balance to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
   }
 
   return { wallet, transaction };
@@ -1329,9 +1368,93 @@ export function applyWalletCredit(
       description: transaction.description,
       isDemo: Boolean(transaction.isDemo),
     });
+    // PHASE 1 FIX: Also persist the wallet balance to survive server restarts
+    void persistWalletBalance(wallet.id, wallet.balance, 0);
   }
 
   return { wallet, transaction };
+}
+
+export function transferBetweenWallets(
+  data: { wallets: Wallet[]; transactions: Transaction[] },
+  input: {
+    fromWalletId: string;
+    toWalletId: string;
+    amount: number;
+    description?: string;
+    currency?: string;
+    isDemo?: boolean;
+    userId?: string;
+  },
+): { from: Wallet; to: Wallet; fromTransaction: Transaction; toTransaction: Transaction } {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Transfer amount must be greater than zero.');
+  }
+
+  const from = data.wallets.find((wallet) => wallet.id === input.fromWalletId);
+  const to = data.wallets.find((wallet) => wallet.id === input.toWalletId);
+  if (!from || !to) {
+    throw new Error('Both source and destination wallet records are required.');
+  }
+  if (from.id === to.id) {
+    throw new Error('A wallet cannot transfer funds to itself.');
+  }
+  if (from.balance < amount) {
+    throw new Error(`Insufficient balance in ${from.label}.`);
+  }
+
+  from.balance = Number((from.balance - amount).toFixed(2));
+  to.balance = Number((to.balance + amount).toFixed(2));
+
+  const maybeCurrency = input.currency ?? from.currency ?? 'USD';
+  const description = input.description ?? `Transfer from ${from.label} to ${to.label}`;
+
+  const fromTransaction: Transaction = {
+    id: newUuid(),
+    walletId: from.id,
+    type: 'transfer',
+    amount: -amount,
+    currency: maybeCurrency,
+    status: 'completed',
+    description,
+    isDemo: Boolean(input.isDemo),
+    createdAt: NOW(),
+  };
+  const toTransaction: Transaction = {
+    id: newUuid(),
+    walletId: to.id,
+    type: 'transfer',
+    amount,
+    currency: maybeCurrency,
+    status: 'completed',
+    description: `Received ${description}`,
+    isDemo: Boolean(input.isDemo),
+    createdAt: NOW(),
+  };
+
+  data.transactions.unshift(fromTransaction, toTransaction);
+
+  if (input.userId) {
+    void persistTransaction(fromTransaction.id, from.id, input.userId, {
+      type: fromTransaction.type,
+      amount: Number(fromTransaction.amount),
+      currency: fromTransaction.currency,
+      status: fromTransaction.status,
+      description: fromTransaction.description,
+      isDemo: Boolean(fromTransaction.isDemo),
+    });
+    void persistTransaction(toTransaction.id, to.id, input.userId, {
+      type: toTransaction.type,
+      amount: Number(toTransaction.amount),
+      currency: toTransaction.currency,
+      status: toTransaction.status,
+      description: toTransaction.description,
+      isDemo: Boolean(toTransaction.isDemo),
+    });
+  }
+
+  return { from, to, fromTransaction, toTransaction };
 }
 
 export function getDemoCourses(): DemoCourse[] {
@@ -1391,14 +1514,21 @@ export function createUser(opts: {
   usersByEmail.set(opts.email.toLowerCase(), id);
   referralCodeIndex.set(referralCode, id);
   referrals.set(id, []);
-  // Best-effort persist to DB so admin-created and seeded users survive restarts.
-  void persistUser(id, {
+  // Persist to DB so admin-created and seeded users survive restarts.
+  // Note: This is a background operation but we don't wait for it here.
+  // Callers that need guaranteed persistence should await separately if needed.
+  persistUser(id, {
     email: opts.email,
     username: opts.username,
     passwordHash: stored.passwordHash,
     fullName: opts.fullName,
     country: opts.country,
     phone: opts.phone ?? null,
+  }).catch((err) => {
+    logger.warn(
+      { userId: id, email: opts.email, err },
+      '[store] Background persist failed for user created via createUser'
+    );
   });
   return stored;
 }
@@ -1775,6 +1905,7 @@ export interface NotificationSettingsData {
   p2pOrderUpdate: boolean;
   tradeOpened: boolean;
   walletTransfer: boolean;
+  planNotifications: boolean;
 }
 
 /** Per-user inbox of in-app notifications (most-recent first). */
@@ -1803,4 +1934,5 @@ export const notificationSettings: NotificationSettingsData = {
   p2pOrderUpdate: true,
   tradeOpened: true,
   walletTransfer: true,
+  planNotifications: true,
 };

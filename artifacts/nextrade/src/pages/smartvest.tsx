@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Briefcase, TrendingUp, Sparkles, ShieldCheck } from "lucide-react";
+import { Briefcase, TrendingUp, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { fetchFeatureAccess, getFeatureAccess, type FeatureAccessState } from "@/lib/account-access";
 
 const DISCLAIMER =
-  "SmartVest is a simulated educational account, not a TFSA, FHSA, investment product, or registered account.";
+  "SmartVest is an investment program that lets you create and manage a diversified portfolio. Access is subject to eligibility and KYC verification.";
 type Plan = "conservative" | "balanced" | "growth";
 
 export function SmartVest() {
@@ -13,6 +14,7 @@ export function SmartVest() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [featureAccess, setFeatureAccess] = useState<FeatureAccessState>(getFeatureAccess({}));
 
   async function load() {
     const response = await fetch("/api/smartvest", { credentials: "include" });
@@ -22,6 +24,9 @@ export function SmartVest() {
 
   useEffect(() => {
     void load();
+    void fetchFeatureAccess()
+      .then(setFeatureAccess)
+      .catch(() => setFeatureAccess(getFeatureAccess({})));
   }, []);
 
   async function createAccount() {
@@ -37,6 +42,34 @@ export function SmartVest() {
   }
 
   const account = portfolio?.account;
+  const displayReturn = Number.isFinite(account?.returnPercent) ? Number(account.returnPercent) : 0;
+  const displayContribution = Number.isFinite(account?.suggestedContribution) ? Number(account.suggestedContribution) : 0;
+  const displayPortfolioValue = Number.isFinite(account?.portfolioValue) ? Number(account.portfolioValue) : 0;
+
+  if (!featureAccess.canAccessSmartVest) {
+    return (
+      <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
+        <header>
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold">SmartVest</h1>
+            <Badge variant="secondary">Investment</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">A managed investment program to help you plan and grow a diversified portfolio. Access requires KYC and eligibility.</p>
+        </header>
+
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="py-6 text-sm space-y-3">
+            <p>SmartVest is available once your account reaches the KYC-ready tier.</p>
+            <Button asChild>
+              <a href="/kyc">Complete KYC to unlock</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
       <header>
@@ -57,14 +90,21 @@ export function SmartVest() {
           <Card>
             <CardHeader><CardTitle className="text-base">Portfolio value</CardTitle><CardDescription>Derived from your existing simulated wallet balance.</CardDescription></CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold">${account.portfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {account.returnPercent.toFixed(2)}% simulated return</div>
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="h-4 w-4" /> Suggested contribution: ${account.suggestedContribution.toLocaleString()}</div>
+              <div className="text-3xl font-semibold">${displayPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><TrendingUp className="h-4 w-4" /> {Number.isFinite(displayReturn) ? displayReturn.toFixed(2) : "0.00"}% simulated return</div>
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><Sparkles className="h-4 w-4" /> Suggested contribution: ${displayContribution.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-base">{account.planLabel} allocation</CardTitle><CardDescription>{account.description}</CardDescription></CardHeader>
-            <CardContent className="space-y-3 text-sm">{Object.entries(account.allocation).map(([name, value]) => <div key={name} className="flex justify-between"><span className="capitalize">{name}</span><span className="font-medium">{value}%</span></div>)}</CardContent>
+            <CardContent className="space-y-3 text-sm">
+              {(Object.entries(account.allocation as Record<string, number>) as [string, number][]).map(([name, value]) => (
+                <div key={name} className="flex justify-between">
+                  <span className="capitalize">{name}</span>
+                  <span className="font-medium">{value}%</span>
+                </div>
+              ))}
+            </CardContent>
           </Card>
         </div>
       ) : (

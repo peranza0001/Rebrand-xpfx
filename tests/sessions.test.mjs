@@ -2,6 +2,7 @@ process.env.NODE_ENV = 'development';
 process.env.SESSION_SECRET = 'test-session-secret';
 process.env.ALLOWED_ORIGINS = 'https://example.com';
 process.env.ENABLE_DEMO_AUTH = 'true';
+process.env.DATABASE_URL = '';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -124,5 +125,62 @@ test('session listing and revoke flows', async () => {
     }
     assert.equal(finalList.response.status, 200);
     assert.equal(finalList.data.sessions.length, 0);
+  });
+});
+
+test('logout clears persisted session and removes the session cookie', async () => {
+  await withTestServer(async (baseUrl) => {
+    const email = `logout-${Date.now()}@example.com`;
+    const userId = randomUUID();
+    const password = 'SecretLogout123!';
+
+    store.users.set(userId, {
+      user: {
+        id: userId,
+        username: 'logout-user',
+        email,
+        fullName: 'Logout Tester',
+        country: 'US',
+        kycVerified: false,
+        avatarUrl: undefined,
+        createdAt: new Date().toISOString(),
+        selectedManagerId: null,
+        phone: null,
+        merchant: false,
+        moonpayEmail: null,
+        buyVerified: false,
+      },
+      passwordHash: store.hashPassword(password),
+      role: 'user',
+      referralCode: '',
+      referredBy: null,
+      merchant: false,
+      tradingLocked: false,
+      demoMode: false,
+      phone: null,
+      accountFlag: null,
+      suspended: false,
+      disabled: false,
+    });
+    store.usersByEmail.set(email, userId);
+    store.userData.set(userId, store.freshUserData(userId, { country: 'US' }));
+
+    const login = await jsonRequest(baseUrl, '/api/auth/login', { method: 'POST', body: { email, password } });
+    assert.equal(login.response.status, 200);
+    const cookie = parseCookie(login.response.headers.get('set-cookie'));
+    assert.ok(cookie.includes('xpfx_sid='), 'Login should set a session cookie');
+    assert.ok(store.sessions.size > 0, 'Session should exist in memory after login');
+
+    const logout = await jsonRequest(baseUrl, '/api/auth/logout', { method: 'POST', cookie });
+    assert.equal(logout.response.status, 200);
+    const setCookieHeader = logout.response.headers.get('set-cookie');
+    assert.ok(setCookieHeader && setCookieHeader.includes('xpfx_sid=') && /Expires=/.test(setCookieHeader), 'Logout should clear the session cookie');
+    const sid = cookie.replace(/^xpfx_sid=/, '');
+    assert.equal(store.sessions.has(sid), false, 'Session should be removed from memory after logout');
+
+    const sessionResponse = await jsonRequest(baseUrl, '/api/auth/session', { method: 'GET', cookie });
+    assert.equal(sessionResponse.response.status, 200);
+    assert.equal(sessionResponse.data.user, null);
+    assert.equal(sessionResponse.data.role, 'guest');
   });
 });
