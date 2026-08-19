@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm ci --no-audit --no-fund && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade",
+  "buildCommand": "npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade",
   "outputDirectory": "artifacts/nextrade/dist/public",
   "installCommand": "npm ci --no-audit --no-fund",
   "framework": null,
