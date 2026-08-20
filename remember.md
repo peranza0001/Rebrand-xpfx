@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 13:51:02 UTC
+- Last sync: 2026-08-20 13:53:29 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/admin-portal/src/pages/user-detail.tsx | M  artifacts/api-server/src/lib/store.ts | M  artifacts/api-server/src/routes/wallets.ts
+- Current working tree: M  artifacts/api-server/src/lib/env.ts | M  artifacts/api-server/src/routes/referrals.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

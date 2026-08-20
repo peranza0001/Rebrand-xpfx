@@ -134,15 +134,8 @@ export const env = {
   // Set automatically by Replit; ALLOWED_ORIGINS takes precedence when set.
   REPLIT_DOMAINS: get("REPLIT_DOMAINS"),
 
-  /**
-   * AES-256-GCM key for encrypting wallet credential material (seed phrases
-   * and private keys) at rest. Must be 64 hex characters (32 bytes).
-   *
-   * Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   *
-   * REQUIRED in production. Optional in development (credentials stored plain-text
-   * in the in-memory store which is not persisted across restarts).
-   */
+  // Legacy wallet-encryption setting retained for deployment compatibility.
+  // Connected wallets are public-address-only and never contain credentials.
   WALLET_ENCRYPTION_KEY: get("WALLET_ENCRYPTION_KEY"),
 
   /**
@@ -189,15 +182,6 @@ export function assertRequiredEnv(): { port: number } {
     throw new Error(
       "MOONPAY_SECRET_KEY must be set when MOONPAY_API_KEY is configured in production. " +
         "Unsigned live MoonPay checkout URLs are a critical security vulnerability.",
-    );
-  }
-
-  // In production, wallet credentials must be encrypted at rest.
-  if (isProduction && !env.WALLET_ENCRYPTION_KEY) {
-    throw new Error(
-      "WALLET_ENCRYPTION_KEY must be set in production. " +
-        "Wallet seed phrases and private keys cannot be stored in plain text. " +
-        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     );
   }
 
