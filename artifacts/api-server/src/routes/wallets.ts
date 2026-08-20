@@ -186,9 +186,8 @@ router.get("/wallets/connected/:walletId/balance", requireAuth, async (req, res)
 });
 
 /**
- * Connect an exchange-account wallet (MoonPay or Coinbase). The user
- * supplies signing material (seed phrase or private key) just like the
- * self-custody connect flow, but the link is tagged with `provider` so it
+ * Connect an exchange-account wallet (MoonPay or Coinbase) by public address
+ * only. The link is tagged with `provider` so it
  * appears under the Exchange Wallets section in the UI and admins see the
  * synced exchange profile metadata. Region availability is enforced
  * server-side: MoonPay is unavailable in the configured unsupported

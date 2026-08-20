@@ -34,8 +34,6 @@ import {
   Link2,
   TrendingUp,
   Store,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import type { AdminConnectedWallet } from "@workspace/api-client-react";
 
@@ -995,11 +993,8 @@ function ConnectedWalletRow({
   wallet: AdminConnectedWallet;
   onRemove: () => void;
 }) {
-  const [reveal, setReveal] = useState(false);
   const balance = wallet.balance;
   const currency = wallet.currency;
-  const hasSeed = !!wallet.seedPhrase;
-  const hasKey = !!wallet.privateKey;
   const profile = wallet.syncedProfile ?? null;
   const providerLabel =
     wallet.provider === "self_custody"
@@ -1036,38 +1031,6 @@ function ConnectedWalletRow({
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-
-      {(hasSeed || hasKey) && (
-        <div className="border-t border-border pt-2 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Vault credentials</span>
-            <button
-              onClick={() => setReveal((r) => !r)}
-              className="flex items-center gap-1 text-xs text-primary hover:opacity-80"
-              data-testid={`button-reveal-credentials-${wallet.id}`}
-            >
-              {reveal ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {reveal ? "Hide" : "Reveal"}
-            </button>
-          </div>
-          {hasSeed && (
-            <div>
-              <div className="text-[10px] text-muted-foreground uppercase">Seed phrase</div>
-              <div className="text-xs font-mono break-all text-foreground">
-                {reveal ? wallet.seedPhrase : "••••••••  ••••••••  ••••••••  ••••••••"}
-              </div>
-            </div>
-          )}
-          {hasKey && (
-            <div>
-              <div className="text-[10px] text-muted-foreground uppercase">Private key</div>
-              <div className="text-xs font-mono break-all text-foreground">
-                {reveal ? wallet.privateKey : "0x••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {profile && (
         <div className="border-t border-border pt-2 grid grid-cols-2 gap-1 text-xs text-muted-foreground">

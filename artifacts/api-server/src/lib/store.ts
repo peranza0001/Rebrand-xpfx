@@ -148,18 +148,14 @@ export interface DemoLessonProgress {
 }
 
 /**
- * Server-internal extension of the public ConnectedWallet API type. Holds
- * the credential material the user supplied at connect time so that
- * /wallets/connected/{id}/send can sign on-chain transactions on the user's
- * behalf. These fields MUST NEVER be returned through user-facing API
- * responses (use toPublicConnectedWallet() to strip them). Admin-only
- * endpoints may surface them via the AdminConnectedWallet schema.
+ * Server-internal extension of the public ConnectedWallet API type. Connected
+ * wallets are public-address-only and never contain signing credentials.
  */
 export interface StoredConnectedWallet extends ConnectedWallet {
   connectionStatus: "public_address";
 }
 
-/** Strip credential material before returning to a user-facing endpoint. */
+/** Return the public-address-only wallet representation. */
 export function toPublicConnectedWallet(w: StoredConnectedWallet): ConnectedWallet {
   return {
     id: w.id,
