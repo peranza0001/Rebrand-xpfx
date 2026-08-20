@@ -1,7 +1,7 @@
 {
   "name": "XpressProFx Dev",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-  "postCreateCommand": "npm install --no-audit --no-fund && node scripts/generate-secrets.mjs",
+  "postCreateCommand": "npm ci --prefer-offline --no-audit --no-fund && node scripts/generate-secrets.mjs",
   "postStartCommand": "npm run dev:all & PORT=5000 npm run dev --workspace=artifacts/api-server",
   "forwardPorts": [5000, 5173, 5174, 5175],
   "portsAttributes": {
