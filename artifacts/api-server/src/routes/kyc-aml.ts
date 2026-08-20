@@ -20,7 +20,7 @@ import {
 } from '../lib/compliance-status';
 import { requireAuth } from '../lib/session';
 import { logger } from '../lib/logger';
-import { persistKycVerification } from '../lib/db-persist';
+import { persistAmlScreening, persistKycVerification } from '../lib/db-persist';
 import { newUuid } from '../lib/store';
 
 const router = Router();
@@ -230,6 +230,15 @@ router.post('/aml/screen', requireAuth, async (req: Request, res: Response) => {
 
     // Create compliance check record
     createComplianceCheck(userId, 'aml_screening', screeningResult.screeningId);
+    await persistAmlScreening({
+      id: newUuid(),
+      userId,
+      provider: screeningResult.provider,
+      status: screeningResult.status,
+      riskLevel: screeningResult.riskLevel,
+      matchCount: screeningResult.matches.length,
+      matches: screeningResult.matches,
+    });
 
     logger.info(
       { userId, screeningId: screeningResult.screeningId, status: screeningResult.status },

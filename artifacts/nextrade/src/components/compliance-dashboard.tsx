@@ -21,14 +21,17 @@ interface ComplianceDashboardProps {
 }
 
 export function ComplianceDashboard({
-  status = defaultComplianceStatus,
-  kycVerified = true,
-  amlStatus = "Verified",
-  accountType = "Professional",
-  regulationText = "This platform is operated in compliance with CFTC, FCA, and ASIC regulations.",
+  status,
+  kycVerified = false,
+  amlStatus = "Not screened",
+  accountType = "Standard",
+  regulationText = "Your access depends on completed verification and applicable regulatory requirements.",
 }: ComplianceDashboardProps) {
-  const compliantCount = status.filter((s) => s.status === "compliant").length;
-  const compliancePercentage = (compliantCount / status.length) * 100;
+  const complianceStatus = status ?? getDefaultComplianceStatus(kycVerified, amlStatus);
+  const compliantCount = complianceStatus.filter((s) => s.status === "compliant").length;
+  const compliancePercentage = complianceStatus.length > 0
+    ? (compliantCount / complianceStatus.length) * 100
+    : 0;
 
   const getStatusIcon = (statusType: string) => {
     switch (statusType) {
@@ -120,7 +123,7 @@ export function ComplianceDashboard({
           <CardDescription>Track your compliance with regulatory requirements</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {status.map((item) => (
+          {complianceStatus.map((item) => (
             <div
               key={item.category}
               className={`rounded-lg border p-4 ${getStatusColor(item.status)}`}
@@ -274,56 +277,3 @@ export function ComplianceDashboard({
   );
 }
 
-const defaultComplianceStatus: ComplianceStatus[] = [
-  {
-    category: "Know Your Customer (KYC)",
-    status: "compliant",
-    description: "Personal identification and verification completed successfully.",
-    percentage: 100,
-  },
-  {
-    category: "Anti-Money Laundering (AML)",
-    status: "compliant",
-    description: "All anti-money laundering checks passed. Account cleared for trading.",
-    percentage: 100,
-  },
-  {
-    category: "Identity Verification",
-    status: "compliant",
-    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-    description: "Government-issued ID verified and confirmed.",
-    percentage: 100,
-  },
-  {
-    category: "Address Verification",
-    status: "compliant",
-    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-    description: "Proof of residence verified through official documents.",
-    percentage: 100,
-  },
-  {
-    category: "Source of Funds",
-    status: "warning",
-    description: "Verification in progress. This may take 1-2 business days.",
-    percentage: 75,
-  },
-  {
-    category: "Beneficial Owner Declaration",
-    status: "compliant",
-    description: "All required beneficial owner information disclosed.",
-    percentage: 100,
-  },
-  {
-    category: "Politically Exposed Person (PEP) Check",
-    status: "compliant",
-    description: "PEP screening completed - no match found.",
-    percentage: 100,
-  },
-  {
-    category: "Regular Compliance Review",
-    status: "pending",
-    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    description: "Annual compliance review scheduled for next month.",
-    percentage: 50,
-  },
-];

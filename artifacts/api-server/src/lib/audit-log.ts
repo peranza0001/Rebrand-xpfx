@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import { logger } from './logger';
+import { persistAuditEvent as persistAuditEventRecord } from './db-persist';
 
 export interface AuditEvent {
   id: string;
@@ -69,6 +70,8 @@ export function recordAuditEvent(input: {
     lastHash = event.hash;
     auditEvents.unshift(event);
 
+    void persistAuditEventRecord(event);
+
     if (auditEvents.length > 2000) {
       auditEvents.length = 2000;
     }
@@ -77,6 +80,20 @@ export function recordAuditEvent(input: {
   } catch (error) {
     logger.error({ err: error }, '[AUDIT] Failed to record audit event');
     return null;
+  }
+}
+
+export async function persistAuditEvent(input: {
+  actorId?: string;
+  actorName?: string;
+  action: string;
+  category?: AuditEvent['category'];
+  detail: string;
+  metadata?: Record<string, unknown>;
+} | AuditEvent): Promise<void> {
+  const event = 'hash' in input ? input : recordAuditEvent(input);
+  if (event) {
+    await persistAuditEventRecord(event);
   }
 }
 

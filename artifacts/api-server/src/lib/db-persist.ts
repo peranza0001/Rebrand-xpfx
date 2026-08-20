@@ -378,6 +378,41 @@ export async function deleteSessionsForUser(userId: string): Promise<void> {
   }
 }
 
+export async function persistAuditEvent(input: {
+  id: string;
+  actorId?: string;
+  action: string;
+  category: string;
+  detail: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}): Promise<void> {
+  if (!prismaClient) return;
+
+  try {
+    const delegate = getPrismaModelDelegate("AuditLog");
+    if (!delegate?.create) return;
+
+    await delegate.create({
+      data: {
+        id: isUuid(input.id) ? input.id : undefined,
+        userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
+        action: input.action,
+        entity: input.category,
+        entityId: input.id,
+        metadata: {
+          detail: input.detail,
+          timestamp: input.timestamp,
+          ...(input.metadata ?? {}),
+        },
+        createdAt: new Date(input.timestamp),
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+  }
+}
+
 export async function deleteUser(userId: string): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
@@ -654,6 +689,68 @@ export async function persistKycVerification(input: { id: string; userId: string
     await delegate?.upsert({ where: { id: input.id }, update: { provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null }, create: { id: input.id, userId: input.userId, provider: input.provider, providerRef: input.providerRef ?? null, status: input.status, rejectionReason: input.rejectionReason ?? null } });
   } catch (err) {
     logger.warn({ err, userId: input.userId, verificationId: input.id }, "[db-persist] persistKycVerification failed");
+  }
+}
+
+export async function persistAmlScreening(input: {
+  id: string;
+  userId: string;
+  provider: string;
+  status: string;
+  riskLevel?: string;
+  matchCount?: number;
+  matches?: Array<{ listType: string; matchScore: number; entity: string }>;
+}): Promise<void> {
+  if (!prismaClient || !isUuid(input.userId)) return;
+
+  try {
+    const delegate =
+      getPrismaModelDelegate("AMLScreening") ??
+      getPrismaModelDelegate("AmlScreening") ??
+      getPrismaModelDelegate("aml_screening") ??
+      getPrismaModelDelegate("aml_screenings");
+
+    if (delegate?.upsert) {
+      await delegate.upsert({
+        where: { id: input.id },
+        update: {
+          provider: input.provider,
+          status: input.status,
+          riskLevel: input.riskLevel ?? "low",
+          matchCount: input.matchCount ?? 0,
+          matches: input.matches ?? [],
+        },
+        create: {
+          id: input.id,
+          userId: input.userId,
+          provider: input.provider,
+          status: input.status,
+          riskLevel: input.riskLevel ?? "low",
+          matchCount: input.matchCount ?? 0,
+          matches: input.matches ?? [],
+        },
+      });
+      return;
+    }
+
+    if (typeof prismaClient.$queryRaw === "function") {
+      const tableCheck = await prismaClient.$queryRaw`SELECT to_regclass('public.aml_screenings') AS table_name` as Array<{ table_name: string | null }>;
+      if (!tableCheck.length || !tableCheck[0]?.table_name) return;
+
+      await prismaClient.$queryRaw`
+        INSERT INTO aml_screenings (id, user_id, provider, status, risk_level, match_count, matches, created_at, updated_at)
+        VALUES (${input.id}, ${input.userId}, ${input.provider}, ${input.status}, ${input.riskLevel ?? "low"}, ${input.matchCount ?? 0}, ${JSON.stringify(input.matches ?? [])}::jsonb, NOW(), NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          provider = EXCLUDED.provider,
+          status = EXCLUDED.status,
+          risk_level = EXCLUDED.risk_level,
+          match_count = EXCLUDED.match_count,
+          matches = EXCLUDED.matches,
+          updated_at = NOW()
+      `;
+    }
+  } catch (err) {
+    logger.warn({ err, userId: input.userId, screeningId: input.id }, "[db-persist] persistAmlScreening failed");
   }
 }
 
