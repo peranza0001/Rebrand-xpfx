@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 19:01:44 UTC
+- Last sync: 2026-08-20 19:02:03 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/index.ts | M  artifacts/api-server/src/lib/otp.ts | M  artifacts/api-server/src/lib/startup-env.ts
+- Current working tree: M  artifacts/api-server/src/routes/webhooks.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
