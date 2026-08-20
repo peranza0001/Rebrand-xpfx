@@ -101,6 +101,21 @@ model KYCVerification {
   @@map("kyc_verifications")
 }
 
+model AMLScreening {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  provider   String
+  status     String
+  riskLevel  String   @map("risk_level")
+  matchCount Int      @map("match_count") @default(0)
+  matches    Json
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@map("aml_screenings")
+}
+
 // ─── TRADING ACCOUNTS ─────────────────────────────────────────────────────────
 
 model TradingAccount {

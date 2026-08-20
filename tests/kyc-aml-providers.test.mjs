@@ -316,6 +316,22 @@ describe('KYC/AML Providers Integration', () => {
   });
 
   describe('AML Screening Results', () => {
+    it('should persist AML screening results when a database client is available', async () => {
+      const { persistAmlScreening } = await import('../artifacts/api-server/src/lib/db-persist.ts');
+
+      const payload = {
+        id: 'aml_persist_test_id',
+        userId: 'user_aml_persist',
+        provider: 'mock',
+        status: 'clear',
+        riskLevel: 'low',
+        matchCount: 0,
+        matches: [],
+      };
+
+      await assert.doesNotReject(() => persistAmlScreening(payload));
+    });
+
     it('should return screening result structure', async () => {
       if (!kyc.performAMLScreening) {
         this.skip();
@@ -479,6 +495,38 @@ describe('KYC/AML Providers Integration', () => {
         true;
 
       assert.strictEqual(supportsMigration, true);
+    });
+  });
+
+  describe('Cache fallback and Redis-ready helpers', () => {
+    it('should keep cache values available without a Redis server', async () => {
+      const { setCacheValueAsync, getCacheValueAsync, deleteCacheValueAsync } = await import('../artifacts/api-server/src/lib/cache-store.ts');
+
+      const key = `phase8:test:${Date.now()}`;
+      await setCacheValueAsync(key, { ok: true, value: 42 }, 5000);
+
+      const cached = await getCacheValueAsync(key);
+      assert(cached && cached.ok === true);
+      assert(cached.value === 42);
+
+      await deleteCacheValueAsync(key);
+      const cleared = await getCacheValueAsync(key);
+      assert.equal(cleared, undefined);
+    });
+  });
+
+  describe('Audit log persistence', () => {
+    it('should persist audit log events without throwing when a database client is available', async () => {
+      const { persistAuditEvent } = await import('../artifacts/api-server/src/lib/audit-log.ts');
+
+      await assert.doesNotReject(() => persistAuditEvent({
+        actorId: '11111111-1111-4111-8111-111111111111',
+        actorName: 'audit-test-user',
+        action: 'phase8.audit.test',
+        category: 'system',
+        detail: 'Persistence regression check',
+        metadata: { suite: 'phase8' },
+      }));
     });
   });
 });
