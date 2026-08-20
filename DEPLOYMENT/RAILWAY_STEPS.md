@@ -3,6 +3,7 @@
 This document describes the exact commands, required secrets, and recommended CI steps to safely apply Prisma migrations, build artifacts, and redeploy the API server on Railway.
 
 Required Railway/project secrets
+- `NPM_CONFIG_PRODUCTION=false` — Railway Variable. Prevents deprecated npm `production` configuration from being inherited during install, build, and start.
 - `DATABASE_URL` — private connection string for the PostgreSQL instance used by the API server.
 - `SESSION_SECRET` — secret used to sign session cookies.
 - `CSRF_SECRET` (optional) — used by CSRF middleware if configured separately.
@@ -12,8 +13,9 @@ Required Railway/project secrets
 
 Safe deployment checklist (manual)
 1. Ensure `main` branch is up to date and CI artifacts are built.
-2. Backup the production database (Railway and Postgres provide snapshot features).
-3. Run migrations against production DB:
+2. In Railway Variables, set `NPM_CONFIG_PRODUCTION=false`, then trigger a new deployment.
+3. Backup the production database (Railway and Postgres provide snapshot features).
+4. Run migrations against production DB:
 
 ```bash
 # from repo root
@@ -24,7 +26,7 @@ npx prisma migrate deploy --schema=artifacts/api-server/prisma/schema.prisma
 npx prisma generate --schema=artifacts/api-server/prisma/schema.prisma
 ```
 
-4. Build API and frontends (or let CI build and upload artifacts):
+5. Build API and frontends (or let CI build and upload artifacts):
 
 ```bash
 npm ci
@@ -33,7 +35,7 @@ npm run build --workspace=artifacts/nextrade
 npm run build --workspace=artifacts/admin-portal
 ```
 
-5. Redeploy / restart the Railway service so the new code picks up schema/client changes.
+6. Redeploy / restart the Railway service so the new code picks up schema/client changes.
    - Option A (Railway UI): Open your Railway project, trigger a redeploy or rebuild, or update the service to a new commit.
    - Option B (Railway CLI): Login and run `railway up` or use the Railway GitHub integration to deploy.
 

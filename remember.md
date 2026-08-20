@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 19:06:50 UTC
+- Last sync: 2026-08-20 20:56:41 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/src/routes/crypto-orders.ts | M  artifacts/api-server/src/routes/index.ts
+- Current working tree: M  .npmrc | M  DEPLOYMENT/RAILWAY_ENV.example | M  DEPLOYMENT/RAILWAY_STEPS.md
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

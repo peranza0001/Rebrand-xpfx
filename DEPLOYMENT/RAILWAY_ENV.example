@@ -1,5 +1,6 @@
 NODE_ENV=production
 PORT=3000
+NPM_CONFIG_PRODUCTION=false
 LOG_LEVEL=info
 SESSION_SECRET=replace-with-session-secret
 JWT_SECRET=replace-with-jwt-secret

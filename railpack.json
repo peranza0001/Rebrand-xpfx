@@ -1,8 +1,8 @@
 {
   "provider": "node",
-  "install": "npm install --include=dev --legacy-peer-deps --no-audit --no-fund",
-  "build": "npm cache clean --force && sleep 1 && find artifacts -type d -name .vite -exec rm -rf {} + 2>/dev/null || true && npm run predeploy --skip-env-check && npm run build --workspace=artifacts/api-server",
-  "start": "npm run prepare:runtime-secrets && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
+  "install": "NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm install --include=dev --legacy-peer-deps --no-audit --no-fund",
+  "build": "NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm cache clean --force && sleep 1 && find artifacts -type d -name .vite -exec rm -rf {} + 2>/dev/null || true && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run predeploy --skip-env-check && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run build --workspace=artifacts/api-server",
+  "start": "NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run prepare:runtime-secrets && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
   "env": {
     "PORT": "3000"
   }
