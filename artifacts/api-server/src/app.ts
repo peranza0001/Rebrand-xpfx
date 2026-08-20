@@ -543,7 +543,8 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
   );
 
   const localRequest = isDevelopmentHost(req.hostname);
-  if (isProd && !platform && !previewRequest && !localRequest) {
+  const approvedOrigin = isAllowedOrigin(req.get('origin'));
+  if (isProd && !platform && !previewRequest && !localRequest && !approvedOrigin) {
     res.status(400).json({
       success: false,
       message: 'Missing platform identifier.'
