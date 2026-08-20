@@ -497,4 +497,21 @@ describe('KYC/AML Providers Integration', () => {
       assert.strictEqual(supportsMigration, true);
     });
   });
+
+  describe('Cache fallback and Redis-ready helpers', () => {
+    it('should keep cache values available without a Redis server', async () => {
+      const { setCacheValueAsync, getCacheValueAsync, deleteCacheValueAsync } = await import('../artifacts/api-server/src/lib/cache-store.ts');
+
+      const key = `phase8:test:${Date.now()}`;
+      await setCacheValueAsync(key, { ok: true, value: 42 }, 5000);
+
+      const cached = await getCacheValueAsync(key);
+      assert(cached && cached.ok === true);
+      assert(cached.value === 42);
+
+      await deleteCacheValueAsync(key);
+      const cleared = await getCacheValueAsync(key);
+      assert.equal(cleared, undefined);
+    });
+  });
 });

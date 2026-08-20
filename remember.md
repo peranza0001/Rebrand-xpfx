@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-19 23:58:47 UTC
+- Last sync: 2026-08-20 00:18:11 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/prisma/migrations/20260819130000_add_aml_screenings/migration.sql | M  artifacts/api-server/prisma/schema.prisma | M  artifacts/api-server/src/lib/db-persist.ts
+- Current working tree: M  artifacts/api-server/src/lib/cache-store.ts | A  artifacts/api-server/src/lib/redis-client.ts | M  package-lock.json
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
