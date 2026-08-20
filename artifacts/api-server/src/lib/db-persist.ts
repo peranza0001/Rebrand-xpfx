@@ -69,6 +69,31 @@ export async function getPersistedUser(userId: string): Promise<StoredUser | nul
   }
 }
 
+export async function getPersistedUserByEmail(email: string): Promise<StoredUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const userDelegate = getPrismaUserDelegate();
+  if (userDelegate?.findUnique) {
+    try {
+      const row = await userDelegate.findUnique({ where: { email: normalizedEmail } });
+      if (row) return persistedUserToStoredUser(row);
+    } catch (err) {
+      logger.warn({ err, email: normalizedEmail }, "[db-persist] getPersistedUserByEmail failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+    return rows[0] ? persistedUserToStoredUser(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, email: normalizedEmail }, "[db-persist] getPersistedUserByEmail failed using Drizzle");
+    return null;
+  }
+}
+
 function persistedUserToStoredUser(row: any): StoredUser {
   const email = String(row.email ?? "").toLowerCase();
   const fullName = String(row.fullName ?? row.full_name ?? email);
