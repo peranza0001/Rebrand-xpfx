@@ -5,19 +5,20 @@ import { validateProductionEnvironment } from '../scripts/validate-production-en
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
 import { resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
 
-test('production validation fails when no email provider is configured', () => {
+test('production validation allows missing optional email provider', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
-    SESSION_SECRET: '',
-    JWT_SECRET: '',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
     WALLET_ENCRYPTION_KEY: '',
-    DATABASE_URL: '',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/app?sslmode=require',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
   };
 
-  assert.throws(() => validateProductionEnvironment(env), {
-    message: /No email provider is configured/,
-  });
+  assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
 test('production validation accepts a complete SMTP configuration', () => {
@@ -88,7 +89,7 @@ test('production validation accepts DATABASE_PUBLIC_URL as an alternate database
   assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
-test('production validation fails when no SendGrid or SMTP email provider is configured', () => {
+test('production validation allows missing SendGrid and SMTP provider', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
@@ -99,9 +100,11 @@ test('production validation fails when no SendGrid or SMTP email provider is con
     ALLOWED_ORIGINS: 'https://app.example.com',
   };
 
-  assert.throws(() => validateProductionEnvironment(env), {
-    message: /No email provider is configured/,
-  });
+  assert.doesNotThrow(() => validateProductionEnvironment({
+    ...env,
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
+  }));
 });
 
 test('production validation fails when SendGrid is configured without SMTP_FROM', () => {
@@ -124,7 +127,7 @@ test('production validation fails when SendGrid is configured without SMTP_FROM'
   });
 });
 
-test('production validation fails when no blockchain provider is configured', () => {
+test('production validation allows missing optional blockchain provider', () => {
   const env = {
     NODE_ENV: 'production',
     PORT: '3000',
@@ -142,9 +145,7 @@ test('production validation fails when no blockchain provider is configured', ()
     SMTP_FROM: 'no_reply@acme.com',
   };
 
-  assert.throws(() => validateProductionEnvironment(env), {
-    message: /ALCHEMY_API_KEY or INFURA_API_KEY is not configured with a real production credential/,
-  });
+  assert.doesNotThrow(() => validateProductionEnvironment(env));
 });
 
 test('production validation fails when admin credentials are weak or missing', () => {

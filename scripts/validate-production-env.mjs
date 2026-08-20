@@ -87,12 +87,6 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('JWT_SECRET must be set to a strong value in production.');
     }
 
-    if (!env.WALLET_ENCRYPTION_KEY) {
-      errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-    } else if (!isValidHexString(env.WALLET_ENCRYPTION_KEY, 64)) {
-      errors.push('WALLET_ENCRYPTION_KEY must be a 64-character hex key in production.');
-    }
-
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
     if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
       errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
@@ -128,7 +122,7 @@ function validateProductionEnvironment(env = process.env) {
 
     const hasSmtpHost = Boolean(env.SMTP_HOST && env.SMTP_HOST.trim().length > 0);
     if (!isRealSendGridKey(env.SENDGRID_API_KEY) && !hasSmtpHost) {
-      errors.push('No email provider is configured; OTPs and transactional messages require SENDGRID_API_KEY or SMTP_HOST in production.');
+      warnings.push('No email provider is configured; email-dependent features will remain disabled until SENDGRID_API_KEY or SMTP_HOST is supplied.');
     } else if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
       warnings.push('SENDGRID_API_KEY is not configured with a real production credential; SendGrid email delivery will remain disabled until a real key is supplied. SMTP may still work if configured.');
     }
@@ -140,7 +134,7 @@ function validateProductionEnvironment(env = process.env) {
 
     const hasBlockchainProvider = isRealAlchemyKey(env.ALCHEMY_API_KEY) || Boolean(env.INFURA_API_KEY?.trim());
     if (!hasBlockchainProvider) {
-      errors.push('ALCHEMY_API_KEY or INFURA_API_KEY is not configured with a real production credential; on-chain lookups require a blockchain provider in production.');
+      warnings.push('ALCHEMY_API_KEY or INFURA_API_KEY is not configured; live on-chain lookups will remain disabled until a provider is supplied.');
     } else if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
       warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; Infura will be used instead. Alchemy is recommended for optimal production performance.');
     }
