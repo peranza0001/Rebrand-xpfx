@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
 import { userSessionsTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
+import type { StoredUser } from "./store";
 
 let prismaClient: any = null;
 
@@ -42,6 +43,66 @@ export function setPrismaClient(client: any): void {
 
 export function getPrismaClient(): any {
   return prismaClient;
+}
+
+export async function getPersistedUser(userId: string): Promise<StoredUser | null> {
+  if (!isUuid(userId)) return null;
+
+  const userDelegate = getPrismaUserDelegate();
+  if (userDelegate?.findUnique) {
+    try {
+      const row = await userDelegate.findUnique({ where: { id: userId } });
+      if (row) return persistedUserToStoredUser(row);
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] getPersistedUser failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    return rows[0] ? persistedUserToStoredUser(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getPersistedUser failed using Drizzle");
+    return null;
+  }
+}
+
+function persistedUserToStoredUser(row: any): StoredUser {
+  const email = String(row.email ?? "").toLowerCase();
+  const fullName = String(row.fullName ?? row.full_name ?? email);
+  const username = String(row.username ?? email.split("@")[0] ?? "trader");
+  const referralCode = String(row.referralCode ?? row.referral_code ?? `ref_${row.id}`);
+  const role = row.role === "admin" || row.role === "demo" ? row.role : "user";
+  return {
+    user: {
+      id: String(row.id),
+      username,
+      email,
+      fullName,
+      country: String(row.country ?? "US"),
+      kycVerified: Boolean(row.kycVerified ?? row.kyc_verified),
+      avatarUrl: row.avatarUrl ?? row.avatar_url ?? null,
+      createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()).toISOString(),
+      selectedManagerId: row.selectedManagerId ?? row.selected_manager_id ?? null,
+      phone: row.phone ?? null,
+      merchant: Boolean(row.merchant),
+      moonpayEmail: row.moonpayEmail ?? row.moonpay_email ?? null,
+      buyVerified: Boolean(row.buyVerified ?? row.buy_verified),
+    },
+    passwordHash: String(row.passwordHash ?? row.password_hash ?? ""),
+    role,
+    referralCode,
+    referredBy: row.referredBy ?? row.referred_by ?? null,
+    merchant: Boolean(row.merchant),
+    tradingLocked: Boolean(row.tradingLocked ?? row.trading_locked),
+    demoMode: Boolean(row.demoMode ?? row.demo_mode),
+    phone: row.phone ?? null,
+    accountFlag: row.accountFlag ?? row.account_flag ?? null,
+    suspended: Boolean(row.suspended),
+    disabled: Boolean(row.disabled),
+  };
 }
 
 export function getPrismaModelDelegate(modelName: string): any | null {

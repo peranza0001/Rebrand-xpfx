@@ -15,12 +15,6 @@ function findNearestEnvFile(startDir: string): string | undefined {
 }
 
 export function loadRuntimeEnv(envFile = process.env.ENV_FILE) {
-  const isProduction = (process.env.NODE_ENV ?? '').trim().toLowerCase() === 'production';
-
-  if (isProduction) {
-    return envFile ? path.resolve(envFile) : undefined;
-  }
-
   const resolvedEnvFile = envFile
     ? path.resolve(envFile)
     : findNearestEnvFile(process.cwd()) ?? path.resolve(process.cwd(), '.env');

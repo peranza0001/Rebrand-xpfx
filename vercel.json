@@ -1,7 +1,7 @@
 {
   "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "artifacts/nextrade/dist/public",
-  "installCommand": "npm ci --include=dev --no-audit --no-fund",
+  "installCommand": "NPM_CONFIG_PRODUCTION=false npm ci --include=dev --no-audit --no-fund",
   "framework": null,
   "rewrites": [
     {
