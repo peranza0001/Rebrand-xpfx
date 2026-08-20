@@ -542,7 +542,8 @@ app.use('/api/*', (req: Request, res: Response, next: NextFunction) => {
     isPreviewHost(req.headers['x-forwarded-host'] as string | undefined)
   );
 
-  if (isProd && !platform && !previewRequest) {
+  const localRequest = isDevelopmentHost(req.hostname);
+  if (isProd && !platform && !previewRequest && !localRequest) {
     res.status(400).json({
       success: false,
       message: 'Missing platform identifier.'
