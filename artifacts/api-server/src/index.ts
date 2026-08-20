@@ -283,29 +283,40 @@ async function bootstrap() {
   }
 }
 
-process.on('SIGTERM', async () => {
-  logger.info('[SERVER] SIGTERM received — shutting down gracefully');
-  if (!server) {
-    process.exit(0);
-    return;
-  }
-  server.close(async () => {
-    await prisma?.$disconnect();
-    logger.info('[SERVER] Shutdown complete');
-    process.exit(0);
-  });
-});
+let shuttingDown = false;
 
-process.on('SIGINT', async () => {
-  logger.info('[SERVER] SIGINT received — shutting down gracefully');
+async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`[SERVER] ${signal} received — shutting down gracefully`);
+
+  const forceExitTimer = setTimeout(() => {
+    logger.error('[SERVER] Graceful shutdown timed out after 15 seconds');
+    process.exit(1);
+  }, 15_000);
+  forceExitTimer.unref();
+
   if (!server) {
+    clearTimeout(forceExitTimer);
     process.exit(0);
     return;
   }
+
   server.close(async () => {
-    await prisma?.$disconnect();
-    process.exit(0);
+    try {
+      await prisma?.$disconnect();
+      logger.info('[SERVER] Shutdown complete');
+      clearTimeout(forceExitTimer);
+      process.exit(0);
+    } catch (error) {
+      logger.error({ err: error }, '[SERVER] Shutdown cleanup failed');
+      clearTimeout(forceExitTimer);
+      process.exit(1);
+    }
   });
-});
+}
+
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
 
 void bootstrap();
