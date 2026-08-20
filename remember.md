@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 22:28:19 UTC
+- Last sync: 2026-08-20 22:34:23 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  docs/NEXT_AGENT_HANDOFF.md
+- Current working tree: A  artifacts/api-server/prisma/migrations/20260820150000_add_copy_trading/migration.sql | M  artifacts/api-server/prisma/schema.prisma | M  artifacts/api-server/src/lib/hydrate.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

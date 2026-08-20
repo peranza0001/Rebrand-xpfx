@@ -56,6 +56,7 @@ import monitoringRouter from "./monitoring";
 import adminWalletsRouter from "./admin-wallets";
 import digitalPaymentsRouter from "./digital-payments";
 import cryptoOrdersRouter from "./crypto-orders";
+import copyTradingRouter from "./copy-trading";
 
 const router: IRouter = Router();
 
@@ -101,6 +102,7 @@ router.use(adminDepositsRouter);
 router.use(adminWalletsRouter);
 router.use(digitalPaymentsRouter);
 router.use(cryptoOrdersRouter);
+router.use(copyTradingRouter);
 router.use(educationRouter);
 router.use(mentorshipRouter);
 router.use(smartVestRouter);

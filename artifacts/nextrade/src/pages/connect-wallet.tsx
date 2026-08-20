@@ -182,7 +182,7 @@ export function ConnectWallet() {
           <CardHeader>
             <CardTitle>External wallet</CardTitle>
             <CardDescription>
-              Choose your provider, then provide your seed phrase or private key.
+              Choose your provider, then provide a public wallet address only.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -510,7 +510,7 @@ export async function hydrateFromDb(): Promise<void> {
             id: coerceString(message.id),
             userId,
             senderName: isFromUser
-              ? stored.user.fullName
+              ? users.get(userId)?.user.fullName ?? "XpressPro FX User"
               : senderType === "admin"
                 ? "XpressPro FX Support"
                 : "XpressPro FX AI Support",
