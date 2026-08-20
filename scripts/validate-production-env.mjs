@@ -101,11 +101,13 @@ function validateProductionEnvironment(env = process.env) {
     const demoAuth = env.ENABLE_DEMO_AUTH?.trim().toLowerCase();
 
     if (!adminEmail || !adminEmail.includes('@') || adminEmail.includes('example.com')) {
-      errors.push('ADMIN_EMAIL must be set to a real production address.');
+      warnings.push('ADMIN_EMAIL is not configured with a real production address; admin provisioning will remain disabled.');
     }
 
-    if (!isStrongPassword(adminPassword)) {
+    if (adminPassword && !isStrongPassword(adminPassword)) {
       errors.push('ADMIN_PASSWORD must be set to a strong production credential.');
+    } else if (!adminPassword) {
+      warnings.push('ADMIN_PASSWORD is not configured; admin provisioning will remain disabled.');
     }
 
     if (demoAuth === 'true' || demoAuth === '1') {

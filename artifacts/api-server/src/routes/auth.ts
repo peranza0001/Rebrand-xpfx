@@ -276,7 +276,7 @@ router.post("/auth/signup", async (req, res) => {
     recordOtpSentFromIp(ip);
   } catch (err) {
     logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
-    return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
+    return res.status(503).json({ error: "Email verification is temporarily unavailable. Configure SMTP or SendGrid to enable signup." });
   }
   return res.json(otpChallenge(parsed.data.email, "signup"));
 });

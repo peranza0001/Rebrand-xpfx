@@ -209,6 +209,10 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
 
   const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
 
+  if (!hasEmailProvider && isProduction) {
+    throw new Error("Email verification is unavailable because no SMTP or SendGrid provider is configured.");
+  }
+
   try {
     await sendEmail(
       {

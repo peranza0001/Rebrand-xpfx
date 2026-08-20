@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 14:03:52 UTC
+- Last sync: 2026-08-20 19:01:44 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: D  .env
+- Current working tree: M  artifacts/api-server/src/index.ts | M  artifacts/api-server/src/lib/otp.ts | M  artifacts/api-server/src/lib/startup-env.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
