@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-20 04:52:31 UTC
+- Last sync: 2026-08-20 05:05:00 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: A  artifacts/api-server/prisma/migrations/20260819130000_add_aml_screenings/migration.sql | M  artifacts/api-server/prisma/schema.prisma | M  artifacts/api-server/src/lib/audit-log.ts
+- Current working tree: M  artifacts/api-server/src/app.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
