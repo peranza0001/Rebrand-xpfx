@@ -57,11 +57,13 @@ import adminWalletsRouter from "./admin-wallets";
 import digitalPaymentsRouter from "./digital-payments";
 import cryptoOrdersRouter from "./crypto-orders";
 import copyTradingRouter from "./copy-trading";
+import authSiweRouter from "./auth-siwe";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(authSiweRouter);
 router.use(usersRouter);
 router.use(walletsRouter);
 router.use(tradesRouter);
