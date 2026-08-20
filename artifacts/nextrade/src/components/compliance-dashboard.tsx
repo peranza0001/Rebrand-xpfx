@@ -21,14 +21,17 @@ interface ComplianceDashboardProps {
 }
 
 export function ComplianceDashboard({
-  status = defaultComplianceStatus,
-  kycVerified = true,
-  amlStatus = "Verified",
-  accountType = "Professional",
-  regulationText = "This platform is operated in compliance with CFTC, FCA, and ASIC regulations.",
+  status,
+  kycVerified = false,
+  amlStatus = "Not screened",
+  accountType = "Standard",
+  regulationText = "Your access depends on completed verification and applicable regulatory requirements.",
 }: ComplianceDashboardProps) {
-  const compliantCount = status.filter((s) => s.status === "compliant").length;
-  const compliancePercentage = (compliantCount / status.length) * 100;
+  const complianceStatus = status ?? getDefaultComplianceStatus(kycVerified, amlStatus);
+  const compliantCount = complianceStatus.filter((s) => s.status === "compliant").length;
+  const compliancePercentage = complianceStatus.length > 0
+    ? (compliantCount / complianceStatus.length) * 100
+    : 0;
 
   const getStatusIcon = (statusType: string) => {
     switch (statusType) {
@@ -120,7 +123,7 @@ export function ComplianceDashboard({
           <CardDescription>Track your compliance with regulatory requirements</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {status.map((item) => (
+          {complianceStatus.map((item) => (
             <div
               key={item.category}
               className={`rounded-lg border p-4 ${getStatusColor(item.status)}`}
