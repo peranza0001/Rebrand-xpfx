@@ -378,6 +378,41 @@ export async function deleteSessionsForUser(userId: string): Promise<void> {
   }
 }
 
+export async function persistAuditEvent(input: {
+  id: string;
+  actorId?: string;
+  action: string;
+  category: string;
+  detail: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}): Promise<void> {
+  if (!prismaClient) return;
+
+  try {
+    const delegate = getPrismaModelDelegate("AuditLog");
+    if (!delegate?.create) return;
+
+    await delegate.create({
+      data: {
+        id: isUuid(input.id) ? input.id : undefined,
+        userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
+        action: input.action,
+        entity: input.category,
+        entityId: input.id,
+        metadata: {
+          detail: input.detail,
+          timestamp: input.timestamp,
+          ...(input.metadata ?? {}),
+        },
+        createdAt: new Date(input.timestamp),
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+  }
+}
+
 export async function deleteUser(userId: string): Promise<boolean> {
   if (!isUuid(userId)) return true;
 
