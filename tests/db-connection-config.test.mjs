@@ -49,14 +49,14 @@ test('getRawDatabaseUrl prefers DATABASE_URL over DATABASE_PUBLIC_URL when both 
   assert.equal(url, 'postgresql://user:pass@postgres.railway.internal:5432/app');
 });
 
-test('getRawDatabaseUrl prefers DIRECT_DATABASE_URL when present', () => {
+test('getRawDatabaseUrl prefers pooled DATABASE_URL over DIRECT_DATABASE_URL at runtime', () => {
   const url = getRawDatabaseUrl({
-    DATABASE_URL: 'postgresql://user:pass@postgres.railway.internal:5432/app',
+    DATABASE_URL: 'postgresql://user:pass@ep-pooled.neon.tech/app?sslmode=require',
     DATABASE_PUBLIC_URL: 'postgresql://user:pass@public.railway.app:5432/app',
-    DIRECT_DATABASE_URL: 'postgresql://user:pass@direct.railway.app:5432/app',
+    DIRECT_DATABASE_URL: 'postgresql://user:pass@ep-direct.neon.tech/app?sslmode=require',
   });
 
-  assert.equal(url, 'postgresql://user:pass@direct.railway.app:5432/app');
+  assert.equal(url, 'postgresql://user:pass@ep-pooled.neon.tech/app?sslmode=require');
 });
 
 test('getRawDatabaseUrl ignores placeholder example.internal database URLs', () => {

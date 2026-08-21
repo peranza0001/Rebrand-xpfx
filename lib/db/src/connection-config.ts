@@ -18,18 +18,16 @@ function hasPlaceholderDatabaseHost(url?: string): boolean {
 export function getRawDatabaseUrl(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  const directUrl = env.DIRECT_DATABASE_URL?.trim();
-  if (directUrl && !hasPlaceholderDatabaseHost(directUrl)) return directUrl;
-
-  // Prefer the private service connection string when both are available.
-  // Railway exposes the internal service URL via DATABASE_URL and a public
-  // proxy URL via DATABASE_PUBLIC_URL. The private URL is the correct one
-  // for server-side connections and avoids proxy certificate issues.
+  // DATABASE_URL is the runtime URL. DIRECT_DATABASE_URL is reserved for
+  // migrations and may be a non-pooled Neon connection.
   const privateUrl = env.DATABASE_URL?.trim();
   if (privateUrl && !hasPlaceholderDatabaseHost(privateUrl)) return privateUrl;
 
   const publicUrl = env.DATABASE_PUBLIC_URL?.trim();
   if (publicUrl && !hasPlaceholderDatabaseHost(publicUrl)) return publicUrl;
+
+  const directUrl = env.DIRECT_DATABASE_URL?.trim();
+  if (directUrl && !hasPlaceholderDatabaseHost(directUrl)) return directUrl;
 
   return undefined;
 }
