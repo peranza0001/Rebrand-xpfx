@@ -47,6 +47,7 @@ export const env = {
     if (val === "false") return false;
     return false;
   })(),
+  ENABLE_DEV_OTP_LOG: resolveEnvValue(process.env, "ENABLE_DEV_OTP_LOG")?.toLowerCase() === "true",
 
   // Admin provisioning
   ADMIN_EMAIL: get("ADMIN_EMAIL"),

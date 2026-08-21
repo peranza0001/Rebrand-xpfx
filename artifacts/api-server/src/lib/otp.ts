@@ -229,7 +229,7 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
     throw err;
   }
 
-  if (!hasEmailProvider && !isProduction) {
+  if (!hasEmailProvider && !isProduction && env.ENABLE_DEV_OTP_LOG) {
     logger.info(
       { to: maskEmail(email), subject, smtpConfigured: false, intent },
       "[otp] Verification code generated (stub send — no email provider configured)",
