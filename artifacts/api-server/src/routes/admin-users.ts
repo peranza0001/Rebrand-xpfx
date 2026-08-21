@@ -100,7 +100,13 @@ router.post("/admin/users/create", requireAdmin, async (req, res) => {
     action: "admin.user.create", category: "admin",
     detail: `Created user ${email}.`, metadata: { targetType: "user", targetId: stored.user.id, role: stored.role },
   });
-  if (audit) await persistAuditEvent(audit);
+  if (audit) {
+    try {
+      await persistAuditEvent(audit);
+    } catch {
+      return res.status(503).json({ error: "Audit storage is temporarily unavailable. User creation was not acknowledged." });
+    }
+  }
 
   const data = getUserData(stored.user.id);
   const balance = data.wallets.reduce((s, w) => s + w.balance, 0);

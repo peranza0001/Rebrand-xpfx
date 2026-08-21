@@ -675,6 +675,7 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
   setPrismaClient({
     user: { upsert: async ({ create }) => create },
     userSession: { create: async ({ data }) => data },
+    AuditLog: { create: async ({ data }) => data },
   });
   await withTestServer(async (baseUrl) => {
     sentEmails.length = 0;
@@ -792,6 +793,9 @@ test('admin-created users persist through Prisma fallback on create', async () =
     },
     user_sessions: {
       create: async () => ({})
+    },
+    AuditLog: {
+      create: async ({ data }) => data,
     },
   };
 
