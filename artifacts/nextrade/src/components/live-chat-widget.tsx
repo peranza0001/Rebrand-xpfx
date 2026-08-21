@@ -18,6 +18,7 @@ interface SessionResponse {
 }
 
 export function LiveChatWidget() {
+  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
@@ -34,13 +35,13 @@ export function LiveChatWidget() {
     const fetchSession = async () => {
       setIsLoading(true);
       try {
-        const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+        const sessionRes = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' });
         if (!sessionRes.ok) return;
         const sessionData: SessionResponse = await sessionRes.json();
         if (!sessionData.user?.id) return;
         setUserId(sessionData.user.id);
 
-        const res = await fetch('/api/live-chat', { credentials: 'include' });
+        const res = await fetch(`${apiUrl}/api/live-chat`, { credentials: 'include' });
         if (!res.ok) return;
         const chatData = await res.json();
         setMessages(Array.isArray(chatData) ? chatData : []);
@@ -55,7 +56,7 @@ export function LiveChatWidget() {
   useEffect(() => {
     if (!open || !userId) return;
 
-    const socketClient = io('/live-chat', {
+    const socketClient = io(`${apiUrl}/live-chat`, {
       path: '/socket.io',
       withCredentials: true,
     });
@@ -88,7 +89,7 @@ export function LiveChatWidget() {
     setError(null);
     setIsSending(true);
     try {
-      const res = await fetch('/api/live-chat', {
+      const res = await fetch(`${apiUrl}/api/live-chat`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

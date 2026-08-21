@@ -1042,8 +1042,8 @@ export async function persistChatMessage(
   senderType: 'user' | 'admin' | 'bot',
   senderId: string | null,
   content: string,
-): Promise<void> {
-  if (!prismaClient || !isUuid(conversationId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(conversationId)) return false;
   try {
     // Ensure conversation exists (user_id stored as the owner)
     await prismaClient.conversations.upsert({
@@ -1061,8 +1061,42 @@ export async function persistChatMessage(
         content,
       },
     });
-  } catch {
-    // silent
+    return true;
+  } catch (err) {
+    logger.error({ err, conversationId }, "[db-persist] persistChatMessage failed");
+    return false;
+  }
+}
+
+export async function getPersistedChatMessages(conversationId: string): Promise<Array<{
+  id: string;
+  userId: string;
+  senderName: string;
+  content: string;
+  isFromUser: boolean;
+  isBot: boolean;
+  escalated: boolean;
+  createdAt: string;
+}>> {
+  if (!prismaClient || !isUuid(conversationId)) return [];
+  try {
+    const rows = await prismaClient.chat_messages.findMany({
+      where: { conversation_id: conversationId },
+      orderBy: { created_at: "asc" },
+    });
+    return rows.map((row: any) => ({
+      id: String(row.id),
+      userId: conversationId,
+      senderName: row.sender_type === "bot" ? "XpressPro FX AI Support" : row.sender_type === "admin" ? "XpressPro FX Support" : "User",
+      content: String(row.content),
+      isFromUser: row.sender_type === "user",
+      isBot: row.sender_type === "bot",
+      escalated: false,
+      createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
+    }));
+  } catch (err) {
+    logger.error({ err, conversationId }, "[db-persist] getPersistedChatMessages failed");
+    return [];
   }
 }
 

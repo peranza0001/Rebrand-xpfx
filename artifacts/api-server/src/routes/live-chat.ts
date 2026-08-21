@@ -19,7 +19,7 @@ import {
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
-import { persistChatMessage } from "../lib/db-persist";
+import { getPersistedChatMessages, persistChatMessage } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -70,8 +70,12 @@ function keywordEscalation(content: string): boolean {
 }
 
 // GET /live-chat — current user's messages
-router.get("/live-chat", requireAuth, (req, res) => {
+router.get("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
+  const persisted = await getPersistedChatMessages(req.userId!);
+  if (persisted.length > 0) {
+    data.liveChat.splice(0, data.liveChat.length, ...persisted);
+  }
   return res.json(data.liveChat);
 });
 
@@ -95,7 +99,10 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
-  void persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
+  if (!await persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content)) {
+    data.liveChat.pop();
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
 
   try {
     const ns = getChatNamespace();
@@ -134,7 +141,10 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
-  void persistChatMessage(req.userId!, 'bot', null, botReply.content);
+  const botPersisted = await persistChatMessage(req.userId!, 'bot', null, botReply.content);
+  if (!botPersisted) {
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
@@ -155,7 +165,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
         createdAt: NOW(),
       };
       data.liveChat.push(noAgentMsg);
-    void persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
+      await persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
     }
     
     // Notify admin in-app
@@ -213,10 +223,14 @@ router.get("/admin/presence", requireAdmin, (_req, res) => {
 });
 
 // GET /admin/live-chats — list all chat sessions (admin)
-router.get("/admin/live-chats", requireAdmin, (req, res) => {
+router.get("/admin/live-chats", requireAdmin, async (req, res) => {
   touchAdminPresence(req.userId!);
   const sessions = [];
   for (const [userId, data] of userData) {
+    const persistedMessages = await getPersistedChatMessages(userId);
+    if (persistedMessages.length > 0) {
+      data.liveChat.splice(0, data.liveChat.length, ...persistedMessages);
+    }
     if (data.liveChat.length === 0) continue;
     const stored = users.get(userId);
     const lastMsg = data.liveChat[data.liveChat.length - 1];
@@ -235,7 +249,7 @@ router.get("/admin/live-chats", requireAdmin, (req, res) => {
 });
 
 // POST /admin/live-chats/:userId/reply — admin replies (via panel or email)
-router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
+router.post("/admin/live-chats/:userId/reply", requireAdmin, async (req, res) => {
   const p = AdminReplyLiveChatParams.safeParse(req.params);
   const b = AdminReplyLiveChatBody.safeParse(req.body);
   if (!p.success || !b.success) return res.status(400).json({ error: "Invalid" });
@@ -256,8 +270,13 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(msg);
-  // Persist admin reply (best-effort) and broadcast in realtime to any connected clients in the conv room.
-  void persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
+  const persisted = await persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
+  if (!persisted) {
+    data.liveChat.pop();
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
+  // Broadcast after durable persistence so connected clients never see a message
+  // that disappears on restart.
   try {
     const ns = getChatNamespace();
     ns?.to(`conv:${p.data.userId}`).emit('message', msg);
@@ -288,7 +307,7 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
  * 
  * ChatWay-like: Allows admins to reply directly from their email client.
  */
-router.post("/live-chat/email-reply", (req, res) => {
+router.post("/live-chat/email-reply", async (req, res) => {
   // This would typically come from SendGrid/SMTP webhook
   // For now, we require a simple authentication token or API key
   const { ticketId, userId, senderName, content, fromEmail } = req.body;
@@ -315,7 +334,11 @@ router.post("/live-chat/email-reply", (req, res) => {
       createdAt: NOW(),
     };
     data.liveChat.push(msg);
-    void persistChatMessage(userId, 'admin', null, content);
+    const persisted = await persistChatMessage(userId, 'admin', null, content);
+    if (!persisted) {
+      data.liveChat.pop();
+      return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+    }
 
     // Broadcast in realtime
     try {

@@ -12,6 +12,7 @@ type SessionSummary = {
 };
 
 export default function AdminLiveChat() {
+  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [selected, setSelected] = useState<SessionSummary | null>(null);
   const [reply, setReply] = useState('');
@@ -19,7 +20,7 @@ export default function AdminLiveChat() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch('/api/admin/live-chats', { credentials: 'include' });
+      const res = await fetch(`${apiUrl}/api/admin/live-chats`, { credentials: 'include' });
       if (res.ok) setSessions(await res.json());
     })();
   }, []);
@@ -30,13 +31,13 @@ export default function AdminLiveChat() {
   }, [selected]);
 
   useEffect(() => {
-    const socket = io('/live-chat', { path: '/socket.io', withCredentials: true });
+    const socket = io(`${apiUrl}/live-chat`, { path: '/socket.io', withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('join_admin_room');
       // touch admin presence via heartbeat endpoint — optional
-      fetch('/api/admin/presence/heartbeat', { method: 'POST', credentials: 'include' }).catch(() => undefined);
+      fetch(`${apiUrl}/api/admin/presence/heartbeat`, { method: 'POST', credentials: 'include' }).catch(() => undefined);
     });
 
     socket.on('message', (msg: any) => {
@@ -78,7 +79,7 @@ export default function AdminLiveChat() {
 
   const sendReply = async () => {
     if (!selected || !reply.trim()) return;
-    const res = await fetch(`/api/admin/live-chats/${selected.userId}/reply`, {
+    const res = await fetch(`${apiUrl}/api/admin/live-chats/${selected.userId}/reply`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
