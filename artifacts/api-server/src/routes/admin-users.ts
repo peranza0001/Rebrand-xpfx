@@ -28,6 +28,7 @@ import {
   usersByEmail,
 } from "../lib/store";
 import { persistUser } from "../lib/db-persist";
+import { persistAuditEvent, recordAuditEvent } from "../lib/audit-log";
 import { requireAdmin } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { deleteBankAccount, persistBankAccount } from "../lib/db-persist";
@@ -62,7 +63,7 @@ function buildDetail(userId: string): AdminUserDetail | null {
 
 // ---------- Create user (OTP bypass) ----------
 
-router.post("/admin/users/create", requireAdmin, (req, res) => {
+router.post("/admin/users/create", requireAdmin, async (req, res) => {
   const parsed = CreateAdminUserBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid user", details: parsed.error.issues });
@@ -94,6 +95,12 @@ router.post("/admin/users/create", requireAdmin, (req, res) => {
     action: "admin.user.create",
     detail: `Created ${parsed.data.role} user ${email} (OTP bypass).`,
   });
+  const audit = recordAuditEvent({
+    actorId: req.userId!, actorName: req.storedUser!.user.fullName,
+    action: "admin.user.create", category: "admin",
+    detail: `Created user ${email}.`, metadata: { targetType: "user", targetId: stored.user.id, role: stored.role },
+  });
+  if (audit) await persistAuditEvent(audit);
 
   const data = getUserData(stored.user.id);
   const balance = data.wallets.reduce((s, w) => s + w.balance, 0);

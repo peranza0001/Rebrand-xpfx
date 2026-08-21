@@ -505,30 +505,49 @@ export async function persistAuditEvent(input: {
   metadata?: Record<string, unknown>;
   timestamp: string;
 }): Promise<void> {
-  if (!prismaClient) return;
-
   try {
+    const data = {
+      id: isUuid(input.id) ? input.id : undefined,
+      userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
+      action: input.action,
+      entity: input.category,
+      entityId: input.id,
+      metadata: { detail: input.detail, timestamp: input.timestamp, ...(input.metadata ?? {}) },
+      createdAt: new Date(input.timestamp),
+    };
     const delegate = getPrismaModelDelegate("AuditLog");
-    if (!delegate?.create) return;
-
-    await delegate.create({
-      data: {
-        id: isUuid(input.id) ? input.id : undefined,
-        userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
-        action: input.action,
-        entity: input.category,
-        entityId: input.id,
-        metadata: {
-          detail: input.detail,
-          timestamp: input.timestamp,
-          ...(input.metadata ?? {}),
-        },
-        createdAt: new Date(input.timestamp),
-      },
+    if (delegate?.create) {
+      await delegate.create({ data });
+      return;
+    }
+    const db = getDb();
+    if (!db) throw new Error("No durable audit database backend is available");
+    const { auditLogsTable } = await import("@workspace/db/schema");
+    await db.insert(auditLogsTable).values({
+      id: isUuid(input.id) ? input.id : undefined,
+      userId: data.userId,
+      adminId: data.userId,
+      action: input.action,
+      detail: input.detail,
+      payload: data.metadata,
     });
   } catch (err) {
-    logger.warn({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+    logger.error({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+    throw err;
   }
+}
+
+export async function listPersistedAuditEvents(limit = 100): Promise<unknown[]> {
+  const capped = Math.max(1, Math.min(limit, 500));
+  const delegate = getPrismaModelDelegate("AuditLog");
+  if (delegate?.findMany) {
+    const rows = await delegate.findMany({ orderBy: { createdAt: "desc" }, take: capped });
+    return rows;
+  }
+  const db = getDb();
+  if (!db) return [];
+  const { auditLogsTable } = await import("@workspace/db/schema");
+  return db.select().from(auditLogsTable).limit(capped);
 }
 
 export async function deleteUser(userId: string): Promise<boolean> {

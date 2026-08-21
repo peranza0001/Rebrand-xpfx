@@ -516,10 +516,10 @@ describe('KYC/AML Providers Integration', () => {
   });
 
   describe('Audit log persistence', () => {
-    it('should persist audit log events without throwing when a database client is available', async () => {
+    it('should fail loudly when no durable audit database is available', async () => {
       const { persistAuditEvent } = await import('../artifacts/api-server/src/lib/audit-log.ts');
 
-      await assert.doesNotReject(() => persistAuditEvent({
+      await assert.rejects(() => persistAuditEvent({
         actorId: '11111111-1111-4111-8111-111111111111',
         actorName: 'audit-test-user',
         action: 'phase8.audit.test',
