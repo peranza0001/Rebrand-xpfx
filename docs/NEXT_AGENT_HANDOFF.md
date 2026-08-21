@@ -1,6 +1,6 @@
 # XpressPro FX Next-Agent Handoff
 
-Updated: 2026-08-20
+Updated: 2026-08-21
 
 ## Phase 0 checkpoint
 
@@ -12,6 +12,10 @@ Updated: 2026-08-20
 - Phase 1 handoff commit pushed: `bc7b303f0d29791457ec0a7ef8a468fe203fe6ef`.
 - Phase 2 copy-trading commit pushed: `f6a1b42b81cd984ba43f8a3ba084bc02bda76330`.
 - Phase 3 Web3 commit pushed: `54e2dd2be2fe56f9587f3dec688975607ef72638`.
+- Neon connection commit pushed: `3ac159950052596c2fe80f7111a6f91f1585c5eb`.
+- Durable auth persistence commit pushed: `e55f490262b4eaf5b25a72a552276d2cf56eaf59`.
+- Session timeout/blank-page commit pushed: `d38a8cb056a9480b3f724dc7df9ea14846e90bec`.
+- Storage hardening/migration commit pushed: `a51dc37cc8aa3d58f09b1b2211c8c351497d23bd`.
 
 ## Known URLs
 
@@ -41,6 +45,14 @@ Updated: 2026-08-20
 - The unsafe seed-phrase/private-key wording was removed. Only public addresses are accepted and persisted.
 - `ethers` is already an API dependency and can support address/signature validation without an RPC provider. WalletConnect should remain optional and disabled with a clear configuration state when no project ID is present.
 
+### Neon persistence and login blank-page remediation (implemented)
+
+- Runtime database selection uses pooled `DATABASE_URL`; `DIRECT_DATABASE_URL` is reserved for Prisma migrations and both support Neon `?sslmode=require` URLs.
+- OTP signup verification now requires a durable Prisma or Drizzle user insert with password hash, unique email, required security type, and verified email state. Persistence failure returns `503` and does not create an in-memory-only success.
+- Sessions use durable persistence and fail closed when no backend is available; in-memory state is only a cache after persistence succeeds.
+- Frontend API requests have a 15-second timeout and the session query does not retry indefinitely, so API failure resolves to a login redirect/error path instead of an endless blank spinner.
+- Migration startup uses `DIRECT_DATABASE_URL` when present without shell-interpolating database credentials.
+
 ## Ordered next tasks
 
 1. ~~**Complete copy-trading persistence and routes**~~ **Done**
@@ -67,15 +79,17 @@ Updated: 2026-08-20
    - Acceptance: `VITE_WALLETCONNECT_PROJECT_ID` enables the live connector; missing ID leaves the app functional and shows a disabled/not-configured state; only public addresses are persisted.
    - Dependencies: optional WalletConnect project ID; no server secret in `VITE_*`.
 
-5. **Run closure and related handoff work**
+5. ~~**Run closure and related handoff work**~~ **Done locally; live Neon proof pending owner env update**
    - Why: production readiness requires evidence for crypto stubs, support/chat/webhooks, auth/demo, CORS, npm warnings, and deployment health.
-   - Acceptance: every item marked Done or Blocked with a concrete reason; focused tests/builds green; live/staging proof recorded; clean tree and one pushed commit per phase/task.
+   - Acceptance: focused auth, connection, deployment, build, and readiness checks are green; live Railway health and `/healthz/db` are currently green against the configured database. Register/login/refresh proof against Neon is blocked until the owner sets the real Neon URLs.
 
 ## Open blockers and risks
 
 - Live copy-trading execution is intentionally not enabled; only simulated events are available until a regulated execution provider is configured.
 - Live WalletConnect mobile testing requires an optional project ID and a compatible wallet. The no-key path is covered by the disabled-state behavior.
 - Railway/Vercel live proof depends on current deployment access, configured environment variables, database availability, and browser wallet availability.
+- The supplied credentials were exposed in chat and must be revoked/rotated. They were not stored in the repository or printed in reports.
+- Owner must set `DATABASE_URL` to the Neon pooled runtime URL and `DIRECT_DATABASE_URL` to the Neon direct migration URL, both with Neon SSL parameters as required. Remove the old Railway Postgres URLs.
 - External provider keys are optional by requirement; missing keys must select local/stub behavior rather than crash.
 - The wallet page's stale seed-phrase/private-key wording is a security/documentation defect and must be corrected.
 - Do not store or request CVV, PIN, private keys, seed phrases, or other wallet custody secrets.
@@ -88,6 +102,12 @@ Updated: 2026-08-20
 - API workspace typecheck and build: passed.
 - Frontend Vite build: passed.
 - Frontend workspace typecheck remains blocked by pre-existing generated-client output errors and unrelated missing imports in other components; no error was reported from the modified wallet page itself.
+- `node --import tsx tests/db-connection-config.test.mjs`: passed (7 tests).
+- `node --import tsx tests/auth-flow.test.mjs`: passed (18 tests), including fail-closed persistence failures and durable signup/login flow.
+- `node --import tsx tests/app-readiness.test.mjs`: passed (13 tests).
+- `node --import tsx tests/deployment-config.test.mjs`: passed (3 tests).
+- API, API client, and Nextrade production builds passed after the auth changes.
+- Live `GET /healthz`, `GET /healthz/db`, `/api/auth/session`, `/readyz`, and `/api/readyz` were checked; current live DB is connected, but its provider identity cannot be proven from public health output.
 
 ## Commit gate
 

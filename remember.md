@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-21 14:59:50 UTC
+- Last sync: 2026-08-21 15:00:29 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  scripts/ensure-db-ready.mjs
+- Current working tree: M  docs/NEXT_AGENT_HANDOFF.md
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
