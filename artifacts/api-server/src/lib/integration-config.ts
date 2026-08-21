@@ -23,11 +23,16 @@ export function isAlchemyConfigured(value?: string): boolean {
   return trimmed.length >= 16;
 }
 
+export function isSmtpConfigured(): boolean {
+  return Boolean(env.SMTP_HOST?.trim() && env.SMTP_USER?.trim() && env.SMTP_PASS?.trim());
+}
+
 export function getIntegrationStatus() {
   return {
     sendgridConfigured: isSendGridConfigured(env.SENDGRID_API_KEY),
+    smtpConfigured: isSmtpConfigured(),
     alchemyConfigured: isAlchemyConfigured(env.ALCHEMY_API_KEY),
   };
 }
 
-export default { isSendGridConfigured, isAlchemyConfigured, getIntegrationStatus };
+export default { isSendGridConfigured, isSmtpConfigured, isAlchemyConfigured, getIntegrationStatus };

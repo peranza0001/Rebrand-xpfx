@@ -63,6 +63,12 @@ interface ProviderResult {
   error?: string;
 }
 
+export function getEmailProviderStatus(): { sendgridConfigured: boolean; smtpConfigured: boolean; productionDeliveryConfigured: boolean } {
+  const smtpConfigured = Boolean(env.SMTP_HOST?.trim() && env.SMTP_USER?.trim() && env.SMTP_PASS?.trim());
+  const sendgridConfigured = isSendGridConfigured(env.SENDGRID_API_KEY);
+  return { sendgridConfigured, smtpConfigured, productionDeliveryConfigured: sendgridConfigured || smtpConfigured };
+}
+
 async function deliverViaSendGrid(input: SendEmailInput, from: string): Promise<ProviderResult> {
   const apiKey = env.SENDGRID_API_KEY;
   if (!isSendGridConfigured(apiKey)) {
