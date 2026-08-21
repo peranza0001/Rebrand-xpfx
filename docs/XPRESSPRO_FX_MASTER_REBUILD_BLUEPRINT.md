@@ -434,6 +434,9 @@ SMTP_PASS=replace_with_secret
 SMTP_FROM=support@example.com
 SMTP_SECURE=false
 SENDGRID_API_KEY=
+# In production, signup OTP delivery must fail with a service error when both
+# SendGrid and SMTP are unavailable; development may use an explicit OTP log flag.
+ENABLE_DEV_OTP_LOG=false
 ```
 
 ### Optional providers
@@ -467,6 +470,17 @@ REDIS_URL=
 OBJECT_STORAGE_URL=
 OBJECT_STORAGE_ACCESS_KEY=
 OBJECT_STORAGE_SECRET_KEY=
+GENERAL_RATE_LIMIT_WINDOW_MS=900000
+GENERAL_RATE_LIMIT_MAX=400
+AUTH_RATE_LIMIT_WINDOW_MS=900000
+AUTH_RATE_LIMIT_MAX=20
+LIVE_CHAT_RATE_LIMIT_WINDOW_MS=60000
+LIVE_CHAT_RATE_LIMIT_MAX=60
+FINANCIAL_RATE_LIMIT_WINDOW_MS=3600000
+FINANCIAL_RATE_LIMIT_MAX=10
+# Aliases accepted for general traffic:
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=400
 ```
 
 Missing optional keys must set adapter status to `not_configured`, disable only that capability, and keep the API and UI bootable. Never use placeholder vendor strings as if they were active credentials.
@@ -636,6 +650,9 @@ Missing optional keys must set adapter status to `not_configured`, disable only 
 - Never allow client-side flags to bypass KYC, region, role, limits, or emergency controls.
 - Never add a static support UI without an actual persisted message route and restart test.
 - Never mark a phase complete without fresh executable evidence and a pushed commit hash.
+- Production OTP: require a successful SendGrid/SMTP provider response before returning `otp_required`; provider failure returns `email_service_unavailable`/503. Expose only configured/missing status, never tokens or credentials.
+- Rate-limit defaults used by the current implementation: general 400 per 15 minutes, auth 20 per 15 minutes, livechat 60 per minute, financial actions 10 per hour; health probes and session bootstrap are exempt from the corresponding limiters.
+- Admin audit reads are admin-only and audit writes must use durable Prisma/Drizzle storage; absence of a durable backend is an explicit failure, not a successful memory-only audit.
 
 ---
 
@@ -694,6 +711,16 @@ The current monorepo is a parity/reference source, not permission to preserve de
 - `docs/NEXT_AGENT_HANDOFF.md`: current implementation history, pushed hashes, blockers, and evidence.
 
 Known current-project failure patterns that the rebuild must avoid: successful UI operations with no durable row, memory-first auth, unbounded frontend session loading, provider-specific database assumptions, relative cross-origin chat URLs, optional-provider startup crashes, and chat persistence that is acknowledged before storage.
+
+### 2026-08-21 live-test pass notes
+
+- Live `/healthz`, `/healthz/db`, public guest session, frontend, and CORS checks passed against the published API/UI.
+- Initial live signup correctly returned an OTP challenge but the owner reported no inbox delivery. The code path now fails closed in production when SendGrid/SMTP delivery is unavailable or rejected; real inbox proof remains host-secret and recipient controlled.
+- Demo authentication is disabled by default in production. The login UI no longer advertises demo credentials unless the frontend explicitly receives `VITE_ENABLE_DEMO_AUTH=true`; a controlled environment may enable the seeded demo route.
+- Normal auth testing was previously blocked by aggressive limits. Defaults and env overrides were tuned as listed above; deliberate burst protection remains enabled.
+- Durable auth/session, Neon/provider-neutral database, livechat persistence, and blank-session-page commits are recorded in `docs/NEXT_AGENT_HANDOFF.md`.
+- This pass pushed: `0397375837b45134e55acec34333046ab5eff4a1` (SMTP/provider readiness), `146d24172b875287f136dfdc41f665f55abb3a99` (demo/rate limits), `ded75357cb98e8f276a9ef0d88f705228b071dae` (admin audit).
+- Real inbox OTP receipt, authenticated live user-row proof, and live admin audit-row proof require valid host-managed provider credentials, a controlled recipient, and an authenticated admin session; no secrets are stored or printed by this project.
 
 ---
 
