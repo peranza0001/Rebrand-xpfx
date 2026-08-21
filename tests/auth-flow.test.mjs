@@ -80,12 +80,12 @@ test('SMTP host values are normalized before provider delivery', () => {
   assert.equal(normalizeSmtpHost('smtp.sendgrid.net'), 'smtp.sendgrid.net');
 });
 
-test('persistSession treats missing Prisma delegates as a safe in-memory fallback', async () => {
+test('persistSession rejects when no durable backend is available', async () => {
   setPrismaClient({});
 
   try {
     const sessionPersisted = await persistSession('fallback-only-session', randomUUID(), new Date('2030-01-01T00:00:00Z'), false);
-    assert.equal(sessionPersisted, true);
+    assert.equal(sessionPersisted, false);
   } finally {
     setPrismaClient(null);
   }
@@ -438,6 +438,8 @@ test('signup persistence uses Prisma-compatible user and session field names', a
       firstName: 'Prisma',
       lastName: 'Shape User',
       passwordHash: 'hash',
+      securityType: 'password',
+      emailVerified: true,
       country: 'US',
       phone: null,
     });
@@ -447,7 +449,7 @@ test('signup persistence uses Prisma-compatible user and session field names', a
   }
 });
 
-test('signup verification succeeds even when durable user persistence cannot be completed', async () => {
+test('signup verification refuses success when durable user persistence cannot be completed', async () => {
   const failingPrismaClient = {
     users: {
       upsert: async () => {
@@ -487,16 +489,15 @@ test('signup verification succeeds even when durable user persistence cannot be 
         body: { email, code: otpRecord.code },
       });
 
-      assert.equal(verifyResult.response.status, 200);
-      assert.equal(verifyResult.data.user.email, email);
-      assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
+      assert.equal(verifyResult.response.status, 503);
+      assert.match(verifyResult.data.error, /storage is temporarily unavailable/i);
     });
   } finally {
     setPrismaClient(null);
   }
 });
 
-  test('signup verification still succeeds when the durable session write fails', async () => {
+  test('signup verification refuses success when the durable session write fails', async () => {
     const deletedUsers = [];
     const failingSessionPrismaClient = {
       user: {
@@ -539,10 +540,9 @@ test('signup verification succeeds even when durable user persistence cannot be 
           body: { email, code: otpRecord.code },
         });
 
-        assert.equal(verifyResult.response.status, 200);
-        assert.equal(verifyResult.data.user.email, email);
-        assert.ok(verifyResult.response.headers.get('set-cookie')?.includes('xpfx_sid='));
-        assert.equal(deletedUsers.length, 0, 'durable session failure should not trigger a rollback when auth is allowed to continue in memory');
+        assert.equal(verifyResult.response.status, 503);
+        assert.match(verifyResult.data.error, /session storage is temporarily unavailable/i);
+        assert.equal(deletedUsers.length, 0, 'session failure should not delete the durable user row');
       });
     } finally {
       setPrismaClient(null);
@@ -672,6 +672,10 @@ test('login loads a persisted user via Prisma when the user is not in memory', a
 });
 
 test('end-to-end signup, login, demo, and admin flow', async () => {
+  setPrismaClient({
+    user: { upsert: async ({ create }) => create },
+    userSession: { create: async ({ data }) => data },
+  });
   await withTestServer(async (baseUrl) => {
     sentEmails.length = 0;
 
@@ -774,6 +778,7 @@ test('end-to-end signup, login, demo, and admin flow', async () => {
     assert.equal(createUserResponse.data.email, managedEmail);
     assert.equal(createUserResponse.data.role, 'user');
   });
+  setPrismaClient(null);
 });
 
 test('admin-created users persist through Prisma fallback on create', async () => {

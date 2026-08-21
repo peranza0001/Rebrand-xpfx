@@ -453,7 +453,8 @@ router.post("/auth/verify-otp", async (req, res) => {
       phone: null,
     });
     if (!userPersisted) {
-      logger.warn({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed_ignoring_in_memory_success");
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
+      return res.status(503).json({ error: "Account storage is temporarily unavailable. Please try again." });
     }
 
     users.set(id, stored);
@@ -467,7 +468,8 @@ router.post("/auth/verify-otp", async (req, res) => {
     const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
     const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false, meta);
     if (!sessionPersisted) {
-      logger.warn({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed_fallback_to_memory");
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
+      return res.status(503).json({ error: "Session storage is temporarily unavailable. Please try again." });
     }
     sessions.set(sid, { userId: id, expiresAt: sessionExpiresAt, metadata: meta });
     setSessionCookie(res, sid);

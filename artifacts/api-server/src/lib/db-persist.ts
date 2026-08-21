@@ -189,6 +189,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     firstName,
     lastName,
     passwordHash: userData.passwordHash,
+    securityType: "password",
+    emailVerified: true,
     country: userData.country,
     phone: userData.phone ?? null,
   };
@@ -199,6 +201,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     username: userData.username,
     fullName: userData.fullName,
     passwordHash: userData.passwordHash,
+    securityType: "password",
+    emailVerified: true,
     country: userData.country,
     phone: userData.phone ?? null,
   };
@@ -208,6 +212,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     email: userData.email,
     username: userData.username,
     password_hash: userData.passwordHash,
+    security_type: "password",
+    email_verified: true,
     full_name: userData.fullName,
     country: userData.country,
     phone: userData.phone ?? null,
@@ -242,24 +248,42 @@ export async function persistUser(userId: string, userData: {
   if (!isUuid(userId)) return false;
 
   const userDelegate = getPrismaUserDelegate();
-  if (!userDelegate) {
-    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable; continuing with in-memory user state");
-    return true;
+  if (userDelegate) {
+    const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
+    let lastErr: unknown = null;
+    for (const payload of payloadCandidates) {
+      try {
+        await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
+        return true;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
   }
 
-  const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
-  let lastErr: unknown = null;
-  for (const payload of payloadCandidates) {
+  const db = getDb();
+  if (db) {
     try {
-      await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
-      return true;
+      const rows = await db.insert(usersTable).values({
+        id: userId,
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.fullName,
+        phone: userData.phone ?? "",
+        country: userData.country,
+        passwordHash: userData.passwordHash,
+        securityType: "password",
+        emailVerified: true,
+      }).onConflictDoNothing({ target: usersTable.email }).returning({ id: usersTable.id });
+      return rows.length > 0;
     } catch (err) {
-      lastErr = err;
+      logger.error({ err, userId }, "[db-persist] persistUser failed using Drizzle");
     }
   }
 
-  const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
-  logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+  logger.error({ userId }, "[db-persist] no durable user persistence backend is available");
   return false;
 }
 
@@ -305,8 +329,16 @@ export async function persistSession(
   const prismaFallback = async (): Promise<boolean> => {
     const sessionDelegate = getPrismaUserSessionDelegate();
     if (!sessionDelegate) {
-      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; using in-memory session fallback");
-      return true;
+      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; trying Drizzle");
+      const db = getDb();
+      if (!db) return false;
+      try {
+        await db.insert(userSessionsTable).values({ id: sessionId, userId, expiresAt, isAdmin });
+        return true;
+      } catch (err) {
+        logger.error({ err, sessionId, userId }, "[db-persist] persistSession failed using Drizzle");
+        return false;
+      }
     }
     const sessionPayloadCandidates = [
       { id: sessionId, token: sessionId, userId, user_id: userId, expiresAt, expires_at: expiresAt, isAdmin, is_admin: isAdmin },

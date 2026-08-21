@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-21 14:48:54 UTC
+- Last sync: 2026-08-21 14:56:11 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  .env.example | M  lib/db/src/connection-config.ts | M  tests/db-connection-config.test.mjs
+- Current working tree: M  artifacts/api-server/src/lib/db-persist.ts | M  artifacts/api-server/src/routes/auth.ts | M  tests/auth-flow.test.mjs
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
