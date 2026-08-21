@@ -16,6 +16,7 @@ Updated: 2026-08-21
 - Durable auth persistence commit pushed: `e55f490262b4eaf5b25a72a552276d2cf56eaf59`.
 - Session timeout/blank-page commit pushed: `d38a8cb056a9480b3f724dc7df9ea14846e90bec`.
 - Storage hardening/migration commit pushed: `a51dc37cc8aa3d58f09b1b2211c8c351497d23bd`.
+- Durable livechat/API-origin commit pushed: `6981a08c74f0cdf611318e44d5712c9aba8d015e`.
 
 ## Known URLs
 
@@ -52,6 +53,8 @@ Updated: 2026-08-21
 - Sessions use durable persistence and fail closed when no backend is available; in-memory state is only a cache after persistence succeeds.
 - Frontend API requests have a 15-second timeout and the session query does not retry indefinitely, so API failure resolves to a login redirect/error path instead of an endless blank spinner.
 - Migration startup uses `DIRECT_DATABASE_URL` when present without shell-interpolating database credentials.
+- Livechat user, bot, admin, and inbound email replies persist before acknowledgement; conversation reads and admin lists reload persisted messages after restart.
+- Vercel-served livechat REST and Socket.IO clients use `VITE_API_URL` rather than relative URLs, so the configured API origin is used consistently.
 
 ## Ordered next tasks
 
@@ -106,8 +109,10 @@ Updated: 2026-08-21
 - `node --import tsx tests/auth-flow.test.mjs`: passed (18 tests), including fail-closed persistence failures and durable signup/login flow.
 - `node --import tsx tests/app-readiness.test.mjs`: passed (13 tests).
 - `node --import tsx tests/deployment-config.test.mjs`: passed (3 tests).
+- API, frontend, and shared API-client builds passed after livechat changes; auth flow remained 18/18 passing.
 - API, API client, and Nextrade production builds passed after the auth changes.
 - Live `GET /healthz`, `GET /healthz/db`, `/api/auth/session`, `/readyz`, and `/api/readyz` were checked; current live DB is connected, but its provider identity cannot be proven from public health output.
+- Final live smoke: API `/healthz` HTTP 200, `/healthz/db` HTTP 200, frontend HTTP 200, and Vercel-origin CORS preflight HTTP 204 with credentialed origin allowlist. Chat status is auth-gated and correctly returns 401 without a session.
 
 ## Commit gate
 
