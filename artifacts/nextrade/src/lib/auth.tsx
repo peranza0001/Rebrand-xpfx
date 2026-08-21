@@ -22,7 +22,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, isLoading, isError } = useGetSession();
+  const { data: session, isLoading, isError } = useGetSession({
+    query: { retry: false, staleTime: 30_000 },
+  });
   const resolvedSession = isError ? undefined : session;
 
   const value: AuthContextType = {
