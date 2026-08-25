@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { getUserData, newId, newUuid, NOW } from "../lib/store";
 import { persistTransaction } from "../lib/db-persist";
 import { requireAuth } from "../lib/session";
-import { isProduction } from "../lib/env";
+import { isLiveTradingEnabled } from "../lib/env";
 
 const router: IRouter = Router();
 
@@ -75,8 +75,8 @@ router.get("/crypto/orders", requireAuth, (req, res) => {
 });
 
 router.post("/crypto/buy", requireAuth, (req, res) => {
-  if (isProduction) {
-    return res.status(503).json({ error: "Crypto trading is unavailable until a live execution provider is configured.", code: "provider_unavailable" });
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
   const order = createOrder(req.userId!, "buy", req.body ?? {});
   if (!order) return res.status(400).json({ error: "asset and a positive amount are required." });
@@ -84,8 +84,8 @@ router.post("/crypto/buy", requireAuth, (req, res) => {
 });
 
 router.post("/crypto/sell", requireAuth, (req, res) => {
-  if (isProduction) {
-    return res.status(503).json({ error: "Crypto trading is unavailable until a live execution provider is configured.", code: "provider_unavailable" });
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
   const order = createOrder(req.userId!, "sell", req.body ?? {});
   if (!order) return res.status(400).json({ error: "asset and a positive amount are required." });
@@ -104,8 +104,8 @@ router.get("/copy-trading/follows", requireAuth, (req, res) => {
 });
 
 router.post("/copy-trading/follow", requireAuth, (req, res) => {
-  if (isProduction) {
-    return res.status(503).json({ error: "Copy trading is unavailable until a live execution provider is configured.", code: "provider_unavailable" });
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Copy trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
   const traderId = typeof req.body?.traderId === "string" ? req.body.traderId.trim() : "";
   if (!traderId || traderId.length > 100) return res.status(400).json({ error: "traderId is required." });

@@ -10,7 +10,7 @@ import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
-import { isProduction } from "../lib/env";
+import { isLiveTradingEnabled } from "../lib/env";
 
 const router: IRouter = Router();
 
@@ -57,8 +57,8 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }
-  if (isProduction) {
-    return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Live trading is unavailable until ENABLE_LIVE_TRADING=true and a verified broker execution provider is configured.", code: "provider_unavailable" });
   }
   const { symbol, side, quantity, leverage = 1.0, comment } = req.body;
 
@@ -151,8 +151,8 @@ router.post("/forex/order/limit", requireAuth, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }
-  if (isProduction) {
-    return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Live trading is unavailable until ENABLE_LIVE_TRADING=true and a verified broker execution provider is configured.", code: "provider_unavailable" });
   }
   const { symbol, side, quantity, limitPrice, leverage = 1.0, expiryDays = 30 } = req.body;
 

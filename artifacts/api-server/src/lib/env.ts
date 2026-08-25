@@ -47,6 +47,14 @@ export const env = {
     if (val === "false") return false;
     return false;
   })(),
+  ENABLE_LIVE_TRADING: (() => {
+    const raw = resolveEnvValue(process.env, "ENABLE_LIVE_TRADING");
+    if (raw === undefined) return false;
+    const val = raw.trim().toLowerCase();
+    if (val === "true") return true;
+    if (val === "false") return false;
+    return false;
+  })(),
   ENABLE_DEV_OTP_LOG: resolveEnvValue(process.env, "ENABLE_DEV_OTP_LOG")?.toLowerCase() === "true",
 
   // Admin provisioning
@@ -155,7 +163,15 @@ export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined
   return false;
 }
 
+export function resolveLiveTradingEnabled(rawEnv: Record<string, string | undefined> = process.env) {
+  const explicitValue = rawEnv["ENABLE_LIVE_TRADING"]?.trim().toLowerCase();
+  if (explicitValue === "true") return true;
+  if (explicitValue === "false") return false;
+  return rawEnv.NODE_ENV?.trim().toLowerCase() !== "production";
+}
+
 export const isDemoAuthEnabled = resolveDemoAuthEnabled();
+export const isLiveTradingEnabled = resolveLiveTradingEnabled();
 export const hasSmtpCredentials = Boolean(
   env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS,
 );
