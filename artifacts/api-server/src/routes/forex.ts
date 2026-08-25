@@ -10,6 +10,7 @@ import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
+import { isProduction } from "../lib/env";
 
 const router: IRouter = Router();
 
@@ -53,6 +54,9 @@ router.get("/forex/instruments", (_req, res) => {
 
 // Place forex/stock market order
 router.post("/forex/order/market", requireAuth, async (req, res) => {
+  if (isProduction) {
+    return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
+  }
   const { symbol, side, quantity, leverage = 1.0, comment } = req.body;
 
   if (!symbol || !side || !quantity) {
@@ -141,6 +145,9 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
 
 // Place limit order (pending order to execute at specific price)
 router.post("/forex/order/limit", requireAuth, async (req, res) => {
+  if (isProduction) {
+    return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
+  }
   const { symbol, side, quantity, limitPrice, leverage = 1.0, expiryDays = 30 } = req.body;
 
   if (!symbol || !side || !quantity || !limitPrice) {
