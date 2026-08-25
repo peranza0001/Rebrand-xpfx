@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import type { FormEvent } from "react";
 import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
@@ -23,6 +24,12 @@ interface HandoffResponse {
   agentAvailable: boolean;
 }
 
+interface VisitorProfile {
+  name: string;
+  email: string;
+  country: string;
+}
+
 function appendUniqueMessages(previous: LiveChatMessage[], incoming: LiveChatMessage[]): LiveChatMessage[] {
   const existingIds = new Set(previous.map((item) => item.id));
   return [...previous, ...incoming.filter((item) => item.id && !existingIds.has(item.id))];
@@ -37,6 +44,9 @@ export function LiveChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<VisitorProfile>({ name: "", email: "", country: "" });
+  const [handoff, setHandoff] = useState<HandoffResponse | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const csrfTokenRef = useRef<string | null>(null);
   const qc = useQueryClient();
@@ -51,6 +61,13 @@ export function LiveChatWidget() {
 
   useEffect(() => {
     if (!open) return;
+
+    try {
+      const storedProfile = window.localStorage.getItem("xpfx_live_chat_profile");
+      if (storedProfile) setVisitorProfile(JSON.parse(storedProfile) as VisitorProfile);
+    } catch {
+      // Continue with the identification form if browser storage is unavailable.
+    }
 
     const fetchSession = async () => {
       setIsLoading(true);
@@ -145,6 +162,7 @@ export function LiveChatWidget() {
       ] as LiveChatMessage[];
       const handoff = result?.handoff as HandoffResponse | null | undefined;
       if (handoff) {
+        setHandoff(handoff);
         nextMessages.push({
           id: `handoff-${handoff.ticketId}`,
           senderName: 'XpressPro FX Support',
@@ -176,6 +194,20 @@ export function LiveChatWidget() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleIdentify = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = profileDraft.name.trim();
+    const email = profileDraft.email.trim();
+    if (!name || !email || !email.includes("@")) {
+      setError("Enter your name and a valid email so support can reply to you.");
+      return;
+    }
+    const profile = { name, email, country: profileDraft.country.trim() };
+    setVisitorProfile(profile);
+    window.localStorage.setItem("xpfx_live_chat_profile", JSON.stringify(profile));
+    setError(null);
   };
 
   return (
@@ -210,6 +242,19 @@ export function LiveChatWidget() {
             </button>
           </div>
 
+          {!visitorProfile ? (
+            <form onSubmit={handleIdentify} className="flex-1 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Before we start</p>
+                <p className="text-xs text-muted-foreground mt-1">Share your name and email so a support representative can follow up.</p>
+              </div>
+              <input required value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} placeholder="Your name" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <input required type="email" value={profileDraft.email} onChange={(event) => setProfileDraft({ ...profileDraft, email: event.target.value })} placeholder="Registered email" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <input value={profileDraft.country} onChange={(event) => setProfileDraft({ ...profileDraft, country: event.target.value })} placeholder="Country (optional)" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <button type="submit" className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Start chat</button>
+              {error && <p className="text-xs text-rose-600">{error}</p>}
+            </form>
+          ) : <>
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!isLoading && messages.length === 0 && (
@@ -249,6 +294,14 @@ export function LiveChatWidget() {
             <div ref={bottomRef} />
           </div>
 
+          {handoff && (
+            <div className="border-t border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              <p className="font-semibold">{handoff.agentAvailable ? "Agent joining" : "In queue"}</p>
+              <p>{handoff.agentAvailable ? "Support is typing..." : "We will notify you here when a representative joins."}</p>
+              <p className="mt-1 font-medium">Ticket {handoff.ticketId}</p>
+            </div>
+          )}
+
           {/* Input */}
           {error && (
             <div className="border-b border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
@@ -275,6 +328,7 @@ export function LiveChatWidget() {
               )}
             </button>
           </div>
+          </>}
         </div>
       )}
     </>
