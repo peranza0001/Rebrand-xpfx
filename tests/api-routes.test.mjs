@@ -155,6 +155,16 @@ test('demo trading endpoints are available for authenticated sessions', async ()
   });
   assert.equal(unsupportedOrderResponse.status, 400);
 
+  const overMarginOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'BTC', type: 'market', side: 'buy', amount: 1000000, leverage: 1 }),
+  });
+  assert.equal(overMarginOrderResponse.status, 400);
+
   const resetResponse = await fetch(`${baseUrl}/api/demo/reset-balance`, {
     method: 'POST',
     headers: { Cookie: cookie },

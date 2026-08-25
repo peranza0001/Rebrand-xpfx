@@ -1,6 +1,7 @@
-import { assetCatalog, getUserData, userData, newId, NOW } from './store';
+import { assetCatalog, getUserData, userData, newId, newUuid, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
+import { persistTransaction, persistWalletBalance } from './db-persist';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -19,6 +20,16 @@ export interface Order {
 const instruments = assetCatalog.slice(0, 8).map((a) => ({ symbol: a.symbol, price: Number(a.price || 0) }));
 
 const ordersByInstrument = new Map<string, Order[]>();
+
+export function getCurrentPrice(instrument: string): number | undefined {
+  return instruments.find((item) => item.symbol === instrument)?.price;
+}
+
+export function calculateMargin(instrument: string, amount: number, leverage: number): number | undefined {
+  const price = getCurrentPrice(instrument);
+  if (price === undefined || !Number.isFinite(amount) || !Number.isFinite(leverage) || leverage <= 0) return undefined;
+  return Number(((price * amount) / leverage).toFixed(2));
+}
 
 export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Order {
   const id = newId('ord');
@@ -69,6 +80,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               throw new Error("Insufficient demo balance for this practice trade.");
             }
             tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
+            void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
             
             // add trade record
             const trade = {
@@ -90,8 +102,18 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               completedAt: null,
             } as any;
             data.trades.unshift(trade);
+            void persistTransaction(newUuid(), tradingWallet.id, o.userId, {
+              type: 'demo_trade_open',
+              amount: marginRequired,
+              currency: 'USD',
+              status: 'margin_held',
+              description: `Demo trade opened: ${o.side} ${o.amount} ${o.instrument}`,
+              isDemo: true,
+            });
             demoNs.to(`instrument:${o.instrument}`).emit('order_filled', { order: o, trade });
           } catch (err) {
+            o.status = 'cancelled';
+            demoNs.to(`user:${o.userId}`).emit('order_rejected', { order: o, reason: (err as Error).message });
             logger.warn({ err }, 'Failed to process order fill');
           }
         } else {
@@ -125,6 +147,15 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
               if (tradingWallet) {
                 tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
+                void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
+                void persistTransaction(newUuid(), tradingWallet.id, uid, {
+                  type: 'demo_trade_close',
+                  amount: finalCredit,
+                  currency: 'USD',
+                  status: 'completed',
+                  description: `Demo trade closed: ${t.pair}`,
+                  isDemo: true,
+                });
               }
               
               demoNs.emit('trade_closed', { userId: uid, trade: t });

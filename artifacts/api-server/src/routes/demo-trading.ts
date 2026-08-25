@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/session';
 import { assetCatalog, demoConfig, getUserData } from '../lib/store';
-import sim from '../lib/simulation-engine';
+import sim, { calculateMargin } from '../lib/simulation-engine';
 
 const router = Router();
 
@@ -71,6 +71,17 @@ router.post('/demo/order', requireAuth, (req, res) => {
   }
   if (type !== 'market' && (!Number.isFinite(priceValue) || (priceValue ?? 0) <= 0)) {
     return res.status(400).json({ error: 'Limit and stop orders require a positive price' });
+  }
+
+  const data = getUserData(req.userId!);
+  const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  const requiredMargin = calculateMargin(String(resolvedInstrument), amountValue, leverageValue);
+  if (!tradingWallet || requiredMargin === undefined || tradingWallet.balance < requiredMargin) {
+    return res.status(400).json({
+      error: 'Insufficient demo margin for this order',
+      requiredMargin: requiredMargin ?? null,
+      availableBalance: tradingWallet?.balance ?? 0,
+    });
   }
 
   const order = sim.placeOrder({
