@@ -18,6 +18,7 @@ import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
 import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { DemoTradingGuide } from "@/components/demo-trading-guide";
+import { apiPath, apiUrl } from "@/lib/api-url";
 
 type MarketItem = {
   symbol: string;
@@ -83,7 +84,7 @@ function DemoTradingContent() {
 
   const refreshDemoState = async () => {
     try {
-      const res = await fetch('/api/demo/account', { credentials: 'include' });
+      const res = await fetch(apiPath('/api/demo/account'), { credentials: 'include' });
       if (!res.ok) return;
       const snapshot = await res.json() as { balance: number; positions: Position[]; openPositions: number; totalPnl: number };
       setDemoBalance(snapshot.balance);
@@ -100,7 +101,7 @@ function DemoTradingContent() {
     void refreshDemoState();
 
     // Connect to Socket.IO demo-trading namespace for live prices
-    const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
+    const socket: Socket = io(`${apiUrl}/demo-trading`, { path: '/socket.io', withCredentials: true });
     socket.on('connect', () => {
       initialMarkets.forEach((market) => socket.emit('join_instrument', market.symbol));
     });
@@ -260,7 +261,7 @@ function DemoTradingContent() {
     const safeSize = Math.max(100, Math.round(sizeValue));
     try {
       const body = { instrument: selectedMarket.symbol, type: 'market', side: side === 'Buy' ? 'buy' : 'sell', amount: safeSize, leverage: 10 };
-      const resp = await fetch('/api/demo/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
+      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
         throw new Error(errorText || 'Order failed');
@@ -454,7 +455,7 @@ function DemoTradingContent() {
             }}
             onClosePosition={async (posId) => {
               try {
-                const resp = await fetch(`/api/demo/position/${posId}`, { method: 'DELETE', credentials: 'include' });
+                const resp = await fetch(apiPath(`/api/demo/position/${posId}`), { method: 'DELETE', credentials: 'include' });
                 if (resp.ok) {
                   await refreshDemoState();
                   setMessage('Position closed successfully.');
@@ -506,7 +507,7 @@ function DemoTradingContent() {
         chartSeries={liveChartData}
         onCloseTrade={async (tradeId) => {
           try {
-            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            const resp = await fetch(apiPath(`/api/demo/position/${tradeId}`), { method: "DELETE", credentials: "include" });
             if (resp.ok) {
               await refreshDemoState();
               setMessage("Demo position closed successfully.");
@@ -518,7 +519,7 @@ function DemoTradingContent() {
         }}
         onCancelTrade={async (tradeId) => {
           try {
-            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            const resp = await fetch(apiPath(`/api/demo/position/${tradeId}`), { method: "DELETE", credentials: "include" });
             if (resp.ok) {
               await refreshDemoState();
               setMessage("Demo position cancelled.");

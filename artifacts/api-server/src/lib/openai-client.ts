@@ -88,6 +88,56 @@ export interface AIChatReply {
   escalated: boolean;
 }
 
+const FAQ_REPLIES: Array<{ pattern: RegExp; content: string }> = [
+  {
+    pattern: /signup|sign up|otp|verification code|login|log in|session|blank|dashboard|forgot password|kyc/i,
+    content: "For account access, use Sign up or Log in and complete the email verification step. If the dashboard is blank, refresh once and confirm your session is active; do not share an OTP or password here. KYC status and limits are shown in the KYC area, and support can review account-specific issues.",
+  },
+  {
+    pattern: /demo|practice order|first trade|open.*trade|buy|sell|risk/i,
+    content: "Demo Trading is a virtual-funds workspace. Open Demo Trading from the navigation, choose a market, select Buy or Sell, set a small practice size, and submit the order. Demo results are not future live performance, so practise with risk you can understand.",
+  },
+  {
+    pattern: /deposit|withdraw|funds|money|fee|charge|transfer/i,
+    content: "Use the platform's Deposit and Withdrawals pages to check status and instructions. Never send funds to an address or person provided in chat. Fees and processing status depend on the transaction and are shown in the relevant account area; support will not invent a fee or promise a completion time.",
+  },
+  {
+    pattern: /smartvest|investment|copy|manager|return|profit/i,
+    content: "SmartVest and copy features are simulations or managed-product workflows where marked in the app, not guarantees. Review the displayed terms, risk information, and any required disclaimer before proceeding. Past or simulated results do not guarantee future performance.",
+  },
+  {
+    pattern: /education|learn|lesson|course|beginner/i,
+    content: "Start in Education for the beginner lessons, then use Demo Trading to practise market selection, position sizing, and closing a trade. The demo desk keeps virtual funds separate from live balances.",
+  },
+  {
+    pattern: /status|maintenance|offline|access|down|unavailable/i,
+    content: "Platform availability can change during maintenance or provider interruptions. Check the status message in the app and try again later; never repeat a payment or trade just because a page is slow. Support can investigate a persistent access issue.",
+  },
+  {
+    pattern: /phish|security|otp|password|seed|private key|cvv|pin|scam|hack|stolen|fraud/i,
+    content: "XpressPro FX support will never ask for your password, OTP, CVV, PIN, seed phrase, or private key. Do not share them in chat or follow unexpected links. Secure your account and ask for a human representative if you suspect phishing or fraud.",
+  },
+  {
+    pattern: /human|agent|representative|supervisor|manager|escalat|person/i,
+    content: "I can connect you with a human representative. Please choose Talk to support and provide your name, registered email, and a short description of the issue. Do not include passwords, OTPs, payment-card details, PINs, or wallet secrets.",
+  },
+];
+
+export function redactChatContent(content: string): string {
+  return content
+    .replace(/\b(?:password|passcode|otp|verification code|pin|cvv|cvc|seed phrase|private key)\b\s*[:=]?\s*[^\s,;]+/gi, "$1 [redacted]")
+    .replace(/\b\d{3,8}\b/g, (value) => value.length >= 4 ? "[redacted]" : value);
+}
+
+export function generateFaqReply(userMessage: string): AIChatReply | null {
+  const match = FAQ_REPLIES.find((faq) => faq.pattern.test(userMessage));
+  if (!match) return null;
+  return {
+    content: match.content,
+    escalated: /human|agent|representative|supervisor|manager|escalat|person|fraud|hack|stolen/i.test(userMessage),
+  };
+}
+
 export async function generateAIReply(opts: {
   userMessage: string;
   history: AIChatTurn[];

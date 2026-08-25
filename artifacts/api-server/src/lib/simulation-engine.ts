@@ -40,6 +40,22 @@ export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): O
   return o as Order;
 }
 
+export function closePosition(userId: string, tradeId: string): boolean {
+  const data = getUserData(userId);
+  const trade = data.trades.find((candidate) => candidate.id === tradeId);
+  if (!trade || trade.status !== 'active') return false;
+
+  trade.status = 'completed';
+  trade.completedAt = NOW();
+  const margin = Number((trade as any).marginRequired ?? 0);
+  const profit = Number(trade.profit ?? 0);
+  const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  if (tradingWallet) {
+    tradingWallet.balance = Number((tradingWallet.balance + margin + profit).toFixed(2));
+  }
+  return true;
+}
+
 export function initSimulation(io: IOServer, demoNs: Namespace) {
   // On each tick, random walk prices and evaluate orders
   setInterval(async () => {
@@ -171,4 +187,4 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
   logger.info('[simulation] Initialized simulation engine with instruments: ' + instruments.map(i => i.symbol).join(', '));
 }
 
-export default { placeOrder, initSimulation };
+export default { placeOrder, closePosition, initSimulation };

@@ -22,7 +22,7 @@ import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, newUuid, NOW, userData, users } from "../lib/store";
 import { getPersistedChatMessages, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
-import { generateAIReply } from "../lib/openai-client";
+import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
 import { sendEmail } from "../lib/email";
 import { env } from "../lib/env";
@@ -89,11 +89,12 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   const userName = stored?.user.fullName ?? "User";
   let handoff: { ticketId: string; status: "queued"; agentAvailable: boolean } | null = null;
 
+  const safeContent = redactChatContent(parsed.data.content);
   const userMsg: LiveChatMsg = {
     id: newId("chat"),
     userId: req.userId!,
     senderName: userName,
-    content: parsed.data.content,
+    content: safeContent,
     isFromUser: true,
     isBot: false,
     escalated: keywordEscalation(parsed.data.content),
@@ -120,8 +121,8 @@ router.post("/live-chat", requireAuth, async (req, res) => {
 
   const ai = userMsg.escalated
     ? null
-    : await generateAIReply({
-      userMessage: parsed.data.content,
+    : generateFaqReply(safeContent) ?? await generateAIReply({
+      userMessage: safeContent,
       history,
       userName,
     });
@@ -194,7 +195,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       title: presence.anyOnline
         ? "Live chat handoff requested"
         : "Live chat handoff requested — NO admin online",
-      body: `${stored?.user.email ?? userName} requested a human agent. Ticket: ${ticketId}\n\nMessage: "${parsed.data.content.slice(0, 200)}"`,
+      body: `${stored?.user.email ?? userName} requested a human agent. Ticket: ${ticketId}\n\nMessage: "${safeContent.slice(0, 200)}"`,
       userId: req.userId!,
       userEmail: stored?.user.email ?? null,
       severity: presence.anyOnline ? "warning" : "critical",
@@ -211,7 +212,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       `User: ${userName}\n` +
       `Email: ${userEmail}\n` +
       `Time: ${new Date().toISOString()}\n\n` +
-      `User Message:\n${parsed.data.content}\n\n` +
+      `User Message:\n${safeContent}\n\n` +
       `---\n` +
       `Reply to this email to respond to the user (or use the admin panel at ${env.FRONTEND_URL || 'https://app.xpressprofx.com'}/admin/livechat)\n` +
       `Ticket ID ${ticketId} will be tracked with this conversation.\n`;

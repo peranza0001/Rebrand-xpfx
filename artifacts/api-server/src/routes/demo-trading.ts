@@ -153,4 +153,10 @@ router.post('/demo/reset-balance', requireAuth, (req, res) => {
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
 });
 
+router.delete('/demo/position/:positionId', requireAuth, (req, res) => {
+  const closed = sim.closePosition(req.userId!, req.params.positionId);
+  if (!closed) return res.status(404).json({ error: 'Demo position not found or already closed' });
+  return res.json({ success: true, account: getDemoAccountSnapshot(req.userId!) });
+});
+
 export default router;

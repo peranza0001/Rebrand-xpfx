@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+import { apiPath, apiUrl } from "@/lib/api-url";
 
 interface LiveChatMessage {
   id: string;
@@ -36,7 +37,6 @@ function appendUniqueMessages(previous: LiveChatMessage[], incoming: LiveChatMes
 }
 
 export function LiveChatWidget() {
-  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
@@ -73,7 +73,7 @@ export function LiveChatWidget() {
       setIsLoading(true);
       try {
         await loadCsrfToken();
-        let sessionRes = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' });
+  let sessionRes = await fetch(apiPath("/api/auth/session"), { credentials: 'include' });
         if (!sessionRes.ok) return;
         let sessionData: SessionResponse = await sessionRes.json();
 
@@ -92,7 +92,7 @@ export function LiveChatWidget() {
         if (!sessionData.user?.id) return;
         setUserId(sessionData.user.id);
 
-        const res = await fetch(`${apiUrl}/api/live-chat`, { credentials: 'include' });
+        const res = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
         if (!res.ok) return;
         const chatData = await res.json();
         setMessages(Array.isArray(chatData) ? chatData : []);
@@ -143,7 +143,7 @@ export function LiveChatWidget() {
     setIsSending(true);
     try {
       if (!csrfTokenRef.current) await loadCsrfToken();
-      const res = await fetch(`${apiUrl}/api/live-chat`, {
+  const res = await fetch(apiPath("/api/live-chat"), {
         method: 'POST',
         credentials: 'include',
         headers: {
