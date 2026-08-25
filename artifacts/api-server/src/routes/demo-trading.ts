@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/session';
-import { assetCatalog, demoConfig, getUserData } from '../lib/store';
-import sim, { calculateMargin } from '../lib/simulation-engine';
+import { assetCatalog, demoConfig, getUserData, newUuid, NOW } from '../lib/store';
+import { persistTransaction, persistWalletBalance } from '../lib/db-persist';
+import sim, { calculateMargin, getCurrentPrice } from '../lib/simulation-engine';
 
 const router = Router();
 
@@ -95,6 +96,48 @@ router.post('/demo/order', requireAuth, (req, res) => {
   });
 
   return res.json({ success: true, order });
+});
+
+router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: 'Trading is locked on your account.' });
+  }
+
+  const data = getUserData(req.userId!);
+  const trade = data.trades.find((item) => item.id === req.params.tradeId);
+  if (!trade) return res.status(404).json({ error: 'Demo position not found' });
+  if (trade.status !== 'active') return res.status(409).json({ error: 'Demo position is already closed' });
+
+  const exitPrice = getCurrentPrice(trade.pair);
+  if (exitPrice === undefined || !Number.isFinite(exitPrice)) {
+    return res.status(503).json({ error: 'Demo market price is temporarily unavailable' });
+  }
+
+  const typedTrade = trade as any;
+  const margin = Number(typedTrade.marginRequired ?? (trade.entryPrice * trade.amount) / (typedTrade.leverage || 1));
+  const profitLoss = trade.type === 'long'
+    ? (exitPrice - trade.entryPrice) * trade.amount
+    : (trade.entryPrice - exitPrice) * trade.amount;
+  typedTrade.status = 'completed';
+  typedTrade.currentPrice = exitPrice;
+  typedTrade.profit = Math.round(profitLoss * 100) / 100;
+  typedTrade.completedAt = NOW();
+
+  const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  if (!tradingWallet) return res.status(500).json({ error: 'Demo wallet not found' });
+  const returnAmount = Math.round((margin + typedTrade.profit) * 100) / 100;
+  tradingWallet.balance = Number((tradingWallet.balance + returnAmount).toFixed(2));
+  void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
+  void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
+    type: 'demo_trade_close',
+    amount: returnAmount,
+    currency: 'USD',
+    status: 'completed',
+    description: `Demo trade closed: ${trade.pair}`,
+    isDemo: true,
+  });
+
+  return res.json({ success: true, trade, balance: tradingWallet.balance });
 });
 
 router.post('/demo/reset-balance', requireAuth, (req, res) => {
