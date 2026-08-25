@@ -60,7 +60,7 @@ function formatCurrency(value: number) {
 
 function DemoTradingContent() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, isDemo, user, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const demoMutation = useStartDemoSession();
   const [markets, setMarkets] = useState(initialMarkets);
@@ -128,7 +128,7 @@ function DemoTradingContent() {
   }, [isAuthenticated, isLoading]);
 
   const ensureDemoSession = async () => {
-    if (isAuthenticated) return true;
+    if (isAuthenticated && isDemo) return true;
     if (demoRequested) return demoStarted;
 
     setDemoError(null);
@@ -152,7 +152,7 @@ function DemoTradingContent() {
     if (!isAuthenticated && !demoRequested && !isLoading) {
       void ensureDemoSession();
     }
-  }, [isAuthenticated, demoRequested, isLoading]);
+  }, [isAuthenticated, isDemo, demoRequested, isLoading]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
