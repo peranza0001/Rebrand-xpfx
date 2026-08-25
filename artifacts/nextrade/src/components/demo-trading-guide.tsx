@@ -148,28 +148,28 @@ export function DemoTradingGuide() {
             <h4 className="font-semibold text-sm">🎯 Key Learning Points</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold">Market Volatility</p>
                   <p className="text-muted-foreground text-xs">Experience real market price movements</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold">Risk Management</p>
                   <p className="text-muted-foreground text-xs">Learn position sizing and stop-loss placement</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold">Trading Psychology</p>
                   <p className="text-muted-foreground text-xs">Understand emotional trading patterns</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold">Strategy Testing</p>
                   <p className="text-muted-foreground text-xs">Test ideas without financial risk</p>
@@ -226,7 +226,7 @@ export function DemoTradingGuide() {
                   <ul className="space-y-2">
                     {course.benefits.map((benefit, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
-                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
                         <span>{benefit}</span>
                       </li>
                     ))}

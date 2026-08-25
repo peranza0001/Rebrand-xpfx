@@ -45,7 +45,7 @@ export function Messages() {
 
       <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
         {/* Sidebar */}
-        <Card className="w-full md:w-64 flex-shrink-0 flex flex-col border-border rounded-xl overflow-hidden">
+        <Card className="w-full md:w-64 shrink-0 flex flex-col border-border rounded-xl overflow-hidden">
           <div className="p-2">
             <Tabs value={context} onValueChange={(v: any) => { setContext(v); setContextId(undefined); }} className="w-full">
               <TabsList className="w-full flex flex-col h-auto bg-transparent space-y-1">

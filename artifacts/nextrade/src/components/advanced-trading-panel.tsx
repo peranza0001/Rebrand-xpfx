@@ -217,7 +217,7 @@ export function AdvancedTradingPanel({
           {/* Risk Warning */}
           {!canTrade && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
               <div className="text-xs text-red-700">
                 Insufficient margin. Required: ${marginRequired.toFixed(2)}, Available: ${freeMargin.toFixed(2)}
               </div>

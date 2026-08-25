@@ -305,7 +305,7 @@ export function DigitalPaymentMethods() {
                 </div>
 
                 <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 flex gap-3">
-                  <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                   <div className="text-sm text-amber-900 dark:text-amber-100">
                     <p className="font-semibold">Processing may take 1-2 minutes</p>
                     <p className="text-xs mt-1">Keep this window open until the payment is complete</p>

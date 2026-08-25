@@ -316,7 +316,7 @@ export function ConnectWallet() {
                   data-testid="input-wallet-address"
                 />
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                   <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   Use a public address only. Never enter a seed phrase or private key.
                 </p>
               </div>
@@ -454,7 +454,7 @@ export function ConnectWallet() {
 
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="py-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 space-y-2">
               <div className="text-sm">
                 <span className="font-medium">Need to do this later?</span>{" "}

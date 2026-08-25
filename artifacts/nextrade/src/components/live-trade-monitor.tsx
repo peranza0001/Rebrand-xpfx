@@ -88,7 +88,7 @@ export function LiveTradeMonitor({
     Math.abs((activeTrade.entryPrice - activeTrade.stopLoss) / activeTrade.entryPrice * 100)
     : 0;
 
-  const profitTarget = activeTrade && activeTrade.takeProfit ?
+  const _profitTarget = activeTrade && activeTrade.takeProfit ?
     Math.abs((activeTrade.takeProfit - activeTrade.entryPrice) / activeTrade.entryPrice * 100)
     : 0;
 

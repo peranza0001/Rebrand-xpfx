@@ -118,7 +118,7 @@ export function RealTimeAlerts({
                 </div>
                 <button
                   onClick={() => handleDismiss(alert.id)}
-                  className="text-current hover:opacity-70 transition-opacity flex-shrink-0"
+                  className="text-current hover:opacity-70 transition-opacity shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>

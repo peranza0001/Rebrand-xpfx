@@ -112,7 +112,7 @@ export function MarketSentimentDashboard({
                       {event.date.toLocaleDateString()} at {event.time}
                     </div>
                   </div>
-                  <div className="text-right text-xs font-mono flex-shrink-0">
+                  <div className="text-right text-xs font-mono shrink-0">
                     <div className="text-muted-foreground">F: {event.forecast.toFixed(2)}</div>
                     <div className="text-muted-foreground">P: {event.previous.toFixed(2)}</div>
                   </div>

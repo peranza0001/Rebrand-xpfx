@@ -49,7 +49,7 @@ export function WalletRequiredBanner() {
       data-testid="banner-wallet-required"
     >
       <CardContent className="py-3 flex items-center gap-3">
-        <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
         <div className="flex-1 text-sm">{message}</div>
         <Button asChild size="sm" variant="secondary">
           <Link href="/connect-wallet">

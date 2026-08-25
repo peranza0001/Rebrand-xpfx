@@ -67,7 +67,7 @@ export function Wallets() {
       {!hasVerifiedBank && (
         <Card className="border-amber-500/40 bg-amber-500/5" data-testid="card-fiat-bank-locked-wallets">
           <CardContent className="py-3 flex items-center gap-3">
-            <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+             <Lock className="h-4 w-4 text-amber-500 shrink-0" />
             <div className="flex-1 text-sm">
               Fiat (USD) wallets are read-only until you link and verify a bank account.
             </div>

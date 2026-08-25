@@ -364,7 +364,7 @@ export function EnhancedWithdrawalFlow() {
 
               {/* Processing Info */}
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 flex gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-900 dark:text-blue-100">
                   <p className="font-semibold">Processing time: 1-3 business days</p>
                   <p className="text-xs mt-1">Your withdrawal will be processed after admin review</p>
