@@ -105,6 +105,16 @@ test('public visitors can start chat and receive a bot reply', async () => {
   assert.doesNotMatch(chatPayload.botReply.content, /our support team is reviewing your message/i);
   assert.match(chatPayload.botReply.content, /how can i help|demo trading/i);
 
+  const topicResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ content: 'What are leverage and margin risks?' }),
+  });
+  assert.equal(topicResponse.status, 200);
+  const topicPayload = await topicResponse.json();
+  assert.match(topicPayload.botReply.content, /leverage|margin/i);
+  assert.doesNotMatch(topicPayload.botReply.content, /support team is reviewing your message/i);
+
   const handoffResponse = await fetch(`${baseUrl}/api/live-chat`, {
     method: 'POST',
     headers: {
