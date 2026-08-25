@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-25 09:30:55 UTC
+- Last sync: 2026-08-25 09:34:39 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M artifacts/mockup-sandbox/src/main.tsx | M  artifacts/nextrade/src/components/advanced-trading-panel.tsx | M  artifacts/nextrade/src/components/demo-trading-guide.tsx
+- Current working tree: M  artifacts/mockup-sandbox/src/main.tsx | M  prisma/schema.prisma | M  vercel.json
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
