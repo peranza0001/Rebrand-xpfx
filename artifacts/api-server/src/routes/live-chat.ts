@@ -60,8 +60,30 @@ function presenceState(): PresenceState {
 
 const router: IRouter = Router();
 
-const FALLBACK_REPLY =
-  "Thanks for reaching out — our support team is reviewing your message. For urgent issues email help@xpressprofx.com, or type 'agent' to escalate to a live person.";
+function localSupportReply(content: string, userName: string): string {
+  const message = content.toLowerCase();
+  const greeting = userName && userName !== "User" ? `Hi ${userName.split(/\s+/)[0]}! ` : "Hi! ";
+
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/.test(message)) {
+    return `${greeting}How can I help you today? I can guide you through your account, demo trading, deposits, withdrawals, KYC, or platform features.`;
+  }
+  if (/(deposit|fund|add money|cash in)/.test(message)) {
+    return `${greeting}You can start a deposit from the Wallets page. Choose an available method, review the fee and destination details, and follow the confirmation steps shown there. I can also connect you with a support agent if you need help with a specific transaction.`;
+  }
+  if (/(withdraw|cash out|withdrawal)/.test(message)) {
+    return `${greeting}Withdrawals are managed from the Wallets page. Make sure your destination details are correct and complete any required verification before submitting. Tell me whether you need help with crypto, bank, or card withdrawals.`;
+  }
+  if (/(kyc|verify|verification|identity)/.test(message)) {
+    return `${greeting}KYC verification is available from the KYC page. Submit clear, valid documents that match your account details, then monitor the status there. I can explain the steps or connect you with an agent.`;
+  }
+  if (/(demo|paper|practice|trade|trading|order)/.test(message)) {
+    return `${greeting}The Demo Trading workspace uses simulated funds and live practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds are moved in demo mode.`;
+  }
+  if (/(account|login|password|sign up|register)/.test(message)) {
+    return `${greeting}I can help with account access, signup, password recovery, and profile settings. Tell me what is preventing you from accessing your account, without sharing your password or verification code.`;
+  }
+  return `${greeting}How can I help you today? I can answer questions about accounts, demo trading, deposits, withdrawals, KYC, and platform features. Type "agent" any time if you need a human support representative.`;
+}
 
 function keywordEscalation(content: string): boolean {
   const m = content.toLowerCase();
@@ -131,7 +153,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     userName,
   });
 
-  const replyText = ai?.content ?? FALLBACK_REPLY;
+  const replyText = ai?.content || localSupportReply(parsed.data.content, userName);
   const aiEscalated = ai?.escalated ?? false;
   const escalated = userMsg.escalated || aiEscalated;
 

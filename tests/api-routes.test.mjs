@@ -93,6 +93,8 @@ test('public visitors can start chat and receive a bot reply', async () => {
   const chatPayload = await chatResponse.json();
   assert.ok(chatPayload.userMessage?.isFromUser);
   assert.ok(chatPayload.botReply?.content);
+  assert.doesNotMatch(chatPayload.botReply.content, /our support team is reviewing your message/i);
+  assert.match(chatPayload.botReply.content, /how can i help|demo trading/i);
 });
 
 test('demo trading endpoints are available for authenticated sessions', async () => {
