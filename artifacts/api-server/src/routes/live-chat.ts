@@ -147,6 +147,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
   const stored = users.get(req.userId!);
   const userName = stored?.user.fullName ?? "User";
+  let handoff: { ticketId: string; status: "queued"; agentAvailable: boolean } | null = null;
 
   const userMsg: LiveChatMsg = {
     id: newId("chat"),
@@ -209,6 +210,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     userMsg.escalated = true;
     const presence = presenceState();
     const ticketId = `TC-${newId("ticket").substring(0, 8).toUpperCase()}`;
+    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
     
     if (!presence.anyOnline) {
       const noAgentMsg: LiveChatMsg = {
@@ -267,6 +269,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     userMessage: userMsg,
     botReply,
     escalated,
+    handoff,
   });
 });
 

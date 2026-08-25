@@ -17,6 +17,12 @@ interface SessionResponse {
   user: { id: string } | null;
 }
 
+interface HandoffResponse {
+  ticketId: string;
+  status: "queued";
+  agentAvailable: boolean;
+}
+
 function appendUniqueMessages(previous: LiveChatMessage[], incoming: LiveChatMessage[]): LiveChatMessage[] {
   const existingIds = new Set(previous.map((item) => item.id));
   return [...previous, ...incoming.filter((item) => item.id && !existingIds.has(item.id))];
@@ -137,6 +143,20 @@ export function LiveChatWidget() {
         ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
         ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
       ] as LiveChatMessage[];
+      const handoff = result?.handoff as HandoffResponse | null | undefined;
+      if (handoff) {
+        nextMessages.push({
+          id: `handoff-${handoff.ticketId}`,
+          senderName: 'XpressPro FX Support',
+          content: handoff.agentAvailable
+            ? `Human support has been notified and your conversation is queued for an available representative. Ticket ${handoff.ticketId}.`
+            : `Human support has been notified and your conversation is queued for the next available representative. Ticket ${handoff.ticketId}.`,
+          createdAt: new Date().toISOString(),
+          isFromUser: false,
+          isBot: false,
+          escalated: true,
+        });
+      }
       setMessages((prev) => appendUniqueMessages(prev, nextMessages));
       qc.invalidateQueries({ queryKey: ['getLiveChatMessages'] });
     } catch (err) {

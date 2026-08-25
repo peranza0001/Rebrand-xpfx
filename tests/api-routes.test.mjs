@@ -126,6 +126,8 @@ test('public visitors can start chat and receive a bot reply', async () => {
   assert.equal(handoffResponse.status, 200);
   const handoffPayload = await handoffResponse.json();
   assert.equal(handoffPayload.escalated, true);
+  assert.equal(handoffPayload.handoff.status, 'queued');
+  assert.match(handoffPayload.handoff.ticketId, /^TC-/);
   assert.match(handoffPayload.botReply.content, /human support|support team/i);
   assert.doesNotMatch(handoffPayload.botReply.content, /type "agent"/i);
 });
