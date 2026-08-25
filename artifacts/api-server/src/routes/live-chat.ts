@@ -72,10 +72,15 @@ router.post("/live-chat/identify", requireAuth, (req, res) => {
 
   const stored = users.get(req.userId!);
   if (!stored) return res.status(404).json({ error: "Chat identity is unavailable." });
-  stored.user.fullName = name;
-  stored.user.email = email;
-  if (country) stored.user.country = country;
-  usersByEmail.set(email, req.userId!);
+  if (stored.role !== "demo" && stored.user.email.toLowerCase() !== email) {
+    return res.status(400).json({ error: "Use the registered email on this account." });
+  }
+  if (stored.role === "demo") {
+    stored.user.fullName = name;
+    stored.user.email = email;
+    if (country) stored.user.country = country;
+    usersByEmail.set(email, req.userId!);
+  }
   return res.json({ name, email, country });
 });
 
