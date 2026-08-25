@@ -134,6 +134,27 @@ test('public visitors can start chat and receive a bot reply', async () => {
   }
   assert.match(handoffPayload.botReply.content, /human support|support team/i);
   assert.doesNotMatch(handoffPayload.botReply.content, /type "agent"/i);
+
+  const emailReplyResponse = await fetch(`${baseUrl}/api/live-chat/email-reply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ticketId: handoffPayload.handoff.ticketId,
+      senderName: 'Support Representative',
+      content: 'A support representative has joined this conversation.',
+      fromEmail: 'support@xpressprofx.com',
+    }),
+  });
+  assert.equal(emailReplyResponse.status, 200);
+  const emailReplyPayload = await emailReplyResponse.json();
+  assert.equal(emailReplyPayload.success, true);
+  assert.equal(emailReplyPayload.msg.isFromUser, false);
+
+  const chatHistoryResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    headers: { Cookie: cookie },
+  });
+  const chatHistory = await chatHistoryResponse.json();
+  assert.ok(chatHistory.some((item) => item.content === 'A support representative has joined this conversation.'));
 });
 
 test('demo trading endpoints are available for authenticated sessions', async () => {

@@ -19,7 +19,7 @@ import {
   type SupportTicket,
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
-import { adminPresence, getUserData, newId, newUuid, NOW, userData, users } from "../lib/store";
+import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
 import { getPersistedChatMessages, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
@@ -365,33 +365,50 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, async (req, res) =>
  * ChatWay-like: Allows admins to reply directly from their email client.
  */
 router.post("/live-chat/email-reply", async (req, res) => {
-  // This would typically come from SendGrid/SMTP webhook
-  // For now, we require a simple authentication token or API key
-  const { ticketId, userId, senderName, content, fromEmail } = req.body;
+  const webhookSecret = env.WEBHOOK_SECRET_GLOBAL?.trim();
+  const providedSecret = req.get("x-webhook-secret")?.trim()
+    || req.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (webhookSecret ? providedSecret !== webhookSecret : process.env.NODE_ENV === "production") {
+    return res.status(401).json({ error: "Unauthorized email reply webhook" });
+  }
+
+  const { ticketId, senderName, content, fromEmail } = req.body;
   
-  if (!ticketId || !userId || !content) {
-    return res.status(400).json({ error: "Missing required fields: ticketId, userId, content" });
+  if (typeof ticketId !== "string" || !/^XPFX-[A-Z0-9-]+$/i.test(ticketId) || typeof content !== "string") {
+    return res.status(400).json({ error: "ticketId and content are required" });
+  }
+  const safeContent = redactChatContent(content.trim().slice(0, 4000));
+  if (!safeContent) {
+    return res.status(400).json({ error: "Reply content is required" });
+  }
+
+  let resolvedUserId: string | null = null;
+  for (const [candidateUserId, candidateData] of userData) {
+    if (candidateData.supportTickets.some((ticket) => ticket.subject.includes(`Live chat escalation ${ticketId}`))) {
+      resolvedUserId = candidateUserId;
+      break;
+    }
+  }
+  if (!resolvedUserId) {
+    return res.status(404).json({ error: "Live chat ticket not found" });
   }
 
   try {
-    const data = getUserData(userId);
-    if (!data) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const data = getUserData(resolvedUserId);
 
     // Add admin reply to chat
     const msg: LiveChatMsg = {
       id: newId("chat"),
-      userId,
+      userId: resolvedUserId,
       senderName: senderName || "XpressPro FX Support",
-      content,
+      content: safeContent,
       isFromUser: false,
       isBot: false,
       escalated: false,
       createdAt: NOW(),
     };
     data.liveChat.push(msg);
-    const persisted = await persistChatMessage(userId, 'admin', null, content);
+    const persisted = await persistChatMessage(resolvedUserId, 'admin', null, safeContent);
     if (!persisted) {
       data.liveChat.pop();
       return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
@@ -400,7 +417,7 @@ router.post("/live-chat/email-reply", async (req, res) => {
     // Broadcast in realtime
     try {
       const ns = getChatNamespace();
-      ns?.to(`conv:${userId}`).emit('message', msg);
+      ns?.to(`conv:${resolvedUserId}`).emit('message', msg);
     } catch {
       // best-effort
     }
