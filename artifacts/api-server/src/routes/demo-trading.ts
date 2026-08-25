@@ -41,6 +41,9 @@ router.get('/demo/instruments', requireAuth, (_req, res) => {
 });
 
 router.post('/demo/order', requireAuth, (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: 'Trading is locked on your account.' });
+  }
   getDemoAccountSnapshot(req.userId!);
   const { instrument, symbol, type, side, price, amount, quantity, leverage } = req.body as any;
   const resolvedInstrument = instrument || symbol;

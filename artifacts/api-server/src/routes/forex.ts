@@ -54,6 +54,9 @@ router.get("/forex/instruments", (_req, res) => {
 
 // Place forex/stock market order
 router.post("/forex/order/market", requireAuth, async (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: "Trading is locked on your account." });
+  }
   if (isProduction) {
     return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
   }
@@ -145,6 +148,9 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
 
 // Place limit order (pending order to execute at specific price)
 router.post("/forex/order/limit", requireAuth, async (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: "Trading is locked on your account." });
+  }
   if (isProduction) {
     return res.status(503).json({ error: "Live trading is unavailable until a verified broker price and execution provider is configured.", code: "provider_unavailable" });
   }
