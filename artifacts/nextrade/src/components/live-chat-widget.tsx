@@ -17,6 +17,11 @@ interface SessionResponse {
   user: { id: string } | null;
 }
 
+function appendUniqueMessages(previous: LiveChatMessage[], incoming: LiveChatMessage[]): LiveChatMessage[] {
+  const existingIds = new Set(previous.map((item) => item.id));
+  return [...previous, ...incoming.filter((item) => item.id && !existingIds.has(item.id))];
+}
+
 export function LiveChatWidget() {
   const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [open, setOpen] = useState(false);
@@ -91,7 +96,7 @@ export function LiveChatWidget() {
     });
 
     socketClient.on('message', (msg: LiveChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => appendUniqueMessages(prev, [msg]));
     });
 
     socketClient.on('disconnect', () => {
@@ -132,7 +137,7 @@ export function LiveChatWidget() {
         ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
         ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
       ] as LiveChatMessage[];
-      setMessages((prev) => [...prev, ...nextMessages]);
+      setMessages((prev) => appendUniqueMessages(prev, nextMessages));
       qc.invalidateQueries({ queryKey: ['getLiveChatMessages'] });
     } catch (err) {
       const fallbackMessage = err instanceof Error ? err.message : 'Unable to send message';

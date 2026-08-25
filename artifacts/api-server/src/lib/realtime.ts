@@ -9,6 +9,17 @@ import { persistChatMessage } from './db-persist';
 import { generateAIReply } from './openai-client';
 import { pushAdminAlert } from './notify';
 
+function realtimeFallbackReply(content: string): string {
+  const message = content.toLowerCase();
+  if (/\b(agent|human|real person|supervisor|manager|escalat|fraud|hack|stolen|emergency)\b/.test(message)) {
+    return 'I understand this needs human support. I have sent your conversation to our support team and a representative will take over here. Please do not share passwords, one-time codes, or private keys in chat.';
+  }
+  if (/\b(demo|paper|practice|trade|trading|order)\b/.test(message)) {
+    return 'The Demo Trading workspace uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds are moved in demo mode.';
+  }
+  return 'Hi! How can I help you today? I can answer questions about accounts, demo trading, deposits, withdrawals, KYC, and platform features. Type "agent" any time if you need a human support representative.';
+}
+
 export async function initRealtime(server: http.Server) {
   const io = new IOServer(server, {
     cors: {
@@ -143,7 +154,7 @@ export async function initRealtime(server: http.Server) {
         });
       }
 
-      const ai = await generateAIReply({
+      const ai = escalated ? null : await generateAIReply({
         userMessage: msg.content,
         history: ud?.liveChat.slice(-10).map((item) => ({
           role: item.isFromUser ? 'user' as const : 'assistant' as const,
@@ -155,7 +166,7 @@ export async function initRealtime(server: http.Server) {
         id: `msg_${Math.random().toString(36).slice(2, 9)}`,
         userId,
         senderName: 'XpressPro FX AI Support',
-        content: ai?.content ?? 'Thanks for reaching out. Type agent to request a human support specialist.',
+        content: ai?.content || realtimeFallbackReply(msg.content),
         isFromUser: false,
         isBot: true,
         escalated: escalated || Boolean(ai?.escalated),
