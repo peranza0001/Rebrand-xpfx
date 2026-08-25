@@ -95,6 +95,20 @@ test('public visitors can start chat and receive a bot reply', async () => {
   assert.ok(chatPayload.botReply?.content);
   assert.doesNotMatch(chatPayload.botReply.content, /our support team is reviewing your message/i);
   assert.match(chatPayload.botReply.content, /how can i help|demo trading/i);
+
+  const handoffResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ content: 'I need a human agent to help with a security issue.' }),
+  });
+  assert.equal(handoffResponse.status, 200);
+  const handoffPayload = await handoffResponse.json();
+  assert.equal(handoffPayload.escalated, true);
+  assert.match(handoffPayload.botReply.content, /human support|support team/i);
+  assert.doesNotMatch(handoffPayload.botReply.content, /type "agent"/i);
 });
 
 test('demo trading endpoints are available for authenticated sessions', async () => {

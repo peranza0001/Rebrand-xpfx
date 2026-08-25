@@ -64,6 +64,9 @@ function localSupportReply(content: string, userName: string): string {
   const message = content.toLowerCase();
   const greeting = userName && userName !== "User" ? `Hi ${userName.split(/\s+/)[0]}! ` : "Hi! ";
 
+  if (keywordEscalation(content)) {
+    return `${greeting}I understand this needs human support. I have sent your conversation to our support team and a representative will take over here. Please do not share passwords, one-time codes, or private keys in chat.`;
+  }
   if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/.test(message)) {
     return `${greeting}How can I help you today? I can guide you through your account, demo trading, deposits, withdrawals, KYC, or platform features.`;
   }
@@ -147,13 +150,17 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       content: m.content,
     }));
 
-  const ai = await generateAIReply({
-    userMessage: parsed.data.content,
-    history,
-    userName,
-  });
+  const ai = userMsg.escalated
+    ? null
+    : await generateAIReply({
+      userMessage: parsed.data.content,
+      history,
+      userName,
+    });
 
-  const replyText = ai?.content || localSupportReply(parsed.data.content, userName);
+  const replyText = userMsg.escalated
+    ? localSupportReply(parsed.data.content, userName)
+    : ai?.content || localSupportReply(parsed.data.content, userName);
   const aiEscalated = ai?.escalated ?? false;
   const escalated = userMsg.escalated || aiEscalated;
 
@@ -164,7 +171,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     content: replyText,
     isFromUser: false,
     isBot: true,
-    escalated: aiEscalated,
+    escalated: userMsg.escalated || aiEscalated,
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
