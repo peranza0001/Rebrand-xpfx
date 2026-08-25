@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
-import { resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
+import { resolveOpenAIApiKey, resolveOpenAIBaseURL, resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
 
 test('production validation allows missing optional email provider', () => {
   const env = {
@@ -279,4 +279,15 @@ test('the livechat AI honors the configured OpenAI model from the deployment env
 
   assert.equal(resolveOpenAIModel(env), 'gpt-4.1-mini');
   assert.equal(resolveOpenAIModel({ OPENAI_API_KEY: 'sk-test-openai-key' }), 'gpt-4.1-mini');
+});
+
+test('the livechat AI accepts the AI integrations OpenAI key and endpoint', () => {
+  assert.equal(
+    resolveOpenAIApiKey({ AI_INTEGRATIONS_OPENAI_API_KEY: '  sk-integration-key  ' }),
+    'sk-integration-key',
+  );
+  assert.equal(
+    resolveOpenAIBaseURL({ AI_INTEGRATIONS_OPENAI_BASE_URL: 'https://proxy.example/v1' }),
+    'https://proxy.example/v1',
+  );
 });

@@ -24,10 +24,37 @@ export function resolveOpenAIModel(
   return selected.trim() || "gpt-4.1-mini";
 }
 
+export function resolveOpenAIApiKey(
+  rawEnv: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const selected =
+    rawEnv.AI_INTEGRATIONS_OPENAI_API_KEY ||
+    rawEnv.OPENAI_API_KEY;
+  const trimmed = selected?.trim();
+  return trimmed || undefined;
+}
+
+export function resolveOpenAIBaseURL(
+  rawEnv: Record<string, string | undefined> = process.env,
+): string {
+  const selected =
+    rawEnv.AI_INTEGRATIONS_OPENAI_BASE_URL ||
+    rawEnv.OPENAI_BASE_URL ||
+    rawEnv.OPENAI_API_BASE_URL ||
+    "https://api.openai.com/v1";
+  return selected.trim() || "https://api.openai.com/v1";
+}
+
 export function getOpenAI(): OpenAI | null {
   if (cached) return cached;
-  const apiKey = env.OPENAI_API_KEY || env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = env.OPENAI_BASE_URL || env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+  const apiKey = resolveOpenAIApiKey({
+    AI_INTEGRATIONS_OPENAI_API_KEY: env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    OPENAI_API_KEY: env.OPENAI_API_KEY,
+  });
+  const baseURL = resolveOpenAIBaseURL({
+    AI_INTEGRATIONS_OPENAI_BASE_URL: env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    OPENAI_BASE_URL: env.OPENAI_BASE_URL,
+  });
 
   if (!apiKey) {
     logger.warn("openai-client: OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY not configured");
