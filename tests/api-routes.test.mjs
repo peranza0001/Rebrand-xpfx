@@ -17,6 +17,7 @@ process.env.JWT_SECRET = 'test-jwt-secret';
 process.env.WALLET_ENCRYPTION_KEY = 'test-wallet-encryption-key';
 process.env.ADMIN_EMAIL = 'admin@example.com';
 process.env.ADMIN_PASSWORD = 'admin-password';
+process.env.ENABLE_DEMO_AUTH = 'true';
 
 const app = (await import('../artifacts/api-server/src/app.ts')).default;
 
@@ -71,6 +72,29 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(payload[0].key);
 });
 
+test('public visitors can start chat and receive a bot reply', async () => {
+  const demoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  assert.equal(demoResponse.status, 200);
+  const cookie = parseCookie(demoResponse.headers.get('set-cookie'));
+  assert.ok(cookie.includes('xpfx_sid='));
+
+  const chatResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ content: 'How do I use the demo account?' }),
+  });
+  assert.equal(chatResponse.status, 200);
+  const chatPayload = await chatResponse.json();
+  assert.ok(chatPayload.userMessage?.isFromUser);
+  assert.ok(chatPayload.botReply?.content);
+});
+
 test('demo trading endpoints are available for authenticated sessions', async () => {
   const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
@@ -103,9 +127,29 @@ test('demo trading endpoints are available for authenticated sessions', async ()
       'Content-Type': 'application/json',
       Cookie: cookie,
     },
-    body: JSON.stringify({ symbol: 'EUR/USD', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
+    body: JSON.stringify({ symbol: 'BTC', type: 'market', side: 'buy', amount: 0.01, leverage: 10 }),
   });
   assert.equal(orderResponse.status, 200);
   const orderPayload = await orderResponse.json();
   assert.equal(orderPayload.success, true);
+
+  const invalidOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'EUR/USD', type: 'market', side: 'buy', amount: -1, leverage: 10 }),
+  });
+  assert.equal(invalidOrderResponse.status, 400);
+
+  const unsupportedOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'NOT-A-MARKET', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
+  });
+  assert.equal(unsupportedOrderResponse.status, 400);
 });

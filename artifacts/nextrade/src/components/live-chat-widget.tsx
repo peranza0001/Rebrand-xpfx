@@ -35,9 +35,22 @@ export function LiveChatWidget() {
     const fetchSession = async () => {
       setIsLoading(true);
       try {
-        const sessionRes = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' });
+        let sessionRes = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' });
         if (!sessionRes.ok) return;
-        const sessionData: SessionResponse = await sessionRes.json();
+        let sessionData: SessionResponse = await sessionRes.json();
+
+        // Public visitors use the isolated demo identity so chat works before signup.
+        if (!sessionData.user?.id) {
+          const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (!demoRes.ok) return;
+          sessionRes = demoRes;
+          sessionData = await sessionRes.json();
+        }
+
         if (!sessionData.user?.id) return;
         setUserId(sessionData.user.id);
 

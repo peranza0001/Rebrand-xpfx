@@ -46,19 +46,38 @@ router.post('/demo/order', requireAuth, (req, res) => {
   const resolvedInstrument = instrument || symbol;
   const resolvedAmount = amount ?? quantity;
 
-  if (!resolvedInstrument || !type || !side || resolvedAmount === undefined || resolvedAmount === null || Number.isNaN(Number(resolvedAmount))) {
-    return res.status(400).json({ error: 'Missing fields' });
+  const allowedInstruments = new Set(assetCatalog.slice(0, 8).map((asset) => asset.symbol));
+  const amountValue = Number(resolvedAmount);
+  const leverageValue = Number(leverage ?? 10);
+  const priceValue = price === undefined || price === null || price === '' ? undefined : Number(price);
+
+  if (!allowedInstruments.has(String(resolvedInstrument))) {
+    return res.status(400).json({ error: 'Unsupported demo instrument' });
+  }
+  if (type !== 'market' && type !== 'limit' && type !== 'stop') {
+    return res.status(400).json({ error: 'Unsupported order type' });
+  }
+  if (side !== 'buy' && side !== 'sell') {
+    return res.status(400).json({ error: 'Unsupported order side' });
+  }
+  if (!Number.isFinite(amountValue) || amountValue <= 0 || amountValue > 1_000_000_000) {
+    return res.status(400).json({ error: 'Demo amount must be between 0 and 1,000,000,000' });
+  }
+  if (!Number.isInteger(leverageValue) || leverageValue < 1 || leverageValue > 50) {
+    return res.status(400).json({ error: 'Demo leverage must be an integer between 1 and 50' });
+  }
+  if (type !== 'market' && (!Number.isFinite(priceValue) || (priceValue ?? 0) <= 0)) {
+    return res.status(400).json({ error: 'Limit and stop orders require a positive price' });
   }
 
-  const amountValue = Number(resolvedAmount);
   const order = sim.placeOrder({
     userId: req.userId!,
     instrument: resolvedInstrument,
     type,
     side,
-    price: price ? Number(price) : undefined,
+    price: priceValue,
     amount: amountValue,
-    leverage: Number(leverage ?? 10),
+    leverage: leverageValue,
   });
 
   return res.json({ success: true, order });

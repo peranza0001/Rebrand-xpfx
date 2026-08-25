@@ -25,6 +25,7 @@ import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
 import { sendEmail } from "../lib/email";
 import { env } from "../lib/env";
+import { logger } from "../lib/logger";
 import type { LiveChatMsg } from "../lib/store";
 
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
@@ -69,6 +70,13 @@ function keywordEscalation(content: string): boolean {
   );
 }
 
+async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
+  const persisted = await persistChatMessage(userId, senderType, senderId, content);
+  if (!persisted) {
+    logger.warn({ userId, senderType }, "live-chat persistence unavailable; serving from active session");
+  }
+}
+
 // GET /live-chat — current user's messages
 router.get("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
@@ -99,10 +107,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
-  if (!await persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content)) {
-    data.liveChat.pop();
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
-  }
+  await persistChatBestEffort(req.userId!, 'user', req.userId!, userMsg.content);
 
   try {
     const ns = getChatNamespace();
@@ -141,10 +146,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
-  const botPersisted = await persistChatMessage(req.userId!, 'bot', null, botReply.content);
-  if (!botPersisted) {
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
-  }
+  await persistChatBestEffort(req.userId!, 'bot', null, botReply.content);
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.

@@ -45,10 +45,10 @@ type MarketHistoryPoint = {
 };
 
 const initialMarkets: MarketItem[] = [
-  { symbol: "EUR/USD", price: 1.0854, change: 0.18, bias: "bullish" },
-  { symbol: "GBP/JPY", price: 188.74, change: -0.42, bias: "bearish" },
-  { symbol: "BTC/USD", price: 64820, change: 1.03, bias: "bullish" },
-  { symbol: "XAU/USD", price: 2384.7, change: -0.64, bias: "bearish" },
+  { symbol: "BTC", price: 65850, change: 2.4, bias: "bullish" },
+  { symbol: "ETH", price: 3245, change: 1.8, bias: "bullish" },
+  { symbol: "SOL", price: 174, change: -1.2, bias: "bearish" },
+  { symbol: "USDT", price: 1, change: 0.01, bias: "bullish" },
 ];
 
 const initialPositions: Position[] = [];
@@ -102,7 +102,7 @@ function DemoTradingContent() {
     // Connect to Socket.IO demo-trading namespace for live prices
     const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
     socket.on('connect', () => {
-      ['EUR/USD', 'GBP/JPY', 'BTC/USD', 'XAU/USD'].forEach((s) => socket.emit('join_instrument', s));
+      initialMarkets.forEach((market) => socket.emit('join_instrument', market.symbol));
     });
     socket.on('price_update', (payload: any) => {
       setMarkets((prev) => prev.map((item) => {
