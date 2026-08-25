@@ -16,10 +16,11 @@ import {
   SendLiveChatMessageBody,
   AdminReplyLiveChatBody,
   AdminReplyLiveChatParams,
+  type SupportTicket,
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
-import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
-import { getPersistedChatMessages, persistChatMessage } from "../lib/db-persist";
+import { adminPresence, getUserData, newId, newUuid, NOW, userData, users } from "../lib/store";
+import { getPersistedChatMessages, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -27,6 +28,7 @@ import { sendEmail } from "../lib/email";
 import { env } from "../lib/env";
 import { logger } from "../lib/logger";
 import type { LiveChatMsg } from "../lib/store";
+import { getChatbotResponse, keywordEscalation } from "../lib/chatbot";
 
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
 const SUPPORT_EMAIL = env.SMTP_FROM || "support@xpressprofx.com";
@@ -59,68 +61,6 @@ function presenceState(): PresenceState {
 }
 
 const router: IRouter = Router();
-
-function localSupportReply(content: string, userName: string): string {
-  const message = content.toLowerCase();
-  const greeting = userName && userName !== "User" ? `Hi ${userName.split(/\s+/)[0]}! ` : "Hi! ";
-
-  if (keywordEscalation(content)) {
-    return `${greeting}I understand this needs human support. I have sent your conversation to our support team and a representative will take over here. Please do not share passwords, one-time codes, or private keys in chat.`;
-  }
-  if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/.test(message)) {
-    return `${greeting}How can I help you today? I can guide you through your account, demo trading, deposits, withdrawals, KYC, or platform features.`;
-  }
-  if (/(deposit|fund|add money|cash in)/.test(message)) {
-    return `${greeting}You can start a deposit from the Wallets page. Choose an available method, review the fee and destination details, and follow the confirmation steps shown there. I can also connect you with a support agent if you need help with a specific transaction.`;
-  }
-  if (/(withdraw|cash out|withdrawal)/.test(message)) {
-    return `${greeting}Withdrawals are managed from the Wallets page. Make sure your destination details are correct and complete any required verification before submitting. Tell me whether you need help with crypto, bank, or card withdrawals.`;
-  }
-  if (/(kyc|verify|verification|identity)/.test(message)) {
-    return `${greeting}KYC verification is available from the KYC page. Submit clear, valid documents that match your account details, then monitor the status there. I can explain the steps or connect you with an agent.`;
-  }
-  if (/(fee|fees|commission|spread|cost|charge)/.test(message)) {
-    return `${greeting}Fees and spreads depend on the product, payment method, currency, and account conditions. Review the amount and fee breakdown shown before confirming an action. I cannot see or change account-specific charges in chat.`;
-  }
-  if (/(leverage|margin|liquidat|stop.?loss|take.?profit|risk)/.test(message)) {
-    return `${greeting}Leverage increases both potential gains and losses. Margin can be reduced by adverse price movement, and stop-loss or take-profit orders do not guarantee a fill at the requested price. Use the Demo Trading workspace to practise and never risk funds you cannot afford to lose.`;
-  }
-  if (/(forex|currency pair|pip|lot|spread)/.test(message)) {
-    return `${greeting}Forex trading uses currency pairs such as EUR/USD. The first currency is the base and the second is the quote currency; price movements are measured in pips. Check the instrument details, market status, spread, margin, and applicable restrictions before placing an order.`;
-  }
-  if (/(invest|smartvest|portfolio|return|profit|yield|plan)/.test(message)) {
-    return `${greeting}Investment and SmartVest products involve market risk and do not guarantee returns. Review each product's objective, fees, risk level, redemption terms, and suitability information before subscribing. I can explain platform navigation, but I cannot provide personalized investment advice.`;
-  }
-  if (/(copy.?trad|follow trader|strategy|signal)/.test(message)) {
-    return `${greeting}Copy trading can reproduce another trader's activity but does not remove market risk. Review the strategy history, allocation, drawdown, fees, and stop-copy controls before following anyone. Past performance is not a guarantee of future results.`;
-  }
-  if (/(p2p|peer.?to.?peer|merchant)/.test(message)) {
-    return `${greeting}P2P trades are managed in the P2P marketplace. Check the merchant profile, price, limits, payment instructions, and escrow status, and keep communication on-platform. Never release assets until the payment is verified in your account.`;
-  }
-  if (/(wallet|balance|transaction|transfer|pending|status)/.test(message)) {
-    return `${greeting}You can review balances, transfers, and transaction status from the Wallets page. Chat cannot expose private account data or change a transaction. Share only a public transaction reference with support, never passwords, OTPs, seed phrases, or private keys.`;
-  }
-  if (/(security|2fa|two.?factor|otp|code|phish|password|private key|seed)/.test(message)) {
-    return `${greeting}Keep your password, one-time codes, recovery phrase, and private keys private. XpressPro FX support will never ask for them. If you suspect unauthorized access, secure your email, change your password, stop sharing information, and request a human-agent review immediately.`;
-  }
-  if (/(error|bug|broken|not work|unable|can't|cannot|technical)/.test(message)) {
-    return `${greeting}I can help troubleshoot that. Tell me which page or action failed, the exact non-sensitive error text, and whether you are using the website or app. Do not include passwords, OTPs, wallet seed phrases, or private keys; I can escalate the case to a human representative.`;
-  }
-  if (/(demo|paper|practice|trade|trading|order)/.test(message)) {
-    return `${greeting}The Demo Trading workspace uses simulated funds and live practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds are moved in demo mode.`;
-  }
-  if (/(account|login|password recovery|forgot password|sign up|register)/.test(message)) {
-    return `${greeting}I can help with account access, signup, password recovery, and profile settings. Tell me what is preventing you from accessing your account, without sharing your password or verification code.`;
-  }
-  return `${greeting}How can I help you today? I can answer questions about accounts, demo trading, deposits, withdrawals, KYC, and platform features. Type "agent" any time if you need a human support representative.`;
-}
-
-function keywordEscalation(content: string): boolean {
-  const m = content.toLowerCase();
-  return /(human|agent|real person|supervisor|manager|escalate|fraud|hack(ed)?|stolen|emergency)/.test(
-    m,
-  );
-}
 
 async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
   const persisted = await persistChatMessage(userId, senderType, senderId, content);
@@ -186,9 +126,10 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       userName,
     });
 
+  const localReply = getChatbotResponse(parsed.data.content, userName);
   const replyText = userMsg.escalated
-    ? localSupportReply(parsed.data.content, userName)
-    : ai?.content || localSupportReply(parsed.data.content, userName);
+    ? localReply.content
+    : ai?.content || localReply.content;
   const aiEscalated = ai?.escalated ?? false;
   const escalated = userMsg.escalated || aiEscalated;
 
@@ -209,7 +150,26 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     // Mark the most recent user msg as escalated and notify admins once.
     userMsg.escalated = true;
     const presence = presenceState();
-    const ticketId = `TC-${newId("ticket").substring(0, 8).toUpperCase()}`;
+    const ticketId = `XPFX-${newId("ticket").substring(0, 8).toUpperCase()}`;
+    const ticketRecordId = newUuid();
+    const ticketCreatedAt = NOW();
+    const ticket: SupportTicket = {
+      id: ticketRecordId,
+      subject: `Live chat escalation ${ticketId}`,
+      status: "open",
+      priority: presence.anyOnline ? "medium" : "high",
+      messages: [],
+      createdAt: ticketCreatedAt,
+      updatedAt: ticketCreatedAt,
+    };
+    data.supportTickets.unshift(ticket);
+    void persistSupportTicket(ticket.id, req.userId!, {
+      subject: ticket.subject,
+      status: ticket.status,
+      priority: ticket.priority,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+    });
     handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
     
     if (!presence.anyOnline) {
