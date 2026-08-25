@@ -160,8 +160,8 @@ export const hasSmtpCredentials = Boolean(
   env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS,
 );
 
-export function isDemoRouteAvailable(): boolean {
-  return isDemoAuthEnabled;
+export function isDemoRouteAvailable(rawEnv: Record<string, string | undefined> = process.env): boolean {
+  return rawEnv.ENABLE_DEMO_AUTH?.trim().toLowerCase() !== "false";
 }
 
 export function assertRequiredEnv(): { port: number } {

@@ -81,6 +81,15 @@ test('public visitors can start chat and receive a bot reply', async () => {
   const cookie = parseCookie(demoResponse.headers.get('set-cookie'));
   assert.ok(cookie.includes('xpfx_sid='));
 
+  const secondDemoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  assert.equal(secondDemoResponse.status, 200);
+  const firstDemo = await demoResponse.clone().json();
+  const secondDemo = await secondDemoResponse.json();
+  assert.notEqual(firstDemo.user.id, secondDemo.user.id);
+
   const chatResponse = await fetch(`${baseUrl}/api/live-chat`, {
     method: 'POST',
     headers: {

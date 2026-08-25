@@ -1579,6 +1579,31 @@ export function ensureDemoUser(): StoredUser {
   return stored;
 }
 
+/** Create an isolated paper-trading account for a public visitor. */
+export function createIsolatedDemoUser(): StoredUser {
+  const id = newUuid();
+  const suffix = id.replace(/-/g, "").slice(0, 12);
+  const stored = createUser({
+    id,
+    email: `visitor-${suffix}@demo.xpressprofx.invalid`,
+    password: "",
+    fullName: "Demo Trader",
+    username: `demo_${suffix}`,
+    country: "US",
+    role: "demo",
+    kycVerified: false,
+    avatarSeed: suffix,
+  });
+  const data = freshUserData(id, { withDemoBalances: true, country: "US" });
+  data.wallets[0]!.balance = demoConfig.defaultBalance;
+  data.wallets[1]!.balance = 0;
+  data.wallets[2]!.balance = 0;
+  data.transactions = [];
+  data.trades = [];
+  userData.set(id, data);
+  return stored;
+}
+
 // --- Seed Alex (development-only demo user) ---
 // Only seeded when ENABLE_DEMO_AUTH=true AND not in production.
 if (isDemoAuthEnabled) {

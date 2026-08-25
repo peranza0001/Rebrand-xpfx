@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { isDemoAuthEnabled, isDemoRouteAvailable, isProduction } from "../lib/env";
 import {
+  createIsolatedDemoUser,
   ensureDemoUser,
   freshUserData,
   getUserData,
@@ -712,11 +713,8 @@ router.post("/auth/demo", async (req, res) => {
   if (!isDemoRouteAvailable()) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
-  if (!isDemoAuthEnabled) {
-    return res.status(403).json({ error: "Demo accounts are currently disabled." });
-  }
 
-  const stored = ensureDemoUser();
+  const stored = createIsolatedDemoUser();
   const userId = stored.user.id;
   getUserData(userId);
   const sid = newSessionId();

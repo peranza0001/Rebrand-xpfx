@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveDemoAuthEnabled } from '../artifacts/api-server/src/lib/env.ts';
+import { isDemoRouteAvailable, resolveDemoAuthEnabled } from '../artifacts/api-server/src/lib/env.ts';
 import { ensureDemoUser } from '../artifacts/api-server/src/lib/store.ts';
 
 test('demo auth stays off by default in production unless explicitly enabled', () => {
@@ -16,6 +16,11 @@ test('demo auth stays disabled when explicitly turned off', () => {
 test('demo auth can be enabled explicitly in a controlled environment', () => {
   const enabled = resolveDemoAuthEnabled({ NODE_ENV: 'production', ENABLE_DEMO_AUTH: 'true' });
   assert.equal(enabled, true);
+});
+
+test('public demo route is available by default and can be explicitly disabled', () => {
+  assert.equal(isDemoRouteAvailable({ NODE_ENV: 'production' }), true);
+  assert.equal(isDemoRouteAvailable({ NODE_ENV: 'production', ENABLE_DEMO_AUTH: 'false' }), false);
 });
 
 test('demo users are reused and initialized with demo balances', () => {
