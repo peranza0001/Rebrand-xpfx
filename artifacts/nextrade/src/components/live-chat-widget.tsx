@@ -27,7 +27,16 @@ export function LiveChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const csrfTokenRef = useRef<string | null>(null);
   const qc = useQueryClient();
+
+  const loadCsrfToken = async () => {
+    const response = await fetch(`${apiUrl}/api/csrf-token`, { credentials: 'include' });
+    if (!response.ok) throw new Error('Live chat security initialization failed');
+    const payload = await response.json() as { csrfToken?: string };
+    if (!payload.csrfToken) throw new Error('Live chat security token was not returned');
+    csrfTokenRef.current = payload.csrfToken;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -35,6 +44,7 @@ export function LiveChatWidget() {
     const fetchSession = async () => {
       setIsLoading(true);
       try {
+        await loadCsrfToken();
         let sessionRes = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' });
         if (!sessionRes.ok) return;
         let sessionData: SessionResponse = await sessionRes.json();
@@ -58,6 +68,8 @@ export function LiveChatWidget() {
         if (!res.ok) return;
         const chatData = await res.json();
         setMessages(Array.isArray(chatData) ? chatData : []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Live chat is temporarily unavailable');
       } finally {
         setIsLoading(false);
       }
@@ -102,10 +114,14 @@ export function LiveChatWidget() {
     setError(null);
     setIsSending(true);
     try {
+      if (!csrfTokenRef.current) await loadCsrfToken();
       const res = await fetch(`${apiUrl}/api/live-chat`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfTokenRef.current ?? '',
+        },
         body: JSON.stringify({ content: text }),
       });
       if (!res.ok) {
