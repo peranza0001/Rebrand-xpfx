@@ -128,6 +128,10 @@ test('public visitors can start chat and receive a bot reply', async () => {
   assert.equal(handoffPayload.escalated, true);
   assert.equal(handoffPayload.handoff.status, 'queued');
   assert.match(handoffPayload.handoff.ticketId, /^XPFX-/);
+  assert.equal(typeof handoffPayload.handoff.supportNotification?.delivered, 'boolean');
+  if (!handoffPayload.handoff.supportNotification.delivered) {
+    assert.match(handoffPayload.handoff.supportNotification.fallbackUrl, /^mailto:/);
+  }
   assert.match(handoffPayload.botReply.content, /human support|support team/i);
   assert.doesNotMatch(handoffPayload.botReply.content, /type "agent"/i);
 });

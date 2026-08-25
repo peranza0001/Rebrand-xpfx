@@ -23,6 +23,7 @@ interface HandoffResponse {
   ticketId: string;
   status: "queued";
   agentAvailable: boolean;
+  supportNotification?: { delivered: boolean; fallbackUrl?: string };
 }
 
 interface VisitorProfile {
@@ -314,6 +315,11 @@ export function LiveChatWidget() {
               <p className="font-semibold">{handoff.agentAvailable ? "Agent joining" : "In queue"}</p>
               <p>{handoff.agentAvailable ? "Support is typing..." : "We will notify you here when a representative joins."}</p>
               <p className="mt-1 font-medium">Ticket {handoff.ticketId}</p>
+              {handoff.supportNotification?.delivered ? (
+                <p className="mt-1 text-emerald-700 dark:text-emerald-300">Support team notified.</p>
+              ) : handoff.supportNotification?.fallbackUrl ? (
+                <a className="mt-1 inline-block font-medium underline" href={handoff.supportNotification.fallbackUrl}>Notify support by email</a>
+              ) : null}
             </div>
           )}
 

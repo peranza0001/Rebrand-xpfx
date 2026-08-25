@@ -109,7 +109,12 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
   const stored = users.get(req.userId!);
   const userName = stored?.user.fullName ?? "User";
-  let handoff: { ticketId: string; status: "queued"; agentAvailable: boolean } | null = null;
+  let handoff: {
+    ticketId: string;
+    status: "queued";
+    agentAvailable: boolean;
+    supportNotification?: { delivered: boolean; fallbackUrl?: string };
+  } | null = null;
 
   const safeContent = redactChatContent(parsed.data.content);
   const userMsg: LiveChatMsg = {
@@ -239,13 +244,21 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       `Reply to this email to respond to the user (or use the admin panel at ${env.FRONTEND_URL || 'https://app.xpressprofx.com'}/admin/livechat)\n` +
       `Ticket ID ${ticketId} will be tracked with this conversation.\n`;
 
-    void sendEmail({
-      to: SUPPORT_EMAIL,
-      subject: emailSubject,
-      body: emailBody,
-      text: emailBody,
-      kind: "live_chat.escalation",
-    }).catch(() => undefined);
+    try {
+      await sendEmail({
+        to: SUPPORT_EMAIL,
+        subject: emailSubject,
+        body: emailBody,
+        text: emailBody,
+        kind: "live_chat.escalation",
+      }, { requireProvider: true });
+      handoff.supportNotification = { delivered: true };
+    } catch {
+      handoff.supportNotification = {
+        delivered: false,
+        fallbackUrl: `mailto:${encodeURIComponent(SUPPORT_EMAIL)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`,
+      };
+    }
   }
 
   return res.json({
