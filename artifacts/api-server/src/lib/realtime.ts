@@ -8,6 +8,7 @@ import { getAllowedOrigins, normalizeOrigin } from './cors';
 import { persistChatMessage } from './db-persist';
 import { generateAIReply } from './openai-client';
 import { pushAdminAlert } from './notify';
+import { getPersistedSession } from './db-persist';
 
 function realtimeFallbackReply(content: string): string {
   const message = content.toLowerCase();
@@ -49,7 +50,7 @@ export async function initRealtime(server: http.Server) {
   (globalThis as any).__xpfx_io = io;
 
   // Simple auth: read cookie header, unsign using cookie-parser's signedCookie
-  io.use((socket: any, next: (err?: Error) => void) => {
+  io.use(async (socket: any, next: (err?: Error) => void) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie || '';
       const cookies = Object.fromEntries(cookieHeader.split(';').map((pair: string) => {
@@ -57,7 +58,7 @@ export async function initRealtime(server: http.Server) {
         return [k?.trim(), v.join('=')];
       }).filter(([k]: [string | undefined]) => Boolean(k)));
 
-      const raw = cookies[SESSION_COOKIE];
+      const raw = cookies[SESSION_COOKIE] ? decodeURIComponent(cookies[SESSION_COOKIE]) : undefined;
       if (!raw) {
         return next(new Error('Not authenticated'));
       }
@@ -66,7 +67,14 @@ export async function initRealtime(server: http.Server) {
       const secret = process.env.SESSION_SECRET || '';
       const signed = cookieParser.signedCookie(raw, secret);
       const sid = signed || raw;
-      const rec = sessions.get(sid as string);
+      let rec = sessions.get(sid as string);
+      if (!rec) {
+        const persisted = await getPersistedSession(String(sid));
+        if (persisted && new Date(persisted.expiresAt).getTime() > Date.now()) {
+          rec = { userId: persisted.userId, expiresAt: persisted.expiresAt };
+          sessions.set(String(sid), rec);
+        }
+      }
       const userId = rec?.userId;
       if (!userId) return next(new Error('Invalid session'));
       // attach userId to socket
@@ -104,18 +112,22 @@ export async function initRealtime(server: http.Server) {
     });
 
     socket.on('join_conversation', (convId: string) => {
-      socket.join(`conv:${convId}`);
+      if (typeof convId === 'string' && convId === userId) {
+        socket.join(`conv:${userId}`);
+      }
     });
 
     socket.on('send_message', async (payload: { convId: string; content: string }) => {
-      const { convId, content } = payload;
+      const content = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 10000) : '';
+      if (!content) return;
+      const convId = userId;
       const stored = users.get(userId);
       const senderName = stored?.user.fullName || stored?.user.username || 'User';
       const msg = {
         id: `msg_${Math.random().toString(36).slice(2, 9)}`,
         userId,
         senderName,
-        content: String(content).slice(0, 10000),
+        content,
         isFromUser: true,
         isBot: false,
         escalated: false,
