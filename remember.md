@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-21 19:19:39 UTC
+- Last sync: 2026-08-25 09:25:34 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/lib/env.ts | M  artifacts/api-server/src/lib/otp.ts
+- Current working tree: M artifacts/mockup-sandbox/src/main.tsx | M  artifacts/nextrade/src/components/compliance-dashboard.tsx | M  artifacts/nextrade/src/components/live-trade-chart.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

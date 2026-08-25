@@ -12,6 +12,7 @@ import {
   useGetTransactions, useGetTrades, useGetKycStatus, useGetBankAccounts,
   useGetWithdrawals, useGetReferralInfo, useGetConnectedWallets, useGetCards,
 } from "@workspace/api-client-react";
+import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -78,8 +79,8 @@ export function Dashboard() {
   const recentTx = transactions?.slice(0, 5) ?? [];
   const pendingWithdrawals = withdrawals?.filter((w) => w.status === "pending").length ?? 0;
   const verifiedBanks = verifiedBankCount;
-  const liveTradeSnapshots = activeTrades.slice(0, 4).map((trade) => {
-    const side = trade.type === "long" ? "buy" : "sell";
+  const liveTradeSnapshots: LiveTradeSnapshot[] = activeTrades.slice(0, 4).map((trade) => {
+    const side: LiveTradeSnapshot["side"] = trade.type === "long" ? "buy" : "sell";
     const pnl = (trade.currentPrice - trade.entryPrice) * trade.amount * (trade.type === "long" ? 1 : -1);
     const pnlPct = trade.entryPrice > 0
       ? (((trade.currentPrice - trade.entryPrice) / trade.entryPrice) * 100) * (trade.type === "long" ? 1 : -1)

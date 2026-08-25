@@ -16,6 +16,7 @@ import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { AdvancedTradingPanel } from "@/components/advanced-trading-panel";
 import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
+import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { DemoTradingGuide } from "@/components/demo-trading-guide";
 
 type MarketItem = {
@@ -225,10 +226,10 @@ function DemoTradingContent() {
     return Math.min(100, score);
   }, [isAuthenticated, user]);
 
-  const liveTradeSnapshots = positions.map((position) => ({
+  const liveTradeSnapshots: LiveTradeSnapshot[] = positions.map((position) => ({
     id: position.id,
     symbol: position.symbol,
-    side: position.side === "long" ? "buy" : "sell",
+    side: (position.side === "long" ? "buy" : "sell") as LiveTradeSnapshot["side"],
     entryPrice: position.entryPrice,
     currentPrice: position.currentPrice,
     size: position.size,

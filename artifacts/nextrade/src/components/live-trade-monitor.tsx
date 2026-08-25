@@ -1,4 +1,15 @@
-import { Activity, PauseCircle, XCircle, Eye, EyeOff } from "lucide-react";
+import {
+  Activity,
+  ArrowDownRight,
+  Eye,
+  EyeOff,
+  PauseCircle,
+  Shield,
+  Target,
+  TrendingUp,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,15 +88,15 @@ export function LiveTradeMonitor({
     Math.abs((activeTrade.entryPrice - activeTrade.stopLoss) / activeTrade.entryPrice * 100)
     : 0;
 
-  const _profitTarget = activeTrade && activeTrade.takeProfit ?
+  const profitTarget = activeTrade && activeTrade.takeProfit ?
     Math.abs((activeTrade.takeProfit - activeTrade.entryPrice) / activeTrade.entryPrice * 100)
     : 0;
 
-  const _distanceToStop = activeTrade && activeTrade.stopLoss ?
+  const distanceToStop = activeTrade && activeTrade.stopLoss ?
     Math.abs((activeTrade.currentPrice - activeTrade.stopLoss) / activeTrade.stopLoss * 100)
     : 0;
 
-  const _distanceToTarget = activeTrade && activeTrade.takeProfit ?
+  const distanceToTarget = activeTrade && activeTrade.takeProfit ?
     Math.abs((activeTrade.takeProfit - activeTrade.currentPrice) / activeTrade.currentPrice * 100)
     : 0;
 

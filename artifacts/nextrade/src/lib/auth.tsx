@@ -3,6 +3,7 @@ import {
   useGetSession,
   useGetConnectedWallets,
   getGetConnectedWalletsQueryKey,
+  getGetSessionQueryKey,
   AuthSession,
 } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
@@ -23,7 +24,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isLoading, isError } = useGetSession({
-    query: { retry: false, staleTime: 30_000 },
+    query: { queryKey: getGetSessionQueryKey(), retry: false, staleTime: 30_000 },
   });
   const resolvedSession = isError ? undefined : session;
 

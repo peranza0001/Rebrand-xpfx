@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, Tooltip, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { Shield, Zap, Target, AlertCircle, CheckCircle, Clock, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -222,7 +222,7 @@ export function InvestmentPlans() {
       {hasChecklist && !activeSubscription && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="flex items-start gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-amber-900">Account Setup Required</p>
               <p className="text-sm text-amber-800 mt-1">

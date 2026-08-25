@@ -20,6 +20,21 @@ interface ComplianceDashboardProps {
   regulationText?: string;
 }
 
+function getDefaultComplianceStatus(kycVerified: boolean, amlStatus: string): ComplianceStatus[] {
+  return [
+    {
+      category: "Identity verification",
+      status: kycVerified ? "compliant" : "pending",
+      description: kycVerified ? "Your identity has been verified." : "Complete identity verification to unlock all account features.",
+    },
+    {
+      category: "AML screening",
+      status: amlStatus.toLowerCase() === "clear" ? "compliant" : "pending",
+      description: amlStatus,
+    },
+  ];
+}
+
 export function ComplianceDashboard({
   status,
   kycVerified = false,
@@ -136,7 +151,7 @@ export function ComplianceDashboard({
                     <p className="text-sm mt-1 opacity-90">{item.description}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="ml-2 flex-shrink-0">
+                <Badge variant="outline" className="ml-2 shrink-0">
                   {item.status}
                 </Badge>
               </div>
