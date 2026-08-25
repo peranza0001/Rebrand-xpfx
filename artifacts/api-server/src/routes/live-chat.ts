@@ -62,6 +62,23 @@ function presenceState(): PresenceState {
 
 const router: IRouter = Router();
 
+router.post("/live-chat/identify", requireAuth, (req, res) => {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const country = typeof req.body?.country === "string" ? req.body.country.trim().slice(0, 80) : "";
+  if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Enter a valid name and email." });
+  }
+
+  const stored = users.get(req.userId!);
+  if (!stored) return res.status(404).json({ error: "Chat identity is unavailable." });
+  stored.user.fullName = name;
+  stored.user.email = email;
+  if (country) stored.user.country = country;
+  usersByEmail.set(email, req.userId!);
+  return res.json({ name, email, country });
+});
+
 async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
   const persisted = await persistChatMessage(userId, senderType, senderId, content);
   if (!persisted) {

@@ -196,7 +196,7 @@ export function LiveChatWidget() {
     }
   };
 
-  const handleIdentify = (event: FormEvent<HTMLFormElement>) => {
+  const handleIdentify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = profileDraft.name.trim();
     const email = profileDraft.email.trim();
@@ -205,9 +205,24 @@ export function LiveChatWidget() {
       return;
     }
     const profile = { name, email, country: profileDraft.country.trim() };
-    setVisitorProfile(profile);
-    window.localStorage.setItem("xpfx_live_chat_profile", JSON.stringify(profile));
-    setError(null);
+    try {
+      if (!csrfTokenRef.current) await loadCsrfToken();
+      const response = await fetch(apiPath("/api/live-chat/identify"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfTokenRef.current ?? "",
+        },
+        body: JSON.stringify(profile),
+      });
+      if (!response.ok) throw new Error("We could not save your support details.");
+      setVisitorProfile(profile);
+      window.localStorage.setItem("xpfx_live_chat_profile", JSON.stringify(profile));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We could not save your support details.");
+    }
   };
 
   return (

@@ -714,6 +714,10 @@ router.post("/auth/demo", async (req, res) => {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
 
+  if (req.storedUser?.role === "demo" || req.storedUser?.demoMode === true) {
+    return res.json(sessionFor(req.storedUser, true));
+  }
+
   const stored = createIsolatedDemoUser();
   const userId = stored.user.id;
   getUserData(userId);

@@ -33,6 +33,9 @@ export function getDemoAccountSnapshot(userId: string) {
 }
 
 router.get('/demo/account', requireAuth, (req, res) => {
+  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
+    return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
+  }
   res.json(getDemoAccountSnapshot(req.userId!));
 });
 
@@ -42,6 +45,9 @@ router.get('/demo/instruments', requireAuth, (_req, res) => {
 });
 
 router.post('/demo/order', requireAuth, (req, res) => {
+  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
+    return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
+  }
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: 'Trading is locked on your account.' });
   }
@@ -99,6 +105,9 @@ router.post('/demo/order', requireAuth, (req, res) => {
 });
 
 router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
+  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
+    return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
+  }
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: 'Trading is locked on your account.' });
   }
@@ -151,12 +160,6 @@ router.post('/demo/reset-balance', requireAuth, (req, res) => {
   data.trades = [];
   data.transactions = [];
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
-});
-
-router.delete('/demo/position/:positionId', requireAuth, (req, res) => {
-  const closed = sim.closePosition(req.userId!, req.params.positionId);
-  if (!closed) return res.status(404).json({ error: 'Demo position not found or already closed' });
-  return res.json({ success: true, account: getDemoAccountSnapshot(req.userId!) });
 });
 
 export default router;
