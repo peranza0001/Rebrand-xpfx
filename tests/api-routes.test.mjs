@@ -152,4 +152,10 @@ test('demo trading endpoints are available for authenticated sessions', async ()
     body: JSON.stringify({ symbol: 'NOT-A-MARKET', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
   });
   assert.equal(unsupportedOrderResponse.status, 400);
+
+  const resetResponse = await fetch(`${baseUrl}/api/demo/reset-balance`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(resetResponse.status, 403);
 });

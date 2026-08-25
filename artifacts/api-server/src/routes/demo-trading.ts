@@ -84,6 +84,9 @@ router.post('/demo/order', requireAuth, (req, res) => {
 });
 
 router.post('/demo/reset-balance', requireAuth, (req, res) => {
+  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
+    return res.status(403).json({ error: 'Only isolated demo accounts can reset demo trading data.' });
+  }
   const data = getUserData(req.userId!);
   const defaultAmount = demoConfig.defaultBalance;
   const trading = data.wallets.find((w) => w.type === 'trading');
