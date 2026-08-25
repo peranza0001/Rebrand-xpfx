@@ -85,6 +85,13 @@ export const env = {
   ALCHEMY_API_KEY: get("ALCHEMY_API_KEY"),
   INFURA_API_KEY: get("INFURA_API_KEY"),
 
+  // Trading execution providers (optional — live real-money trading remains off
+  // until explicitly enabled and backed by a vetted broker configuration).
+  BROKER_API_KEY: get("BROKER_API_KEY"),
+  BROKER_API_URL: get("BROKER_API_URL"),
+  BROKER_ACCOUNT_ID: get("BROKER_ACCOUNT_ID"),
+  BROKER_EXECUTION_PROVIDER: get("BROKER_EXECUTION_PROVIDER"),
+
   // MoonPay (optional — falls back to sandbox)
   MOONPAY_API_KEY: get("MOONPAY_API_KEY"),
   MOONPAY_SECRET_KEY: resolveEnvValue(process.env, "MOONPAY_SECRET_KEY", ["MOONPAY_SECRET"]),

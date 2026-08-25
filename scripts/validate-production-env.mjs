@@ -114,6 +114,16 @@ function validateProductionEnvironment(env = process.env) {
       warnings.push('ENABLE_DEMO_AUTH is enabled in production; this is a public exposure and should be disabled unless intentionally required.');
     }
 
+    const liveTrading = env.ENABLE_LIVE_TRADING?.trim().toLowerCase();
+    const brokerApiUrl = env.BROKER_API_URL?.trim();
+    const brokerApiKey = env.BROKER_API_KEY?.trim();
+    const brokerAccountId = env.BROKER_ACCOUNT_ID?.trim();
+    if (liveTrading === 'true' || liveTrading === '1') {
+      if (!brokerApiUrl || !brokerApiKey || !brokerAccountId) {
+        errors.push('ENABLE_LIVE_TRADING=true in production requires a complete broker execution configuration: BROKER_API_URL, BROKER_API_KEY, and BROKER_ACCOUNT_ID.');
+      }
+    }
+
     if (env.MOONPAY_API_KEY && !env.MOONPAY_SECRET_KEY) {
       errors.push('MOONPAY_SECRET_KEY must be set when MOONPAY_API_KEY is configured in production.');
     }

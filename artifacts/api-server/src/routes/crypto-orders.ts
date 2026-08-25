@@ -3,6 +3,7 @@ import { getUserData, newId, newUuid, NOW } from "../lib/store";
 import { persistTransaction } from "../lib/db-persist";
 import { requireAuth } from "../lib/session";
 import { isLiveTradingEnabled } from "../lib/env";
+import { submitBrokerOrder } from "../lib/broker-client";
 
 const router: IRouter = Router();
 
@@ -74,22 +75,64 @@ router.get("/crypto/orders", requireAuth, (req, res) => {
   res.json([...orders.values()]);
 });
 
-router.post("/crypto/buy", requireAuth, (req, res) => {
+router.post("/crypto/buy", requireAuth, async (req, res) => {
   if (!isLiveTradingEnabled) {
     return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
+  const asset = typeof req.body?.asset === "string" ? req.body.asset.trim().toUpperCase() : "";
+  const amount = Number(req.body?.amount);
+  if (!asset || !Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: "asset and a positive amount are required." });
+  }
+
+  const brokerResult = await submitBrokerOrder({
+    symbol: asset,
+    side: "buy",
+    quantity: amount,
+    userId: req.userId,
+    type: "market",
+  });
+  if (!brokerResult.ok) {
+    return res.status(503).json({
+      error: brokerResult.message || "Crypto execution is currently unavailable.",
+      code: "provider_unavailable",
+      provider: brokerResult.provider,
+    });
+  }
+
   const order = createOrder(req.userId!, "buy", req.body ?? {});
   if (!order) return res.status(400).json({ error: "asset and a positive amount are required." });
-  return res.status(202).json({ ok: true, stub: true, notice: "Crypto buy queued in providerless stub mode; no external funds moved.", order });
+  return res.status(202).json({ ok: true, stub: false, provider: brokerResult.provider, orderId: brokerResult.orderId, notice: "Crypto buy accepted by configured broker execution provider.", order });
 });
 
-router.post("/crypto/sell", requireAuth, (req, res) => {
+router.post("/crypto/sell", requireAuth, async (req, res) => {
   if (!isLiveTradingEnabled) {
     return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
+  const asset = typeof req.body?.asset === "string" ? req.body.asset.trim().toUpperCase() : "";
+  const amount = Number(req.body?.amount);
+  if (!asset || !Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: "asset and a positive amount are required." });
+  }
+
+  const brokerResult = await submitBrokerOrder({
+    symbol: asset,
+    side: "sell",
+    quantity: amount,
+    userId: req.userId,
+    type: "market",
+  });
+  if (!brokerResult.ok) {
+    return res.status(503).json({
+      error: brokerResult.message || "Crypto execution is currently unavailable.",
+      code: "provider_unavailable",
+      provider: brokerResult.provider,
+    });
+  }
+
   const order = createOrder(req.userId!, "sell", req.body ?? {});
   if (!order) return res.status(400).json({ error: "asset and a positive amount are required." });
-  return res.status(202).json({ ok: true, stub: true, notice: "Crypto sell queued in providerless stub mode; no external funds moved.", order });
+  return res.status(202).json({ ok: true, stub: false, provider: brokerResult.provider, orderId: brokerResult.orderId, notice: "Crypto sell accepted by configured broker execution provider.", order });
 });
 
 router.get("/copy-trading/strategies", requireAuth, (_req, res) => {
