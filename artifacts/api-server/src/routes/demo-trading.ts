@@ -54,7 +54,7 @@ router.post('/demo/order', requireAuth, (req, res) => {
     return res.status(403).json({ error: 'Trading is locked on your account.' });
   }
   getDemoAccountSnapshot(req.userId!);
-  const { instrument, symbol, type, side, price, amount, quantity, leverage } = req.body as any;
+  const { instrument, symbol, type, side, price, amount, quantity, leverage, stopLoss, takeProfit } = req.body as any;
   const resolvedInstrument = instrument || symbol;
   const resolvedAmount = amount ?? quantity;
 
@@ -62,6 +62,8 @@ router.post('/demo/order', requireAuth, (req, res) => {
   const amountValue = Number(resolvedAmount);
   const leverageValue = Number(leverage ?? 10);
   const priceValue = price === undefined || price === null || price === '' ? undefined : Number(price);
+  const stopLossValue = stopLoss === undefined || stopLoss === null || stopLoss === '' ? undefined : Number(stopLoss);
+  const takeProfitValue = takeProfit === undefined || takeProfit === null || takeProfit === '' ? undefined : Number(takeProfit);
 
   if (!allowedInstruments.has(String(resolvedInstrument))) {
     return res.status(400).json({ error: 'Unsupported demo instrument' });
@@ -80,6 +82,12 @@ router.post('/demo/order', requireAuth, (req, res) => {
   }
   if (type !== 'market' && (!Number.isFinite(priceValue) || (priceValue ?? 0) <= 0)) {
     return res.status(400).json({ error: 'Limit and stop orders require a positive price' });
+  }
+  if (stopLossValue !== undefined && (!Number.isFinite(stopLossValue) || stopLossValue <= 0)) {
+    return res.status(400).json({ error: 'Stop loss must be a positive price' });
+  }
+  if (takeProfitValue !== undefined && (!Number.isFinite(takeProfitValue) || takeProfitValue <= 0)) {
+    return res.status(400).json({ error: 'Take profit must be a positive price' });
   }
 
   const data = getUserData(req.userId!);
@@ -101,6 +109,8 @@ router.post('/demo/order', requireAuth, (req, res) => {
     price: priceValue,
     amount: amountValue,
     leverage: leverageValue,
+    stopLoss: stopLossValue,
+    takeProfit: takeProfitValue,
   });
 
   return res.json({ success: true, order });

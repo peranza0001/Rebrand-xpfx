@@ -58,6 +58,7 @@ export function AdvancedTradingPanel({
   const [orderType, setOrderType] = useState<"market" | "limit" | "stop">("market");
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
   const [volume, setVolume] = useState("0.1");
+  const [entryPrice, setEntryPrice] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [slippage, setSlippage] = useState("2");
@@ -76,6 +77,7 @@ export function AdvancedTradingPanel({
       orderType,
       side: orderSide,
       volume: parseFloat(volume),
+      price: orderType === "market" ? undefined : parseFloat(entryPrice),
       stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
       takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
       slippage: parseFloat(slippage),
@@ -170,6 +172,21 @@ export function AdvancedTradingPanel({
             </div>
           </div>
 
+          {orderType !== "market" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Entry Price</label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0"
+                value={entryPrice}
+                onChange={(e) => setEntryPrice(e.target.value)}
+                placeholder={currentPrice.toFixed(4)}
+                className="font-mono"
+              />
+            </div>
+          )}
+
           {/* Stop Loss */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Stop Loss (Optional)</label>
@@ -261,7 +278,7 @@ export function AdvancedTradingPanel({
                 : "bg-red-600 hover:bg-red-700"
             }`}
           >
-            {loading ? "Processing..." : `${orderSide.toUpperCase()} ${volume} LOTS`}
+            {loading ? "Processing..." : `${orderSide.toUpperCase()} ${volume} UNITS`}
           </Button>
         </CardContent>
       </Card>

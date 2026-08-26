@@ -13,6 +13,8 @@ export interface Order {
   price?: number; // for limit/stop
   amount: number; // units of asset
   leverage: number;
+  stopLoss?: number;
+  takeProfit?: number;
   status: 'open' | 'filled' | 'cancelled';
   createdAt: string;
 }
@@ -112,6 +114,8 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               profit: 0,
               expectedProfit: 0,
               leverage: o.leverage,
+              stopLoss: o.stopLoss ?? null,
+              takeProfit: o.takeProfit ?? null,
               marginRequired,
               managerId: null,
               createdAt: NOW(),
@@ -149,11 +153,18 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
           t.profit = Math.round(pnl * 100) / 100;
 
+          const hitStopLoss = t.type === 'long'
+            ? (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current <= (t as any).stopLoss
+            : (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current >= (t as any).stopLoss;
+          const hitTakeProfit = t.type === 'long'
+            ? (t as any).takeProfit !== null && (t as any).takeProfit !== undefined && current >= (t as any).takeProfit
+            : (t as any).takeProfit !== null && (t as any).takeProfit !== undefined && current <= (t as any).takeProfit;
+
           // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
           const margin = (t as any).marginRequired ?? (t.entryPrice * t.amount / ((t as any).leverage || 1));
           const equity = margin + t.profit; // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
-          if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
+          if (hitStopLoss || hitTakeProfit || equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
             // Close trade
             t.status = 'completed';
             t.completedAt = NOW();

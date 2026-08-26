@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-26 00:44:28 UTC
+- Last sync: 2026-08-26 01:02:14 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/routes/demo-trading.ts | M  artifacts/nextrade/src/components/advanced-trading-panel.tsx | M  artifacts/nextrade/src/pages/demo-trading.tsx
+- Current working tree: M  artifacts/api-server/src/lib/realtime.ts | M  artifacts/api-server/src/lib/simulation-engine.ts | M  artifacts/api-server/src/routes/demo-trading.ts
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

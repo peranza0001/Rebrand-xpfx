@@ -126,6 +126,12 @@ function DemoTradingContent() {
     socket.on('order_filled', () => {
       void refreshDemoState();
     });
+    socket.on('trade_closed', () => {
+      void refreshDemoState();
+    });
+    socket.on('order_rejected', (payload: { reason?: string }) => {
+      setMessage(payload?.reason ?? 'The demo order was rejected.');
+    });
 
     return () => { socket.disconnect(); };
   }, [isAuthenticated, isLoading]);
@@ -230,26 +236,29 @@ function DemoTradingContent() {
     return Math.min(100, score);
   }, [isAuthenticated, user]);
 
-  const liveTradeSnapshots: LiveTradeSnapshot[] = positions.map((position) => ({
-    id: position.id,
-    symbol: position.symbol,
-    side: (position.side === "long" ? "buy" : "sell") as LiveTradeSnapshot["side"],
-    entryPrice: position.entryPrice,
-    currentPrice: position.currentPrice,
-    size: position.size,
-    pnl: position.pnl,
-    pnlPercent: position.pnlPercent,
-    stopLoss: position.entryPrice * (position.side === "long" ? 0.98 : 1.02),
-    takeProfit: position.entryPrice * (position.side === "long" ? 1.03 : 0.97),
-    status: "open",
-  }));
+  const liveTradeSnapshots: LiveTradeSnapshot[] = positions.map((position) => {
+    const normalizedSide = String(position.side ?? "long").toLowerCase() as "long" | "short";
+    return {
+      id: position.id,
+      symbol: position.symbol,
+      side: (normalizedSide === "long" ? "buy" : "sell") as LiveTradeSnapshot["side"],
+      entryPrice: position.entryPrice,
+      currentPrice: position.currentPrice,
+      size: position.size,
+      pnl: position.pnl,
+      pnlPercent: position.pnlPercent,
+      stopLoss: position.entryPrice * (normalizedSide === "long" ? 0.98 : 1.02),
+      takeProfit: position.entryPrice * (normalizedSide === "long" ? 1.03 : 0.97),
+      status: "open",
+    };
+  });
 
   const liveChartData = markets.slice(0, 12).map((market, index) => ({
     time: Date.now() - (markets.length - index) * 60 * 1000,
     price: market.price,
   }));
 
-  const placeDemoOrder = async (order?: { symbol?: string; side?: 'buy' | 'sell'; volume?: number; orderType?: 'market' | 'limit' | 'stop'; stopLoss?: number; takeProfit?: number }) => {
+  const placeDemoOrder = async (order?: { symbol?: string; side?: 'buy' | 'sell'; volume?: number; orderType?: 'market' | 'limit' | 'stop'; price?: number; stopLoss?: number; takeProfit?: number }) => {
     if (!isAuthenticated) {
       const started = await ensureDemoSession();
       if (!started) return;
@@ -263,7 +272,7 @@ function DemoTradingContent() {
 
     const safeSize = Number(sizeValue.toFixed(4));
     try {
-      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? (side === 'Buy' ? 'buy' : 'sell'), amount: safeSize, leverage: 10 };
+      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? (side === 'Buy' ? 'buy' : 'sell'), amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
       const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();

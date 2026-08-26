@@ -96,6 +96,7 @@ export async function initRealtime(server: http.Server) {
   chat.on('connection', (socket) => {
     const userId = (socket as any).userId as string;
     logger.info({ userId }, '[realtime] live-chat connected');
+    socket.join(`user:${userId}`);
 
     socket.on('join_admin_room', () => {
       socket.join('admins');
