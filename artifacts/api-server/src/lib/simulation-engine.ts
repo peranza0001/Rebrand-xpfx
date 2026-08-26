@@ -185,7 +185,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
                 });
               }
               
-              demoNs.emit('trade_closed', { userId: uid, trade: t });
+              demoNs.to(`user:${uid}`).emit('trade_closed', { userId: uid, trade: t });
             } catch (err) {
               logger.warn({ err }, 'Failed to credit closed trade funds or record ledger');
             }
