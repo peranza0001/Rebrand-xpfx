@@ -123,6 +123,9 @@ function DemoTradingContent() {
         };
       });
     });
+    socket.on('order_filled', () => {
+      void refreshDemoState();
+    });
 
     return () => { socket.disconnect(); };
   }, [isAuthenticated, isLoading]);
@@ -246,21 +249,21 @@ function DemoTradingContent() {
     price: market.price,
   }));
 
-  const placeDemoOrder = async () => {
+  const placeDemoOrder = async (order?: { symbol?: string; side?: 'buy' | 'sell'; volume?: number; orderType?: 'market' | 'limit' | 'stop'; stopLoss?: number; takeProfit?: number }) => {
     if (!isAuthenticated) {
       const started = await ensureDemoSession();
       if (!started) return;
     }
 
-    const sizeValue = Number(size);
+    const sizeValue = Number(order?.volume ?? size);
     if (!sizeValue || Number.isNaN(sizeValue)) {
       setMessage("Enter a valid position size to continue.");
       return;
     }
 
-    const safeSize = Math.max(100, Math.round(sizeValue));
+    const safeSize = Number(sizeValue.toFixed(4));
     try {
-      const body = { instrument: selectedMarket.symbol, type: 'market', side: side === 'Buy' ? 'buy' : 'sell', amount: safeSize, leverage: 10 };
+      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? (side === 'Buy' ? 'buy' : 'sell'), amount: safeSize, leverage: 10 };
       const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
@@ -446,13 +449,10 @@ function DemoTradingContent() {
           <AdvancedTradingPanel
             positions={positions}
             selectedSymbol={selectedMarket.symbol}
+            currentPrice={selectedMarket.price}
             balance={demoBalance}
             freeMargin={demoBalance - positions.reduce((sum, p) => sum + p.size * selectedMarket.price * 0.1, 0)}
-            onPlaceOrder={async (order) => {
-              setSize(String(order.amount));
-              setSide(order.side === 'buy' ? 'Buy' : 'Sell');
-              await placeDemoOrder();
-            }}
+            onPlaceOrder={placeDemoOrder}
             onClosePosition={async (posId) => {
               try {
                 const resp = await fetch(apiPath(`/api/demo/position/${posId}`), { method: 'DELETE', credentials: 'include' });

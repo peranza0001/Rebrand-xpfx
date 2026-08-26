@@ -37,6 +37,7 @@ export interface TradingPosition {
 interface AdvancedTradingPanelProps {
   positions?: TradingPosition[];
   selectedSymbol?: string;
+  currentPrice?: number;
   balance: number;
   freeMargin: number;
   onPlaceOrder?: (order: any) => void;
@@ -49,18 +50,18 @@ export function AdvancedTradingPanel({
   selectedSymbol = "EUR/USD",
   balance: _balance,
   freeMargin,
+  currentPrice = 1.0854,
   onPlaceOrder,
   onClosePosition,
   loading = false,
 }: AdvancedTradingPanelProps) {
   const [orderType, setOrderType] = useState<"market" | "limit" | "stop">("market");
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
-  const [volume, setVolume] = useState("1.0");
+  const [volume, setVolume] = useState("0.1");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [slippage, setSlippage] = useState("2");
 
-  const currentPrice = 1.0854;
   const riskReward = takeProfit && stopLoss ? 
     Math.abs(parseFloat(takeProfit) - currentPrice) / Math.abs(currentPrice - parseFloat(stopLoss)) 
     : 0;
@@ -145,20 +146,20 @@ export function AdvancedTradingPanel({
           {/* Volume */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Volume (Lots)</label>
+              <label className="text-sm font-medium">Amount (asset units)</label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent>1 lot = 100,000 units</TooltipContent>
+                  <TooltipContent>Amount is measured in units of the selected asset.</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <Input
               type="number"
-              step="0.1"
-              min="0.1"
+              step="0.01"
+              min="0.01"
               value={volume}
               onChange={(e) => setVolume(e.target.value)}
               placeholder="1.0"

@@ -22,6 +22,8 @@ export function getDemoAccountSnapshot(userId: string) {
       currentPrice: Number(trade.currentPrice ?? trade.entryPrice ?? 0),
       size: Number(trade.amount ?? 0),
       pnl: Number(trade.profit ?? 0),
+      pnlPercent: Number((((Number(trade.profit ?? 0)) / Math.max(0.01, Number((trade as any).marginRequired ?? 0.01))) * 100).toFixed(2)),
+      openTime: new Date(trade.createdAt ?? Date.now()).toISOString(),
     }));
 
   return {
