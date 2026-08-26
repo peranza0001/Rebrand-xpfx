@@ -1119,6 +1119,60 @@ export async function getPersistedChatMessages(conversationId: string): Promise<
   }
 }
 
+export async function listPersistedChatConversations(): Promise<Array<{
+  userId: string;
+  messages: Array<{
+    id: string;
+    userId: string;
+    senderName: string;
+    content: string;
+    isFromUser: boolean;
+    isBot: boolean;
+    escalated: boolean;
+    createdAt: string;
+  }>;
+}>> {
+  if (!prismaClient?.chat_messages?.findMany) return [];
+  try {
+    const rows = await prismaClient.chat_messages.findMany({ orderBy: { created_at: "asc" } });
+    const conversations = new Map<string, Awaited<ReturnType<typeof getPersistedChatMessages>>>();
+    for (const row of rows as any[]) {
+      const userId = String(row.conversation_id ?? "");
+      if (!isUuid(userId)) continue;
+      const messages = conversations.get(userId) ?? [];
+      messages.push({
+        id: String(row.id),
+        userId,
+        senderName: row.sender_type === "bot" ? "XpressPro FX AI Support" : row.sender_type === "admin" ? "XpressPro FX Support" : "User",
+        content: String(row.content),
+        isFromUser: row.sender_type === "user",
+        isBot: row.sender_type === "bot",
+        escalated: false,
+        createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
+      });
+      conversations.set(userId, messages);
+    }
+    return [...conversations].map(([userId, messages]) => ({ userId, messages }));
+  } catch (err) {
+    logger.error({ err }, "[db-persist] listPersistedChatConversations failed");
+    return [];
+  }
+}
+
+export async function findUserIdByLiveChatTicket(ticketId: string): Promise<string | null> {
+  if (!prismaClient?.support_tickets?.findFirst) return null;
+  try {
+    const ticket = await prismaClient.support_tickets.findFirst({
+      where: { subject: { contains: `Live chat escalation ${ticketId}` } },
+      select: { user_id: true },
+    });
+    return ticket?.user_id && isUuid(String(ticket.user_id)) ? String(ticket.user_id) : null;
+  } catch (err) {
+    logger.error({ err, ticketId }, "[db-persist] findUserIdByLiveChatTicket failed");
+    return null;
+  }
+}
+
 export async function persistP2PMerchantApplication(
   applicationId: string,
   userId: string,

@@ -594,6 +594,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use('/api/live-chat', (req: Request, res: Response, next: NextFunction) => {
+  // Inbound support mail is authenticated by the webhook secret/signature,
+  // not by a browser session.
+  if (req.path === '/email-reply') return next();
   if (!req.storedUser) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

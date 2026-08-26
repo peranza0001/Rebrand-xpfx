@@ -20,7 +20,7 @@ import {
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
-import { getPersistedChatMessages, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
+import { findUserIdByLiveChatTicket, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -282,23 +282,30 @@ router.get("/admin/presence", requireAdmin, (_req, res) => {
 // GET /admin/live-chats — list all chat sessions (admin)
 router.get("/admin/live-chats", requireAdmin, async (req, res) => {
   touchAdminPresence(req.userId!);
-  const sessions = [];
+  const sessionsByUser = new Map<string, LiveChatMsg[]>();
   for (const [userId, data] of userData) {
     const persistedMessages = await getPersistedChatMessages(userId);
     if (persistedMessages.length > 0) {
       data.liveChat.splice(0, data.liveChat.length, ...persistedMessages);
     }
-    if (data.liveChat.length === 0) continue;
+    if (data.liveChat.length > 0) sessionsByUser.set(userId, data.liveChat);
+  }
+  for (const persisted of await listPersistedChatConversations()) {
+    if (!sessionsByUser.has(persisted.userId)) sessionsByUser.set(persisted.userId, persisted.messages);
+  }
+
+  const sessions = [];
+  for (const [userId, messages] of sessionsByUser) {
     const stored = users.get(userId);
-    const lastMsg = data.liveChat[data.liveChat.length - 1];
-    const unread = data.liveChat.filter((m) => m.isFromUser).length;
+    const lastMsg = messages[messages.length - 1];
+    const unread = messages.filter((m) => m.isFromUser).length;
     sessions.push({
       userId,
       userName: stored?.user.fullName ?? "Unknown",
       userEmail: stored?.user.email ?? "",
-      messages: data.liveChat,
+      messages,
       lastMessageAt: lastMsg?.createdAt ?? NOW(),
-      escalated: data.liveChat.some((m) => m.escalated),
+      escalated: messages.some((m) => m.escalated),
       unreadByAdmin: unread,
     });
   }
@@ -389,6 +396,7 @@ router.post("/live-chat/email-reply", async (req, res) => {
       break;
     }
   }
+  resolvedUserId ??= await findUserIdByLiveChatTicket(ticketId);
   if (!resolvedUserId) {
     return res.status(404).json({ error: "Live chat ticket not found" });
   }

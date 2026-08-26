@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
 import { getChatNamespace } from "../lib/realtime";
 import { getUserData, newId, NOW, users, usersByEmail } from "../lib/store";
+import { findUserIdByLiveChatTicket, persistChatMessage } from "../lib/db-persist";
 import { logger } from "../lib/logger";
 import { pushAdminAlert } from "../lib/notify";
 import type { LiveChatMsg } from "../lib/store";
@@ -119,7 +120,7 @@ function verifyInboundEmailSignature(req: Request, raw: Buffer | string): boolea
   return timingSafeSecret(expected, supplied);
 }
 
-router.post("/webhooks/inbound-email", (req, res) => {
+router.post("/webhooks/inbound-email", async (req, res) => {
   const raw = Buffer.isBuffer(req.body) ? req.body : typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
   if (!verifyInboundEmailSignature(req, raw)) return res.status(401).json({ error: "Invalid signature." });
   let parsed: unknown; try { parsed = JSON.parse(Buffer.isBuffer(raw) ? raw.toString("utf8") : raw); } catch { parsed = null; }
@@ -129,9 +130,19 @@ router.post("/webhooks/inbound-email", (req, res) => {
     if (!event || typeof event !== "object") continue;
     const value = event as Record<string, any>;
     const from = String(value.from || value.envelope?.from || value.sender || value.mail?.from || "").toLowerCase();
-    const userId = usersByEmail.get(from); if (!userId) continue;
-    const msg: LiveChatMsg = { id: newId("chat"), userId, senderName: `Email: ${from}`, content: `${value.subject ? `${value.subject}\n\n` : ""}${value.text || value.plain || value.mail?.text || ""}`.slice(0, 10_000), isFromUser: true, isBot: false, escalated: false, createdAt: NOW() };
-    appendChatMessage(userId, msg); processed += 1;
+    const subject = String(value.subject || value.headers?.subject || "");
+    const content = String(value.text || value.plain || value.mail?.text || value.html || "").trim().slice(0, 10_000);
+    if (!content) continue;
+    const ticketMatch = subject.match(/\b(XPFX-[A-Z0-9-]+)\b/i);
+    const ticketId = ticketMatch?.[1]?.toUpperCase();
+    const conversationUserId = ticketId
+      ? usersByEmail.get(from) ?? await findUserIdByLiveChatTicket(ticketId)
+      : usersByEmail.get(from);
+    if (!conversationUserId) continue;
+    const msg: LiveChatMsg = { id: newId("chat"), userId: conversationUserId, senderName: ticketId ? `Email: ${from || "Support"}` : `Email: ${from}`, content: ticketId ? content : `${subject ? `${subject}\n\n` : ""}${content}`, isFromUser: !ticketId, isBot: false, escalated: Boolean(ticketId), createdAt: NOW() };
+    appendChatMessage(conversationUserId, msg);
+    void persistChatMessage(conversationUserId, ticketId ? "admin" : "user", null, msg.content);
+    processed += 1;
   }
   return res.json({ ok: true, processed });
 });
