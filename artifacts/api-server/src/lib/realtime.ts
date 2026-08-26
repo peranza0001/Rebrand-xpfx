@@ -107,7 +107,7 @@ export async function initRealtime(server: http.Server) {
       }
     });
 
-    socket.on('send_message', async (payload: { convId: string; content: string }) => {
+    socket.on('send_message', async (payload: { convId: string; content: string }, acknowledge?: (result: { ok: boolean; error?: string }) => void) => {
       const content = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 10000) : '';
       if (!content) return;
       const convId = userId;
@@ -123,22 +123,18 @@ export async function initRealtime(server: http.Server) {
         escalated: false,
         createdAt: new Date().toISOString(),
       };
-      // Persist into in-memory mailbox for now (store.liveChat)
-      const ud = userData.get(userId);
-      if (ud) {
-        ud.liveChat.push({
-          id: msg.id,
-          userId,
-          senderName: msg.senderName,
-          content: msg.content,
-          isFromUser: true,
-          isBot: false,
-          escalated: false,
-          createdAt: msg.createdAt,
-        });
+      const userPersisted = await persistChatMessage(userId, 'user', userId, msg.content);
+      if (!userPersisted) {
+        acknowledge?.({ ok: false, error: 'Chat storage is temporarily unavailable. Please try again.' });
+        socket.emit('message_error', { error: 'Chat storage is temporarily unavailable. Please try again.' });
+        return;
       }
 
-      void persistChatMessage(userId, 'user', userId, msg.content);
+      const ud = userData.get(userId);
+      if (ud) {
+        ud.liveChat.push(msg);
+      }
+
       chat.to(`conv:${convId}`).emit('message', msg);
       chat.to('admins').emit('message', msg);
 
@@ -175,9 +171,15 @@ export async function initRealtime(server: http.Server) {
         escalated: escalated || Boolean(ai?.escalated),
         createdAt: new Date().toISOString(),
       };
+      const botPersisted = await persistChatMessage(userId, 'bot', null, botMessage.content);
+      if (!botPersisted) {
+        acknowledge?.({ ok: false, error: 'Your message was saved, but the support reply is temporarily unavailable.' });
+        socket.emit('message_error', { error: 'Your message was saved, but the support reply is temporarily unavailable.' });
+        return;
+      }
       if (ud) ud.liveChat.push(botMessage);
-      void persistChatMessage(userId, 'bot', null, botMessage.content);
       chat.to(`conv:${convId}`).emit('message', botMessage);
+      acknowledge?.({ ok: true });
     });
 
     socket.on('disconnect', () => {
