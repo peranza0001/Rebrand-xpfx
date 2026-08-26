@@ -22,6 +22,15 @@ export interface ChatbotResponse {
   shouldEscalate: boolean;
 }
 
+export const FAQ_COMMANDS = [
+  { command: "help", label: "Show FAQ topics" },
+  { command: "account", label: "Account access" },
+  { command: "funding", label: "Deposits and withdrawals" },
+  { command: "trading", label: "Forex and demo trading" },
+  { command: "investing", label: "Investments and copy trading" },
+  { command: "security", label: "Security and KYC" },
+] as const;
+
 function keywordEscalation(content: string): boolean {
   return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed)\b/i.test(content);
 }
@@ -30,9 +39,40 @@ function greetingFor(userName: string): string {
   return userName && userName !== "User" ? `Hi ${userName.split(/\s+/)[0]}! ` : "Hi! ";
 }
 
+function faqMenu(greeting: string): ChatbotResponse {
+  return {
+    intent: "general",
+    shouldEscalate: false,
+    content: `${greeting}Choose a topic or type one of these commands: /faq account, /faq funding, /faq trading, /faq investing, /faq security. Type agent at any time for a human support representative.`,
+  };
+}
+
+function commandTopic(message: string): string | null {
+  const match = message.match(/^\/(?:faq|help)(?:\s+(.+))?$/i);
+  return match?.[1]?.trim().toLowerCase() ?? (match ? "help" : null);
+}
+
 export function getChatbotResponse(content: string, userName = "User"): ChatbotResponse {
   const message = content.trim().toLowerCase();
   const greeting = greetingFor(userName);
+  const command = commandTopic(message);
+
+  if (command === "help" || command === "topics" || command === "menu") return faqMenu(greeting);
+  if (command && /^(account|login|signup|access)$/.test(command)) {
+    return { intent: "account", shouldEscalate: false, content: `${greeting}For signup or login, use your email and complete the one-time verification step. Use Forgot password if needed. Never share your password or verification code in chat. If access still fails, type agent for a representative.` };
+  }
+  if (command && /^(funding|deposit|deposits|withdrawal|withdrawals|payments?)$/.test(command)) {
+    return { intent: "deposits", shouldEscalate: false, content: `${greeting}Use Wallets to open Deposit or Withdrawals and follow the displayed instructions. Check the destination, network, fees, and status before confirming. Never send funds to an address supplied in chat or repeat a transaction because a page is delayed.` };
+  }
+  if (command && /^(trading|forex|markets?|demo|orders?)$/.test(command)) {
+    return { intent: "forex", shouldEscalate: false, content: `${greeting}Trading supports available forex, stock, commodity, and demo instruments. Review bid/ask, spread, margin, leverage, market status, and order type before submitting. Demo Trading uses simulated funds; practise position sizing and risk controls there first.` };
+  }
+  if (command && /^(investing|investments?|smartvest|copy|copy-trading)$/.test(command)) {
+    return { intent: "investments", shouldEscalate: false, content: `${greeting}Review each investment or copy-trading product's objective, fees, risk, drawdown, allocation, and withdrawal terms before proceeding. Past or simulated performance is not a guarantee, and this chat cannot provide personalized investment advice.` };
+  }
+  if (command && /^(security|kyc|aml|verification)$/.test(command)) {
+    return { intent: command === "security" ? "security" : "kyc", shouldEscalate: false, content: `${greeting}KYC and AML reviews require accurate account details and clear documents in the verification area. Support will never ask for your password, OTP, PIN, CVV, recovery phrase, or private key. Type agent immediately if you suspect fraud or unauthorized access.` };
+  }
 
   if (keywordEscalation(content)) {
     return {
@@ -86,7 +126,7 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
   if (/(demo|paper|practice|trade|trading|order)/.test(message)) {
     return { intent: "demo_trading", shouldEscalate: false, content: `${greeting}Demo Trading uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds move in demo mode.` };
   }
-  return { intent: "general", shouldEscalate: false, content: `${greeting}How can I help today? Ask about accounts, wallets, deposits, withdrawals, KYC, demo trading, markets, investments, P2P, or security. Type "agent" whenever you need a human support representative.` };
+  return faqMenu(greeting);
 }
 
-export { keywordEscalation };
+export { commandTopic, keywordEscalation };

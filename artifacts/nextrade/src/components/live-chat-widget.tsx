@@ -136,9 +136,9 @@ export function LiveChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!message.trim() || isSending) return;
-    const text = message.trim();
+  const handleSend = async (requestedMessage?: string) => {
+    const text = (requestedMessage ?? message).trim();
+    if (!text || isSending) return;
     setMessage("");
     setError(null);
     setIsSending(true);
@@ -308,6 +308,20 @@ export function LiveChatWidget() {
               </div>
             ))}
             <div ref={bottomRef} />
+          </div>
+
+          <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto" aria-label="Frequently asked questions">
+            {["/faq account", "/faq funding", "/faq trading", "/faq security"].map((command) => (
+              <button
+                key={command}
+                type="button"
+                onClick={() => { void handleSend(command); }}
+                disabled={isSending}
+                className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary disabled:opacity-50"
+              >
+                {command.replace("/faq ", "")}
+              </button>
+            ))}
           </div>
 
           {handoff && (

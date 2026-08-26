@@ -146,15 +146,14 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       content: m.content,
     }));
 
-  const ai = userMsg.escalated
+  const localReply = getChatbotResponse(parsed.data.content, userName);
+  const ai = userMsg.escalated || localReply.intent !== "general"
     ? null
     : generateFaqReply(safeContent) ?? await generateAIReply({
       userMessage: safeContent,
       history,
       userName,
     });
-
-  const localReply = getChatbotResponse(parsed.data.content, userName);
   const replyText = userMsg.escalated
     ? localReply.content
     : ai?.content || localReply.content;

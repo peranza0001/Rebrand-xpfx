@@ -28,3 +28,17 @@ test('chatbot escalates explicit human support requests', () => {
   assert.equal(response.shouldEscalate, true);
   assert.match(response.content, /human support/i);
 });
+
+test('chatbot supports FAQ commands for self-service visitors', () => {
+  const menu = getChatbotResponse('/help', 'Visitor');
+  assert.match(menu.content, /\/faq account/);
+  assert.equal(menu.shouldEscalate, false);
+
+  const trading = getChatbotResponse('/faq trading', 'Visitor');
+  assert.equal(trading.intent, 'forex');
+  assert.match(trading.content, /simulated funds/i);
+
+  const security = getChatbotResponse('/faq security', 'Visitor');
+  assert.equal(security.intent, 'security');
+  assert.match(security.content, /never ask for your password/i);
+});
