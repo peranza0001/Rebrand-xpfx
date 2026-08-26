@@ -891,6 +891,100 @@ export async function persistAmlScreening(input: {
   }
 }
 
+function persistedKycVerificationToResult(row: any): {
+  verificationId: string;
+  status: string;
+  userId: string;
+  provider: string;
+  createdAt: Date;
+  errorMessage?: string;
+} {
+  return {
+    verificationId: String(row.providerRef ?? row.provider_ref ?? row.id),
+    status: String(row.status ?? "pending"),
+    userId: String(row.userId ?? row.user_id),
+    provider: String(row.provider ?? "unconfigured"),
+    createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()),
+    errorMessage: row.rejectionReason ?? row.rejection_reason ?? undefined,
+  };
+}
+
+export async function getPersistedKycVerification(verificationId: string): Promise<ReturnType<typeof persistedKycVerificationToResult> | null> {
+  const delegate = getPrismaModelDelegate("KYCVerification");
+  if (!delegate?.findFirst) return null;
+  try {
+    const row = await delegate.findFirst({ where: { providerRef: verificationId } });
+    return row ? persistedKycVerificationToResult(row) : null;
+  } catch (err) {
+    logger.warn({ err, verificationId }, "[db-persist] getPersistedKycVerification failed");
+    return null;
+  }
+}
+
+export async function getLatestPersistedKycVerification(userId: string): Promise<ReturnType<typeof persistedKycVerificationToResult> | null> {
+  const delegate = getPrismaModelDelegate("KYCVerification");
+  if (!delegate?.findMany) return null;
+  try {
+    const rows = await delegate.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+    return rows[0] ? persistedKycVerificationToResult(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getLatestPersistedKycVerification failed");
+    return null;
+  }
+}
+
+function persistedAmlScreeningToResult(row: any): {
+  screeningId: string;
+  userId: string;
+  provider: string;
+  status: string;
+  riskLevel: string;
+  matches: Array<{ listType: string; matchScore: number; entity: string }>;
+  createdAt: Date;
+} {
+  let matches = row.matches ?? [];
+  if (typeof matches === "string") {
+    try { matches = JSON.parse(matches); } catch { matches = []; }
+  }
+  return {
+    screeningId: String(row.screeningId ?? row.screening_id ?? row.id),
+    userId: String(row.userId ?? row.user_id),
+    provider: String(row.provider ?? "mock"),
+    status: String(row.status ?? "review_required"),
+    riskLevel: String(row.riskLevel ?? row.risk_level ?? "high"),
+    matches: Array.isArray(matches) ? matches : [],
+    createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()),
+  };
+}
+
+function getAmlDelegate(): any | null {
+  return getPrismaModelDelegate("AMLScreening") ?? getPrismaModelDelegate("AmlScreening") ?? getPrismaModelDelegate("aml_screening") ?? getPrismaModelDelegate("aml_screenings");
+}
+
+export async function getPersistedAmlScreening(screeningId: string): Promise<ReturnType<typeof persistedAmlScreeningToResult> | null> {
+  const delegate = getAmlDelegate();
+  if (!delegate?.findFirst) return null;
+  try {
+    const row = await delegate.findFirst({ where: { id: screeningId } });
+    return row ? persistedAmlScreeningToResult(row) : null;
+  } catch (err) {
+    logger.warn({ err, screeningId }, "[db-persist] getPersistedAmlScreening failed");
+    return null;
+  }
+}
+
+export async function getLatestPersistedAmlScreening(userId: string): Promise<ReturnType<typeof persistedAmlScreeningToResult> | null> {
+  const delegate = getAmlDelegate();
+  if (!delegate?.findMany) return null;
+  try {
+    const rows = await delegate.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+    return rows[0] ? persistedAmlScreeningToResult(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getLatestPersistedAmlScreening failed");
+    return null;
+  }
+}
+
 export async function persistBankAccount(
   bankAccountId: string,
   userId: string,

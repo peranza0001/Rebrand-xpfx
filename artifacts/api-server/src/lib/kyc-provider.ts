@@ -33,6 +33,7 @@
  */
 
 import { logger } from './logger';
+import { getLatestPersistedAmlScreening, getLatestPersistedKycVerification, getPersistedAmlScreening, getPersistedKycVerification } from './db-persist';
 
 export type KYCVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
 export type KYCProvider = 'onfido' | 'socure' | 'stripe_identity' | 'idology' | 'trulioo' | 'unconfigured';
@@ -390,14 +391,16 @@ async function initiateTruliooVerification(
 /**
  * Get verification result
  */
-export function getVerificationResult(verificationId: string): KYCVerificationResult | undefined {
-  return verifications.get(verificationId);
+export async function getVerificationResult(verificationId: string): Promise<KYCVerificationResult | undefined> {
+  const inMemory = verifications.get(verificationId);
+  if (inMemory) return inMemory;
+  return await getPersistedKycVerification(verificationId) as KYCVerificationResult | null ?? undefined;
 }
 
 /**
  * Get user's latest verification
  */
-export function getUserLatestVerification(userId: string): KYCVerificationResult | undefined {
+export async function getUserLatestVerification(userId: string): Promise<KYCVerificationResult | undefined> {
   let latest: KYCVerificationResult | undefined;
 
   for (const verification of verifications.values()) {
@@ -408,7 +411,8 @@ export function getUserLatestVerification(userId: string): KYCVerificationResult
     }
   }
 
-  return latest;
+  if (latest) return latest;
+  return await getLatestPersistedKycVerification(userId) as KYCVerificationResult | null ?? undefined;
 }
 
 /**
@@ -603,14 +607,16 @@ function performMockAMLScreening(
 /**
  * Get screening result
  */
-export function getScreeningResult(screeningId: string): AMLScreeningResult | undefined {
-  return screenings.get(screeningId);
+export async function getScreeningResult(screeningId: string): Promise<AMLScreeningResult | undefined> {
+  const inMemory = screenings.get(screeningId);
+  if (inMemory) return inMemory;
+  return await getPersistedAmlScreening(screeningId) as AMLScreeningResult | null ?? undefined;
 }
 
 /**
  * Get user's latest screening
  */
-export function getUserLatestScreening(userId: string): AMLScreeningResult | undefined {
+export async function getUserLatestScreening(userId: string): Promise<AMLScreeningResult | undefined> {
   let latest: AMLScreeningResult | undefined;
 
   for (const screening of screenings.values()) {
@@ -621,15 +627,16 @@ export function getUserLatestScreening(userId: string): AMLScreeningResult | und
     }
   }
 
-  return latest;
+  if (latest) return latest;
+  return await getLatestPersistedAmlScreening(userId) as AMLScreeningResult | null ?? undefined;
 }
 
 /**
  * Check if user is KYC verified and AML clear
  */
-export function isUserCompliant(userId: string): boolean {
-  const verification = getUserLatestVerification(userId);
-  const screening = getUserLatestScreening(userId);
+export async function isUserCompliant(userId: string): Promise<boolean> {
+  const verification = await getUserLatestVerification(userId);
+  const screening = await getUserLatestScreening(userId);
 
   if (!verification || verification.status !== 'approved') {
     return false;
