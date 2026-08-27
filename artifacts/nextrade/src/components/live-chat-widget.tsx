@@ -123,6 +123,17 @@ export function LiveChatWidget() {
       setMessages((prev) => appendUniqueMessages(prev, [msg]));
     });
 
+    socketClient.on('agent_joined', (payload: { senderName?: string; ticketId?: string }) => {
+      setMessages((prev) => appendUniqueMessages(prev, [{
+        id: `agent-joined-${payload.ticketId ?? Date.now()}`,
+        senderName: payload.senderName ?? 'XpressPro FX Support',
+        content: `${payload.senderName ?? 'A support representative'} joined this conversation and will continue helping you here.`,
+        createdAt: new Date().toISOString(),
+        isFromUser: false,
+        isBot: false,
+      }]));
+    });
+
     socketClient.on('disconnect', () => {
       // ignore
     });

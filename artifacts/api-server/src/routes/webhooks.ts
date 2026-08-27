@@ -38,6 +38,12 @@ function emailAddress(value: unknown): string {
   return raw.match(/<([^>]+)>/)?.[1]?.trim() || raw;
 }
 
+function inboundMessageId(value: Record<string, any>): string | null {
+  const candidate = value["Message-Id"] || value["message-id"] || value.messageId || value.headers?.["message-id"];
+  if (typeof candidate !== "string" || !candidate.trim()) return null;
+  return crypto.createHash("sha256").update(candidate.trim()).digest("hex").slice(0, 24);
+}
+
 function timingSafeSecret(expected: string, supplied: string | undefined): boolean {
   if (!expected || !supplied) return false;
   const a = Buffer.from(expected); const b = Buffer.from(supplied);
@@ -152,9 +158,17 @@ router.post("/webhooks/inbound-email", inboundEmailUpload, async (req, res) => {
       ? usersByEmail.get(from) ?? await findUserIdByLiveChatTicket(ticketId)
       : usersByEmail.get(from);
     if (!conversationUserId) continue;
-    const msg: LiveChatMsg = { id: newId("chat"), userId: conversationUserId, senderName: ticketId ? `Email: ${from || "Support"}` : `Email: ${from}`, content: ticketId ? content : `${subject ? `${subject}\n\n` : ""}${content}`, isFromUser: !ticketId, isBot: false, escalated: Boolean(ticketId), createdAt: NOW() };
+    const providerMessageId = inboundMessageId(value);
+    const messageId = providerMessageId ? `email-${providerMessageId}` : newId("chat");
+    const conversation = getUserData(conversationUserId);
+    if (conversation.liveChat.some((message) => message.id === messageId)) continue;
+    const isAgentReply = Boolean(ticketId);
+    const msg: LiveChatMsg = { id: messageId, userId: conversationUserId, senderName: isAgentReply ? "XpressPro FX Support" : `Email: ${from}`, content: isAgentReply ? content : `${subject ? `${subject}\n\n` : ""}${content}`, isFromUser: !isAgentReply, isBot: false, escalated: isAgentReply, createdAt: NOW() };
     appendChatMessage(conversationUserId, msg);
-    void persistChatMessage(conversationUserId, ticketId ? "admin" : "user", null, msg.content);
+    void persistChatMessage(conversationUserId, isAgentReply ? "admin" : "user", null, msg.content);
+    if (isAgentReply) {
+      try { getChatNamespace()?.to(`conv:${conversationUserId}`).emit("agent_joined", { senderName: msg.senderName, ticketId }); } catch { /* best effort */ }
+    }
     processed += 1;
   }
   return res.json({ ok: true, processed });
