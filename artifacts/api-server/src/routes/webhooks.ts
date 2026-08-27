@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
 import crypto from "node:crypto";
 import { getChatNamespace } from "../lib/realtime";
 import { getUserData, newId, NOW, users, usersByEmail } from "../lib/store";
@@ -10,6 +11,7 @@ import type { LiveChatMsg } from "../lib/store";
 
 const router = Router();
 const stubLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { error: "Webhook stub rate limit exceeded." } });
+const inboundEmailUpload = multer({ limits: { fields: 30, fieldSize: 200_000 } }).none();
 type WebhookBody = Record<string, unknown>;
 type StubChannel = "whatsapp" | "telegram" | "twitter";
 
@@ -29,6 +31,11 @@ function parseBody(req: Request): WebhookBody {
 function textFrom(body: WebhookBody): string {
   for (const key of ["text", "message", "dm_text"]) if (typeof body[key] === "string" && body[key].trim()) return body[key].trim().slice(0, 10_000);
   return "";
+}
+
+function emailAddress(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return raw.match(/<([^>]+)>/)?.[1]?.trim() || raw;
 }
 
 function timingSafeSecret(expected: string, supplied: string | undefined): boolean {
@@ -112,15 +119,21 @@ router.post("/webhooks/stub/inbound", stubLimiter, async (req, res) => {
 
 function verifyInboundEmailSignature(req: Request, raw: Buffer | string): boolean {
   const signingKey = process.env.SENDGRID_SIGNING_KEY?.trim();
+  const webhookSecret = process.env.WEBHOOK_SECRET_GLOBAL?.trim();
+  const suppliedWebhookSecret = req.get("x-webhook-secret")?.trim();
+  if (webhookSecret && suppliedWebhookSecret && timingSafeSecret(webhookSecret, suppliedWebhookSecret)) return true;
   const timestamp = req.get("x-twilio-email-event-webhook-timestamp") || req.get("x-sendgrid-timestamp") || "";
   const supplied = req.get("x-twilio-email-event-webhook-signature") || req.get("x-sendgrid-signature") || "";
-  if (!signingKey) { if (process.env.NODE_ENV === "production") logger.warn("[webhook] SENDGRID_SIGNING_KEY is not configured; inbound email accepted without signature verification"); return true; }
+  if (!signingKey) {
+    if (process.env.NODE_ENV === "production") logger.error("[webhook] Inbound email rejected because no signature key is configured");
+    return process.env.NODE_ENV !== "production";
+  }
   if (!timestamp || !supplied) return false;
   const expected = crypto.createHmac("sha256", signingKey).update(timestamp + (Buffer.isBuffer(raw) ? raw : Buffer.from(raw))).digest("base64");
   return timingSafeSecret(expected, supplied);
 }
 
-router.post("/webhooks/inbound-email", async (req, res) => {
+router.post("/webhooks/inbound-email", inboundEmailUpload, async (req, res) => {
   const raw = Buffer.isBuffer(req.body) ? req.body : typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
   if (!verifyInboundEmailSignature(req, raw)) return res.status(401).json({ error: "Invalid signature." });
   let parsed: unknown; try { parsed = JSON.parse(Buffer.isBuffer(raw) ? raw.toString("utf8") : raw); } catch { parsed = null; }
@@ -129,7 +142,7 @@ router.post("/webhooks/inbound-email", async (req, res) => {
   for (const event of events) {
     if (!event || typeof event !== "object") continue;
     const value = event as Record<string, any>;
-    const from = String(value.from || value.envelope?.from || value.sender || value.mail?.from || "").toLowerCase();
+    const from = emailAddress(value.from || value.envelope?.from || value.sender || value.mail?.from);
     const subject = String(value.subject || value.headers?.subject || "");
     const content = String(value.text || value.plain || value.mail?.text || value.html || "").trim().slice(0, 10_000);
     if (!content) continue;
