@@ -17,8 +17,6 @@ model User {
   phone                      String?
   country                    String?
   passwordHash               String       @map("password_hash")
-  loginPin                   String?      @map("login_pin")
-  walletKeyCode              String?      @map("wallet_key_code")
   securityType               String       @map("security_type")
   role                       String       @default("user")
   kycVerified                Boolean      @map("kyc_verified") @default(false)

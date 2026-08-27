@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-27 20:01:49 UTC
+- Last sync: 2026-08-27 20:18:46 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/nextrade/src/pages/demo-trading.tsx | M  tests/demo-ui-config.test.mjs
+- Current working tree: M  artifacts/api-server/prisma/schema.prisma | M  artifacts/nextrade/src/components/cards/CardPreview.tsx | M  artifacts/nextrade/src/pages/banks.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

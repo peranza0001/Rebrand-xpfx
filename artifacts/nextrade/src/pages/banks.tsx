@@ -367,7 +367,7 @@ function BankCard({
 /**
  * Modal form used to link a new bank account or card. Validates input
  * client-side before submitting to `POST /api/banks`. Only the last four
- * digits of the account number are persisted server-side; the routing/CVV
+ * digits of the account number are persisted server-side; the routing number
  * is sent in the request but not stored according to the backend contract.
  */
 function LinkBankDialog() {
@@ -491,7 +491,7 @@ function LinkBankDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="routingNumber">Routing / CVV</Label>
+              <Label htmlFor="routingNumber">Routing number</Label>
               <Input
                 id="routingNumber"
                 inputMode="numeric"

@@ -6,7 +6,7 @@
  * + pattern), so the same component is reused both for design previews and
  * for showing a customer's real / pending card.
  *
- * Set `flipped` to show the back face (CVV strip + magnetic stripe). Set
+ * Set `flipped` to show the back face and magnetic stripe. Set
  * `revealNumber` to reveal the full PAN; otherwise it is masked
  * `**** **** **** 1234`.
  */
@@ -109,12 +109,6 @@ export function CardPreview({
       ) : (
         <div className="relative h-full flex flex-col justify-between">
           <div className="h-10 mt-5 bg-black/70" />
-          <div className="px-5 flex items-center gap-3">
-            <div className="flex-1 h-9 bg-white/85 rounded flex items-center justify-end pr-3 text-slate-900 font-mono text-sm">
-              •••
-            </div>
-            <div className={cn("text-[10px] uppercase tracking-widest", subtle)}>CVV</div>
-          </div>
           <div className={cn("px-5 pb-4 text-[10px] leading-snug", subtle)}>
             This card is property of XpressPro FX. Use is subject to the cardholder agreement.
             Lost or stolen? Contact support.

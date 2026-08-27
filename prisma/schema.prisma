@@ -317,8 +317,6 @@ model users {
   phone                      String    @default("")
   country                    String    @default("US")
   password_hash              String    @default("")
-  login_pin                 String?
-  wallet_key_code           String?
   security_type              String    @default("address")
   role                       String    @default("user")
   kyc_verified               Boolean   @default(false)
