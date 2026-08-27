@@ -18,7 +18,7 @@ import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
 import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { DemoTradingGuide } from "@/components/demo-trading-guide";
-import { apiPath, apiUrl } from "@/lib/api-url";
+import { apiPath, apiUrl, loadCsrfToken } from "@/lib/api-url";
 
 type MarketItem = {
   symbol: string;
@@ -271,7 +271,8 @@ function DemoTradingContent() {
     const safeSize = Number(sizeValue.toFixed(4));
     try {
       const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? 'buy', amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
-      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
+      const csrfToken = await loadCsrfToken();
+      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
         throw new Error(errorText || 'Order failed');
@@ -286,7 +287,8 @@ function DemoTradingContent() {
 
   const resetDemoAccount = async () => {
     try {
-      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', credentials: 'include' });
+      const csrfToken = await loadCsrfToken();
+      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, credentials: 'include' });
       if (!response.ok) throw new Error('Unable to reset the practice account.');
       await refreshDemoState();
       setMessage('Practice account reset to $10,000. Try a new strategy.');

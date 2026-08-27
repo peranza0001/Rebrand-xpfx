@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-27 15:13:12 UTC
+- Last sync: 2026-08-27 15:55:28 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/admin-portal/src/main.tsx | M  artifacts/api-server/src/lib/cors.ts | M  artifacts/mockup-sandbox/src/main.tsx
+- Current working tree: M  artifacts/nextrade/src/lib/api-url.ts | M  artifacts/nextrade/src/pages/admin-live-chat.tsx | M  artifacts/nextrade/src/pages/demo-trading.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
