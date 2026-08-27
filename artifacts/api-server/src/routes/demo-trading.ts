@@ -38,7 +38,7 @@ router.get('/demo/account', requireAuth, (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
-  res.json(getDemoAccountSnapshot(req.userId!));
+  return res.json(getDemoAccountSnapshot(req.userId!));
 });
 
 router.get('/demo/instruments', requireAuth, (_req, res) => {

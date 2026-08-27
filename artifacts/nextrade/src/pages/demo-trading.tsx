@@ -75,8 +75,6 @@ function DemoTradingContent() {
       ])
     )
   );
-  const [side, setSide] = useState<"Buy" | "Sell">("Buy");
-  const [size, setSize] = useState("2500");
   const [message, setMessage] = useState("Your practice account is ready. Choose a market, then try a Buy or Sell trade.");
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoRequested, setDemoRequested] = useState(false);
@@ -264,7 +262,7 @@ function DemoTradingContent() {
       if (!started) return;
     }
 
-    const sizeValue = Number(order?.volume ?? size);
+    const sizeValue = Number(order?.volume ?? 0.01);
     if (!sizeValue || Number.isNaN(sizeValue)) {
       setMessage("Enter a valid position size to continue.");
       return;
@@ -272,7 +270,7 @@ function DemoTradingContent() {
 
     const safeSize = Number(sizeValue.toFixed(4));
     try {
-      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? (side === 'Buy' ? 'buy' : 'sell'), amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
+      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? 'buy', amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
       const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
