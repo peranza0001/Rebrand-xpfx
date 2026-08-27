@@ -170,7 +170,13 @@ export async function generateAIReply(opts: {
     if (!raw) return null;
     const escalated = /\[HANDOFF\]/i.test(raw);
     const cleaned = raw.replace(/\[HANDOFF\]/gi, "").trim();
-    return { content: cleaned, escalated };
+    const riskTopic = /\b(trad(?:e|ing)|forex|leverage|margin|position|order|buy|sell|market|investment|return|profit)\b/i.test(opts.userMessage);
+    return {
+      content: riskTopic && !/risk of loss/i.test(cleaned)
+        ? `${cleaned}\n\nTrading involves risk of loss.`
+        : cleaned,
+      escalated,
+    };
   } catch (err) {
     logger.warn({ err: (err as Error).message, model }, "openai-client: chat failed");
     return null;

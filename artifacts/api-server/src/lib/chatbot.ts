@@ -32,7 +32,7 @@ export const FAQ_COMMANDS = [
 ] as const;
 
 function keywordEscalation(content: string): boolean {
-  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed|withdrawal (?:status|dispute)|account funds?|kyc status|aml status|regulatory|regulator)\b/i.test(content);
+  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed|withdrawal (?:status|dispute)|account funds?|kyc status|aml status|regulatory|regulator|guarante(?:e|ed|es|ing)|guaranteed returns?|personalized (?:trade|investment)|should I (?:buy|sell)|buy .*(?:now|today)|sell .*(?:now|today))\b/i.test(content);
 }
 
 function greetingFor(userName: string): string {
@@ -78,7 +78,7 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
     return {
       intent: "general",
       shouldEscalate: true,
-      content: `${greeting}I understand this needs human support. I have sent your conversation to our support team so an available representative can take over here. Please do not share passwords, one-time codes, recovery phrases, or private keys.`,
+      content: `${greeting}I cannot provide guaranteed returns, personalized trade recommendations, or account-specific decisions. I am connecting you to human support so a representative can take over here. Trading involves risk of loss. Please do not share passwords, one-time codes, recovery phrases, or private keys.`,
     };
   }
   if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/.test(message)) {

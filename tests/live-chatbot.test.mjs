@@ -32,7 +32,8 @@ test('chatbot escalates explicit human support requests', () => {
 test('chatbot escalates account-specific funds and compliance questions', () => {
   assert.equal(keywordEscalation('What is my withdrawal status?'), true);
   assert.equal(keywordEscalation('Can you tell me my KYC status?'), true);
-  assert.equal(keywordEscalation('Should I buy EUR/USD now?'), false);
+  assert.equal(keywordEscalation('Should I buy EUR/USD now?'), true);
+  assert.equal(keywordEscalation('Can you guarantee me 20% returns?'), true);
 });
 
 test('chatbot supports FAQ commands for self-service visitors', () => {
