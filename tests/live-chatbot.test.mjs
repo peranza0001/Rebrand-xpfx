@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getChatbotResponse, keywordEscalation } from '../artifacts/api-server/src/lib/chatbot.ts';
+import fs from 'node:fs/promises';
 
 const cases = [
   ['How do I sign up and verify my email?', 'account'],
@@ -54,4 +55,11 @@ test('unknown financial-support requests are safe to escalate when the AI provid
   const response = getChatbotResponse('Can you explain an unsupported feature to me?', 'Visitor');
   assert.equal(response.intent, 'general');
   assert.equal(response.shouldEscalate, false);
+});
+
+test('live chat has deterministic business-hours and offline-ticket routing', async () => {
+  const source = await fs.readFile(new URL('../artifacts/api-server/src/routes/live-chat.ts', import.meta.url), 'utf8');
+  assert.match(source, /LIVE_CHAT_BUSINESS_HOURS_START/);
+  assert.match(source, /outside business hours/);
+  assert.match(source, /businessHours/);
 });

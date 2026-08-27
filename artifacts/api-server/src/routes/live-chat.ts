@@ -33,6 +33,22 @@ import { getChatbotResponse, keywordEscalation } from "../lib/chatbot";
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
 const SUPPORT_EMAIL = env.SMTP_FROM || "support@xpressprofx.com";
 
+function isWithinBusinessHours(now = new Date()): boolean {
+  if (process.env.LIVE_CHAT_ALWAYS_OPEN === "true") return true;
+  if ([0, 6].includes(now.getUTCDay())) return false;
+  const start = process.env.LIVE_CHAT_BUSINESS_HOURS_START || "09:00";
+  const end = process.env.LIVE_CHAT_BUSINESS_HOURS_END || "17:00";
+  const parseMinutes = (value: string) => {
+    const match = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? value.split(":").map(Number) : null;
+    return match ? match[0] * 60 + match[1] : null;
+  };
+  const startMinutes = parseMinutes(start);
+  const endMinutes = parseMinutes(end);
+  if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) return false;
+  const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+}
+
 function touchAdminPresence(adminId: string): void {
   adminPresence.set(adminId, NOW());
 }
@@ -183,6 +199,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     // Mark the most recent user msg as escalated and notify admins once.
     userMsg.escalated = true;
     const presence = presenceState();
+    const businessHours = isWithinBusinessHours();
     const ticketId = `XPFX-${newId("ticket").substring(0, 8).toUpperCase()}`;
     const ticketRecordId = newUuid();
     const ticketCreatedAt = NOW();
@@ -190,7 +207,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       id: ticketRecordId,
       subject: `Live chat escalation ${ticketId}`,
       status: "open",
-      priority: presence.anyOnline ? "medium" : "high",
+      priority: presence.anyOnline && businessHours ? "medium" : "high",
       messages: [],
       createdAt: ticketCreatedAt,
       updatedAt: ticketCreatedAt,
@@ -206,7 +223,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       return res.status(503).json({ error: "Chat escalation is temporarily unavailable. Please try again." });
     }
     data.supportTickets.unshift(ticket);
-    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
+    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline && businessHours };
     
     if (!presence.anyOnline) {
       const noAgentMsg: LiveChatMsg = {
@@ -214,7 +231,9 @@ router.post("/live-chat", requireAuth, async (req, res) => {
         userId: req.userId!,
         senderName: "XpressPro FX AI Support",
         content:
-          "No agent is available right now. I've notified our support team and they will reply here as soon as they're back online — you'll also receive a mailbox notification when they respond. In the meantime, you can keep typing and I'll keep helping.",
+          businessHours
+            ? "No agent is available right now. I've notified our support team and they will reply here as soon as they're back online — you'll also receive a mailbox notification when they respond."
+            : "Our human support team is currently outside business hours. I've created an offline ticket and emailed the reference so a representative can reply when support reopens.",
         isFromUser: false,
         isBot: true,
         escalated: true,
