@@ -32,7 +32,7 @@ export const FAQ_COMMANDS = [
 ] as const;
 
 function keywordEscalation(content: string): boolean {
-  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed)\b/i.test(content);
+  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed|withdrawal (?:status|dispute)|account funds?|kyc status|aml status|regulatory|regulator)\b/i.test(content);
 }
 
 function greetingFor(userName: string): string {

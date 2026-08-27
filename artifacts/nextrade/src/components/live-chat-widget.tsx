@@ -83,7 +83,10 @@ export function LiveChatWidget() {
           const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfTokenRef.current ?? '',
+            },
           });
           if (!demoRes.ok) return;
           sessionRes = demoRes;
@@ -262,12 +265,15 @@ export function LiveChatWidget() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">XpressPro FX Support</p>
-              <p className="text-xs text-white/70">AI-powered · usually instant</p>
+              <p className="text-xs text-white/70">General support only · human handoff available</p>
             </div>
             <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
+          <p className="border-b border-border bg-muted px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+            This assistant provides general support only and cannot give financial or investment advice. For account-specific issues, you&apos;ll be connected with a human agent.
+          </p>
 
           {!visitorProfile ? (
             <form onSubmit={handleIdentify} className="flex-1 p-4 space-y-3">

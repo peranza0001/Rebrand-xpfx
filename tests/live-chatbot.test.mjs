@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getChatbotResponse } from '../artifacts/api-server/src/lib/chatbot.ts';
+import { getChatbotResponse, keywordEscalation } from '../artifacts/api-server/src/lib/chatbot.ts';
 
 const cases = [
   ['How do I sign up and verify my email?', 'account'],
@@ -27,6 +27,12 @@ test('chatbot escalates explicit human support requests', () => {
   const response = getChatbotResponse('Please connect me with a human representative', 'Visitor');
   assert.equal(response.shouldEscalate, true);
   assert.match(response.content, /human support/i);
+});
+
+test('chatbot escalates account-specific funds and compliance questions', () => {
+  assert.equal(keywordEscalation('What is my withdrawal status?'), true);
+  assert.equal(keywordEscalation('Can you tell me my KYC status?'), true);
+  assert.equal(keywordEscalation('Should I buy EUR/USD now?'), false);
 });
 
 test('chatbot supports FAQ commands for self-service visitors', () => {
