@@ -45,6 +45,39 @@ export function getPrismaClient(): any {
   return prismaClient;
 }
 
+export async function ensurePersistedDemoAccount(userId: string, startingBalance: number): Promise<boolean> {
+  if (!isUuid(userId) || !Number.isFinite(startingBalance) || startingBalance <= 0) return false;
+
+  const accountDelegate = getPrismaModelDelegate("TradingAccount");
+  if (!accountDelegate?.findFirst || !accountDelegate.create) return false;
+
+  try {
+    const existing = await accountDelegate.findFirst({
+      where: { userId, accountType: "DEMO", isActive: true },
+      select: { id: true },
+    });
+    if (existing) return true;
+
+    await accountDelegate.create({
+      data: {
+        userId,
+        accountType: "DEMO",
+        currency: "USD",
+        balance: startingBalance,
+        equity: startingBalance,
+        margin: 0,
+        freeMargin: startingBalance,
+        leverage: 50,
+        isActive: true,
+      },
+    });
+    return true;
+  } catch (err) {
+    logger.error({ err, userId }, "[db-persist] demo account provisioning failed");
+    return false;
+  }
+}
+
 export async function getPersistedUser(userId: string): Promise<StoredUser | null> {
   if (!isUuid(userId)) return null;
 

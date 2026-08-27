@@ -11,6 +11,7 @@ import {
 import { isDemoAuthEnabled, isDemoRouteAvailable, isProduction } from "../lib/env";
 import {
   createIsolatedDemoUser,
+  demoConfig,
   ensureDemoUser,
   freshUserData,
   getUserData,
@@ -41,7 +42,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
+import { ensurePersistedDemoAccount, persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import { passwordResetRouter } from "./password-reset";
@@ -721,6 +722,10 @@ router.post("/auth/demo", async (req, res) => {
   const stored = createIsolatedDemoUser();
   const userId = stored.user.id;
   getUserData(userId);
+  const demoAccountPersisted = await ensurePersistedDemoAccount(userId, demoConfig.defaultBalance);
+  if (!demoAccountPersisted) {
+    return res.status(503).json({ error: "Demo trading is temporarily unavailable because the demo account could not be persisted." });
+  }
   const sid = newSessionId();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };

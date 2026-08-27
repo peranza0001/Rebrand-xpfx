@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-27 18:30:00 UTC
+- Last sync: 2026-08-27 18:55:31 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  .gitignore | D  artifacts/nextrade/.env.production
+- Current working tree: M  artifacts/api-server/src/lib/db-persist.ts | M  artifacts/api-server/src/routes/auth.ts |  M remember.md
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
