@@ -4,9 +4,9 @@
  * map. Attaches `req.user` (StoredUser) and `req.userId` when authenticated.
  */
 import type { NextFunction, Request, Response } from "express";
-import { sessions, users } from "./store";
+import { sessions, users, usersByEmail } from "./store";
 import { isProduction } from "./env";
-import { deleteSession, getPersistedSession } from "./db-persist";
+import { deleteSession, getPersistedSession, getPersistedUser } from "./db-persist";
 
 export const SESSION_COOKIE = "xpfx_sid";
 
@@ -54,7 +54,14 @@ export async function attachSession(req: Request, res: Response, next: NextFunct
         return next();
       }
 
-      const stored = users.get(rec.userId);
+      let stored = users.get(rec.userId);
+      if (!stored) {
+        stored = await getPersistedUser(rec.userId) ?? undefined;
+        if (stored) {
+          users.set(rec.userId, stored);
+          usersByEmail.set(stored.user.email.toLowerCase(), rec.userId);
+        }
+      }
       if (stored) {
         req.userId = rec.userId;
         req.sessionId = sid;

@@ -38,7 +38,7 @@ test('startup validation resolves defaults and warns for optional secrets', () =
   assert.ok(result.warnings.includes('AI_INTEGRATIONS_OPENAI_API_KEY'));
 });
 
-test('startup validation requires admin provisioning secrets in production', () => {
+test('startup validation warns when admin provisioning secrets are absent', () => {
   const result = validateStartupEnvironment({
     NODE_ENV: 'production',
     PORT: '8080',
@@ -51,9 +51,9 @@ test('startup validation requires admin provisioning secrets in production', () 
     ADMIN_PASSWORD: '',
   });
 
-  assert.equal(result.ok, false);
-  assert.ok(result.missing.includes('ADMIN_EMAIL'));
-  assert.ok(result.missing.includes('ADMIN_PASSWORD'));
+  assert.equal(result.ok, true);
+  assert.ok(result.warnings.includes('ADMIN_EMAIL'));
+  assert.ok(result.warnings.includes('ADMIN_PASSWORD'));
 });
 
 test('startup validation allows production without payment webhooks if integrators are not configured', () => {

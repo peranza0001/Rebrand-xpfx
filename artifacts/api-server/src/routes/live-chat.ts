@@ -16,16 +16,19 @@ import {
   SendLiveChatMessageBody,
   AdminReplyLiveChatBody,
   AdminReplyLiveChatParams,
+  type SupportTicket,
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
-import { adminPresence, getUserData, newId, NOW, userData, users } from "../lib/store";
-import { persistChatMessage } from "../lib/db-persist";
+import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
+import { findUserIdByLiveChatTicket, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
-import { generateAIReply } from "../lib/openai-client";
+import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
 import { sendEmail } from "../lib/email";
 import { env } from "../lib/env";
+import { logger } from "../lib/logger";
 import type { LiveChatMsg } from "../lib/store";
+import { getChatbotResponse, keywordEscalation } from "../lib/chatbot";
 
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
 const SUPPORT_EMAIL = env.SMTP_FROM || "support@xpressprofx.com";
@@ -59,19 +62,42 @@ function presenceState(): PresenceState {
 
 const router: IRouter = Router();
 
-const FALLBACK_REPLY =
-  "Thanks for reaching out — our support team is reviewing your message. For urgent issues email help@xpressprofx.com, or type 'agent' to escalate to a live person.";
+router.post("/live-chat/identify", requireAuth, (req, res) => {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const country = typeof req.body?.country === "string" ? req.body.country.trim().slice(0, 80) : "";
+  if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "Enter a valid name and email." });
+  }
 
-function keywordEscalation(content: string): boolean {
-  const m = content.toLowerCase();
-  return /(human|agent|real person|supervisor|manager|escalate|fraud|hack(ed)?|stolen|emergency)/.test(
-    m,
-  );
+  const stored = users.get(req.userId!);
+  if (!stored) return res.status(404).json({ error: "Chat identity is unavailable." });
+  if (stored.role !== "demo" && stored.user.email.toLowerCase() !== email) {
+    return res.status(400).json({ error: "Use the registered email on this account." });
+  }
+  if (stored.role === "demo") {
+    stored.user.fullName = name;
+    stored.user.email = email;
+    if (country) stored.user.country = country;
+    usersByEmail.set(email, req.userId!);
+  }
+  return res.json({ name, email, country });
+});
+
+async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
+  const persisted = await persistChatMessage(userId, senderType, senderId, content);
+  if (!persisted) {
+    logger.warn({ userId, senderType }, "live-chat persistence unavailable; serving from active session");
+  }
 }
 
 // GET /live-chat — current user's messages
-router.get("/live-chat", requireAuth, (req, res) => {
+router.get("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
+  const persisted = await getPersistedChatMessages(req.userId!);
+  if (persisted.length > 0) {
+    data.liveChat.splice(0, data.liveChat.length, ...persisted);
+  }
   return res.json(data.liveChat);
 });
 
@@ -83,19 +109,26 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
   const stored = users.get(req.userId!);
   const userName = stored?.user.fullName ?? "User";
+  let handoff: {
+    ticketId: string;
+    status: "queued";
+    agentAvailable: boolean;
+    supportNotification?: { delivered: boolean; fallbackUrl?: string };
+  } | null = null;
 
+  const safeContent = redactChatContent(parsed.data.content);
   const userMsg: LiveChatMsg = {
     id: newId("chat"),
     userId: req.userId!,
     senderName: userName,
-    content: parsed.data.content,
+    content: safeContent,
     isFromUser: true,
     isBot: false,
     escalated: keywordEscalation(parsed.data.content),
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
-  void persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
+  await persistChatBestEffort(req.userId!, 'user', req.userId!, userMsg.content);
 
   try {
     const ns = getChatNamespace();
@@ -113,13 +146,17 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       content: m.content,
     }));
 
-  const ai = await generateAIReply({
-    userMessage: parsed.data.content,
-    history,
-    userName,
-  });
-
-  const replyText = ai?.content ?? FALLBACK_REPLY;
+  const localReply = getChatbotResponse(parsed.data.content, userName);
+  const ai = userMsg.escalated || localReply.intent !== "general"
+    ? null
+    : generateFaqReply(safeContent) ?? await generateAIReply({
+      userMessage: safeContent,
+      history,
+      userName,
+    });
+  const replyText = userMsg.escalated
+    ? localReply.content
+    : ai?.content || localReply.content;
   const aiEscalated = ai?.escalated ?? false;
   const escalated = userMsg.escalated || aiEscalated;
 
@@ -130,17 +167,37 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     content: replyText,
     isFromUser: false,
     isBot: true,
-    escalated: aiEscalated,
+    escalated: userMsg.escalated || aiEscalated,
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
-  void persistChatMessage(req.userId!, 'bot', null, botReply.content);
+  await persistChatBestEffort(req.userId!, 'bot', null, botReply.content);
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
     userMsg.escalated = true;
     const presence = presenceState();
-    const ticketId = `TC-${newId("ticket").substring(0, 8).toUpperCase()}`;
+    const ticketId = `XPFX-${newId("ticket").substring(0, 8).toUpperCase()}`;
+    const ticketRecordId = newUuid();
+    const ticketCreatedAt = NOW();
+    const ticket: SupportTicket = {
+      id: ticketRecordId,
+      subject: `Live chat escalation ${ticketId}`,
+      status: "open",
+      priority: presence.anyOnline ? "medium" : "high",
+      messages: [],
+      createdAt: ticketCreatedAt,
+      updatedAt: ticketCreatedAt,
+    };
+    data.supportTickets.unshift(ticket);
+    void persistSupportTicket(ticket.id, req.userId!, {
+      subject: ticket.subject,
+      status: ticket.status,
+      priority: ticket.priority,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+    });
+    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
     
     if (!presence.anyOnline) {
       const noAgentMsg: LiveChatMsg = {
@@ -155,7 +212,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
         createdAt: NOW(),
       };
       data.liveChat.push(noAgentMsg);
-    void persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
+      await persistChatMessage(req.userId!, 'bot', null, noAgentMsg.content);
     }
     
     // Notify admin in-app
@@ -164,7 +221,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       title: presence.anyOnline
         ? "Live chat handoff requested"
         : "Live chat handoff requested — NO admin online",
-      body: `${stored?.user.email ?? userName} requested a human agent. Ticket: ${ticketId}\n\nMessage: "${parsed.data.content.slice(0, 200)}"`,
+      body: `${stored?.user.email ?? userName} requested a human agent. Ticket: ${ticketId}\n\nMessage: "${safeContent.slice(0, 200)}"`,
       userId: req.userId!,
       userEmail: stored?.user.email ?? null,
       severity: presence.anyOnline ? "warning" : "critical",
@@ -181,24 +238,33 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       `User: ${userName}\n` +
       `Email: ${userEmail}\n` +
       `Time: ${new Date().toISOString()}\n\n` +
-      `User Message:\n${parsed.data.content}\n\n` +
+      `User Message:\n${safeContent}\n\n` +
       `---\n` +
       `Reply to this email to respond to the user (or use the admin panel at ${env.FRONTEND_URL || 'https://app.xpressprofx.com'}/admin/livechat)\n` +
       `Ticket ID ${ticketId} will be tracked with this conversation.\n`;
 
-    void sendEmail({
-      to: SUPPORT_EMAIL,
-      subject: emailSubject,
-      body: emailBody,
-      text: emailBody,
-      kind: "live_chat.escalation",
-    }).catch(() => undefined);
+    try {
+      await sendEmail({
+        to: SUPPORT_EMAIL,
+        subject: emailSubject,
+        body: emailBody,
+        text: emailBody,
+        kind: "live_chat.escalation",
+      }, { requireProvider: true });
+      handoff.supportNotification = { delivered: true };
+    } catch {
+      handoff.supportNotification = {
+        delivered: false,
+        fallbackUrl: `mailto:${encodeURIComponent(SUPPORT_EMAIL)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`,
+      };
+    }
   }
 
   return res.json({
     userMessage: userMsg,
     botReply,
     escalated,
+    handoff,
   });
 });
 
@@ -213,21 +279,32 @@ router.get("/admin/presence", requireAdmin, (_req, res) => {
 });
 
 // GET /admin/live-chats — list all chat sessions (admin)
-router.get("/admin/live-chats", requireAdmin, (req, res) => {
+router.get("/admin/live-chats", requireAdmin, async (req, res) => {
   touchAdminPresence(req.userId!);
-  const sessions = [];
+  const sessionsByUser = new Map<string, LiveChatMsg[]>();
   for (const [userId, data] of userData) {
-    if (data.liveChat.length === 0) continue;
+    const persistedMessages = await getPersistedChatMessages(userId);
+    if (persistedMessages.length > 0) {
+      data.liveChat.splice(0, data.liveChat.length, ...persistedMessages);
+    }
+    if (data.liveChat.length > 0) sessionsByUser.set(userId, data.liveChat);
+  }
+  for (const persisted of await listPersistedChatConversations()) {
+    if (!sessionsByUser.has(persisted.userId)) sessionsByUser.set(persisted.userId, persisted.messages);
+  }
+
+  const sessions = [];
+  for (const [userId, messages] of sessionsByUser) {
     const stored = users.get(userId);
-    const lastMsg = data.liveChat[data.liveChat.length - 1];
-    const unread = data.liveChat.filter((m) => m.isFromUser).length;
+    const lastMsg = messages[messages.length - 1];
+    const unread = messages.filter((m) => m.isFromUser).length;
     sessions.push({
       userId,
       userName: stored?.user.fullName ?? "Unknown",
       userEmail: stored?.user.email ?? "",
-      messages: data.liveChat,
+      messages,
       lastMessageAt: lastMsg?.createdAt ?? NOW(),
-      escalated: data.liveChat.some((m) => m.escalated),
+      escalated: messages.some((m) => m.escalated),
       unreadByAdmin: unread,
     });
   }
@@ -235,7 +312,7 @@ router.get("/admin/live-chats", requireAdmin, (req, res) => {
 });
 
 // POST /admin/live-chats/:userId/reply — admin replies (via panel or email)
-router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
+router.post("/admin/live-chats/:userId/reply", requireAdmin, async (req, res) => {
   const p = AdminReplyLiveChatParams.safeParse(req.params);
   const b = AdminReplyLiveChatBody.safeParse(req.body);
   if (!p.success || !b.success) return res.status(400).json({ error: "Invalid" });
@@ -256,8 +333,13 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(msg);
-  // Persist admin reply (best-effort) and broadcast in realtime to any connected clients in the conv room.
-  void persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
+  const persisted = await persistChatMessage(p.data.userId, 'admin', req.userId!, msg.content);
+  if (!persisted) {
+    data.liveChat.pop();
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
+  // Broadcast after durable persistence so connected clients never see a message
+  // that disappears on restart.
   try {
     const ns = getChatNamespace();
     ns?.to(`conv:${p.data.userId}`).emit('message', msg);
@@ -288,39 +370,61 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, (req, res) => {
  * 
  * ChatWay-like: Allows admins to reply directly from their email client.
  */
-router.post("/live-chat/email-reply", (req, res) => {
-  // This would typically come from SendGrid/SMTP webhook
-  // For now, we require a simple authentication token or API key
-  const { ticketId, userId, senderName, content, fromEmail } = req.body;
+router.post("/live-chat/email-reply", async (req, res) => {
+  const webhookSecret = env.WEBHOOK_SECRET_GLOBAL?.trim();
+  const providedSecret = req.get("x-webhook-secret")?.trim()
+    || req.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (webhookSecret ? providedSecret !== webhookSecret : process.env.NODE_ENV === "production") {
+    return res.status(401).json({ error: "Unauthorized email reply webhook" });
+  }
+
+  const { ticketId, senderName, content, fromEmail } = req.body;
   
-  if (!ticketId || !userId || !content) {
-    return res.status(400).json({ error: "Missing required fields: ticketId, userId, content" });
+  if (typeof ticketId !== "string" || !/^XPFX-[A-Z0-9-]+$/i.test(ticketId) || typeof content !== "string") {
+    return res.status(400).json({ error: "ticketId and content are required" });
+  }
+  const safeContent = redactChatContent(content.trim().slice(0, 4000));
+  if (!safeContent) {
+    return res.status(400).json({ error: "Reply content is required" });
+  }
+
+  let resolvedUserId: string | null = null;
+  for (const [candidateUserId, candidateData] of userData) {
+    if (candidateData.supportTickets.some((ticket) => ticket.subject.includes(`Live chat escalation ${ticketId}`))) {
+      resolvedUserId = candidateUserId;
+      break;
+    }
+  }
+  resolvedUserId ??= await findUserIdByLiveChatTicket(ticketId);
+  if (!resolvedUserId) {
+    return res.status(404).json({ error: "Live chat ticket not found" });
   }
 
   try {
-    const data = getUserData(userId);
-    if (!data) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const data = getUserData(resolvedUserId);
 
     // Add admin reply to chat
     const msg: LiveChatMsg = {
       id: newId("chat"),
-      userId,
+      userId: resolvedUserId,
       senderName: senderName || "XpressPro FX Support",
-      content,
+      content: safeContent,
       isFromUser: false,
       isBot: false,
       escalated: false,
       createdAt: NOW(),
     };
     data.liveChat.push(msg);
-    void persistChatMessage(userId, 'admin', null, content);
+    const persisted = await persistChatMessage(resolvedUserId, 'admin', null, safeContent);
+    if (!persisted) {
+      data.liveChat.pop();
+      return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+    }
 
     // Broadcast in realtime
     try {
       const ns = getChatNamespace();
-      ns?.to(`conv:${userId}`).emit('message', msg);
+      ns?.to(`conv:${resolvedUserId}`).emit('message', msg);
     } catch {
       // best-effort
     }

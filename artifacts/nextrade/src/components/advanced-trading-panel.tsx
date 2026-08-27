@@ -37,6 +37,7 @@ export interface TradingPosition {
 interface AdvancedTradingPanelProps {
   positions?: TradingPosition[];
   selectedSymbol?: string;
+  currentPrice?: number;
   balance: number;
   freeMargin: number;
   onPlaceOrder?: (order: any) => void;
@@ -49,18 +50,19 @@ export function AdvancedTradingPanel({
   selectedSymbol = "EUR/USD",
   balance: _balance,
   freeMargin,
+  currentPrice = 1.0854,
   onPlaceOrder,
   onClosePosition,
   loading = false,
 }: AdvancedTradingPanelProps) {
   const [orderType, setOrderType] = useState<"market" | "limit" | "stop">("market");
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
-  const [volume, setVolume] = useState("1.0");
+  const [volume, setVolume] = useState("0.01");
+  const [entryPrice, setEntryPrice] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [slippage, setSlippage] = useState("2");
 
-  const currentPrice = 1.0854;
   const riskReward = takeProfit && stopLoss ? 
     Math.abs(parseFloat(takeProfit) - currentPrice) / Math.abs(currentPrice - parseFloat(stopLoss)) 
     : 0;
@@ -75,6 +77,7 @@ export function AdvancedTradingPanel({
       orderType,
       side: orderSide,
       volume: parseFloat(volume),
+      price: orderType === "market" ? undefined : parseFloat(entryPrice),
       stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
       takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
       slippage: parseFloat(slippage),
@@ -145,29 +148,44 @@ export function AdvancedTradingPanel({
           {/* Volume */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Volume (Lots)</label>
+              <label className="text-sm font-medium">Amount (asset units)</label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent>1 lot = 100,000 units</TooltipContent>
+                  <TooltipContent>Amount is measured in units of the selected asset.</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <Input
               type="number"
-              step="0.1"
-              min="0.1"
+              step="0.01"
+              min="0.01"
               value={volume}
               onChange={(e) => setVolume(e.target.value)}
-              placeholder="1.0"
+              placeholder="0.01"
               className="font-mono"
             />
             <div className="text-xs text-muted-foreground">
               ≈ ${estimatedLotSize.toFixed(2)} USD value
             </div>
           </div>
+
+          {orderType !== "market" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Entry Price</label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0"
+                value={entryPrice}
+                onChange={(e) => setEntryPrice(e.target.value)}
+                placeholder={currentPrice.toFixed(4)}
+                className="font-mono"
+              />
+            </div>
+          )}
 
           {/* Stop Loss */}
           <div className="space-y-2">
@@ -217,7 +235,7 @@ export function AdvancedTradingPanel({
           {/* Risk Warning */}
           {!canTrade && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
               <div className="text-xs text-red-700">
                 Insufficient margin. Required: ${marginRequired.toFixed(2)}, Available: ${freeMargin.toFixed(2)}
               </div>
@@ -260,7 +278,7 @@ export function AdvancedTradingPanel({
                 : "bg-red-600 hover:bg-red-700"
             }`}
           >
-            {loading ? "Processing..." : `${orderSide.toUpperCase()} ${volume} LOTS`}
+            {loading ? "Processing..." : `${orderSide.toUpperCase()} ${volume} UNITS`}
           </Button>
         </CardContent>
       </Card>

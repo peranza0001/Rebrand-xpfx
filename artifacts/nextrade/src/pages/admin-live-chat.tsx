@@ -12,14 +12,26 @@ type SessionSummary = {
 };
 
 export default function AdminLiveChat() {
+  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [selected, setSelected] = useState<SessionSummary | null>(null);
   const [reply, setReply] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const csrfTokenRef = useRef<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+
+  const loadCsrfToken = async () => {
+    const res = await fetch(`${apiUrl}/api/csrf-token`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Unable to initialize chat security.');
+    const payload = await res.json() as { csrfToken?: string };
+    if (!payload.csrfToken) throw new Error('Chat security token was not returned.');
+    csrfTokenRef.current = payload.csrfToken;
+  };
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch('/api/admin/live-chats', { credentials: 'include' });
+      const res = await fetch(`${apiUrl}/api/admin/live-chats`, { credentials: 'include' });
       if (res.ok) setSessions(await res.json());
     })();
   }, []);
@@ -30,13 +42,13 @@ export default function AdminLiveChat() {
   }, [selected]);
 
   useEffect(() => {
-    const socket = io('/live-chat', { path: '/socket.io', withCredentials: true });
+    const socket = io(`${apiUrl}/live-chat`, { path: '/socket.io', withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       socket.emit('join_admin_room');
       // touch admin presence via heartbeat endpoint — optional
-      fetch('/api/admin/presence/heartbeat', { method: 'POST', credentials: 'include' }).catch(() => undefined);
+      fetch(`${apiUrl}/api/admin/presence/heartbeat`, { method: 'POST', credentials: 'include' }).catch(() => undefined);
     });
 
     socket.on('message', (msg: any) => {
@@ -77,14 +89,21 @@ export default function AdminLiveChat() {
   };
 
   const sendReply = async () => {
-    if (!selected || !reply.trim()) return;
-    const res = await fetch(`/api/admin/live-chats/${selected.userId}/reply`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: reply }),
-    });
-    if (res.ok) {
+    if (!selected || !reply.trim() || isSending) return;
+    setError(null);
+    setIsSending(true);
+    try {
+      if (!csrfTokenRef.current) await loadCsrfToken();
+      const res = await fetch(`${apiUrl}/api/admin/live-chats/${selected.userId}/reply`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfTokenRef.current ?? '',
+        },
+        body: JSON.stringify({ content: reply.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Unable to send reply.');
       const msg = await res.json();
       setReply('');
       setSessions((prev) => {
@@ -92,6 +111,10 @@ export default function AdminLiveChat() {
         return prev.map((p) => (p.userId === selected.userId ? { ...p, messages: [...p.messages, msg], lastMessageAt: msg.createdAt } : p));
       });
       setSelected((prev) => (prev ? { ...prev, messages: [...prev.messages, msg], lastMessageAt: msg.createdAt } : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to send reply.');
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -125,8 +148,9 @@ export default function AdminLiveChat() {
               <div className="mt-2">
                 <textarea value={reply} onChange={(e) => setReply(e.target.value)} className="w-full p-2 border rounded" rows={3} />
                 <div className="flex justify-end mt-2">
-                  <button onClick={sendReply} className="px-3 py-1 bg-blue-600 text-white rounded">Send reply</button>
+                  <button onClick={sendReply} disabled={isSending || !reply.trim()} className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50">{isSending ? 'Sending...' : 'Send reply'}</button>
                 </div>
+                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
               </div>
             </>
           )}

@@ -70,7 +70,7 @@ export function Login() {
     }
   };
 
-  const showDemoButton = true;
+  const showDemoButton = import.meta.env.VITE_ENABLE_DEMO_AUTH === "true";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 dark">

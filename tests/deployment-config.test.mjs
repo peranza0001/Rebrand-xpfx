@@ -20,9 +20,23 @@ function readJson(filePath) {
 test('railpack install/build keeps dev dependencies available without deprecated npm production config', () => {
   const railpack = readJson(railpackPath);
 
+  const npmrc = fs.readFileSync(path.join(repoRoot, '.npmrc'), 'utf8');
+  assert.equal(npmrc.trim(), 'legacy-peer-deps=true', 'root .npmrc must not define deprecated production or omit settings');
   assert.equal(railpack.env?.NODE_ENV, undefined, 'railpack env should not force NODE_ENV=production during install/build');
   assert.match(railpack.install, /--include=dev/, 'install step should explicitly include dev dependencies');
   assert.match(railpack.build, /--include=dev|npm run predeploy/, 'build step should keep dev dependencies available during build');
+  assert.match(railpack.install, /NPM_CONFIG_PRODUCTION=false/, 'railpack install must override Railway production config');
+  assert.match(railpack.build, /NPM_CONFIG_PRODUCTION=false/, 'railpack build must override Railway production config');
+  assert.match(railpack.start, /NPM_CONFIG_PRODUCTION=false/, 'railpack start must override Railway production config');
+  assert.match(railpack.install, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack install must remove deprecated npm aliases before npm starts');
+  assert.match(railpack.build, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack build must remove deprecated npm aliases before npm starts');
+  assert.match(railpack.start, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack start must remove deprecated npm aliases before npm starts');
+
+  const railway = readJson(path.join(repoRoot, 'railway.json'));
+  assert.match(railway.build?.buildCommand ?? '', /NPM_CONFIG_PRODUCTION=false/, 'Railway build must override production config');
+  assert.match(railway.deploy?.startCommand ?? '', /NPM_CONFIG_PRODUCTION=false/, 'Railway start must override production config');
+  assert.match(railway.build?.buildCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway build must remove deprecated npm aliases before npm starts');
+  assert.match(railway.deploy?.startCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway start must remove deprecated npm aliases before npm starts');
 });
 
 test('Railway frontend origin with a trailing slash is accepted as a credentialed CORS origin', async () => {

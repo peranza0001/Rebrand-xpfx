@@ -118,7 +118,7 @@ router.post('/kyc/verify/start', requireAuth, async (req: Request, res: Response
  * GET /kyc/verify/status/:verificationId
  * Check KYC verification status
  */
-router.get('/kyc/verify/status/:verificationId', requireAuth, (req: Request, res: Response) => {
+router.get('/kyc/verify/status/:verificationId', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const { verificationId } = req.params;
@@ -130,7 +130,7 @@ router.get('/kyc/verify/status/:verificationId', requireAuth, (req: Request, res
       });
     }
 
-    const verification = getVerificationResult(verificationId);
+    const verification = await getVerificationResult(verificationId);
     if (!verification) {
       return res.status(404).json({
         success: false,
@@ -168,11 +168,11 @@ router.get('/kyc/verify/status/:verificationId', requireAuth, (req: Request, res
  * GET /kyc/verify/latest
  * Get authenticated user's latest verification status
  */
-router.get('/kyc/verify/latest', requireAuth, (req: Request, res: Response) => {
+router.get('/kyc/verify/latest', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
 
-    const verification = getUserLatestVerification(userId);
+    const verification = await getUserLatestVerification(userId);
 
     if (!verification) {
       return res.status(200).json({
@@ -266,7 +266,7 @@ router.post('/aml/screen', requireAuth, async (req: Request, res: Response) => {
  * GET /aml/screen/status/:screeningId
  * Check AML screening status
  */
-router.get('/aml/screen/status/:screeningId', requireAuth, (req: Request, res: Response) => {
+router.get('/aml/screen/status/:screeningId', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const { screeningId } = req.params;
@@ -278,7 +278,7 @@ router.get('/aml/screen/status/:screeningId', requireAuth, (req: Request, res: R
       });
     }
 
-    const screening = getScreeningResult(screeningId);
+    const screening = await getScreeningResult(screeningId);
     if (!screening) {
       return res.status(404).json({
         success: false,
@@ -357,10 +357,10 @@ router.get('/compliance/status', requireAuth, (req: Request, res: Response) => {
  * GET /compliance/can-trade
  * Check if user is compliant and can trade
  */
-router.get('/compliance/can-trade', requireAuth, (req: Request, res: Response) => {
+router.get('/compliance/can-trade', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    const isCompliant = isUserCompliant(userId);
+    const isCompliant = await isUserCompliant(userId);
 
     return res.status(200).json({
       success: true,

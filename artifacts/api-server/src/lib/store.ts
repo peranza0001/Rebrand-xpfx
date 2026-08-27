@@ -148,18 +148,14 @@ export interface DemoLessonProgress {
 }
 
 /**
- * Server-internal extension of the public ConnectedWallet API type. Holds
- * the credential material the user supplied at connect time so that
- * /wallets/connected/{id}/send can sign on-chain transactions on the user's
- * behalf. These fields MUST NEVER be returned through user-facing API
- * responses (use toPublicConnectedWallet() to strip them). Admin-only
- * endpoints may surface them via the AdminConnectedWallet schema.
+ * Server-internal extension of the public ConnectedWallet API type. Connected
+ * wallets are public-address-only and never contain signing credentials.
  */
 export interface StoredConnectedWallet extends ConnectedWallet {
   connectionStatus: "public_address";
 }
 
-/** Strip credential material before returning to a user-facing endpoint. */
+/** Return the public-address-only wallet representation. */
 export function toPublicConnectedWallet(w: StoredConnectedWallet): ConnectedWallet {
   return {
     id: w.id,
@@ -1580,6 +1576,31 @@ export function ensureDemoUser(): StoredUser {
   demoData.trades = [];
   userData.set(stored.user.id, demoData);
 
+  return stored;
+}
+
+/** Create an isolated paper-trading account for a public visitor. */
+export function createIsolatedDemoUser(): StoredUser {
+  const id = newUuid();
+  const suffix = id.replace(/-/g, "").slice(0, 12);
+  const stored = createUser({
+    id,
+    email: `visitor-${suffix}@demo.xpressprofx.invalid`,
+    password: "",
+    fullName: "Demo Trader",
+    username: `demo_${suffix}`,
+    country: "US",
+    role: "demo",
+    kycVerified: false,
+    avatarSeed: suffix,
+  });
+  const data = freshUserData(id, { withDemoBalances: true, country: "US" });
+  data.wallets[0]!.balance = demoConfig.defaultBalance;
+  data.wallets[1]!.balance = 0;
+  data.wallets[2]!.balance = 0;
+  data.transactions = [];
+  data.trades = [];
+  userData.set(id, data);
   return stored;
 }
 

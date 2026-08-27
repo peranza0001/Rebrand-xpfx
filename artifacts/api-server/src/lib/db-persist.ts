@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
 import { userSessionsTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
+import type { StoredUser } from "./store";
 
 let prismaClient: any = null;
 
@@ -42,6 +43,91 @@ export function setPrismaClient(client: any): void {
 
 export function getPrismaClient(): any {
   return prismaClient;
+}
+
+export async function getPersistedUser(userId: string): Promise<StoredUser | null> {
+  if (!isUuid(userId)) return null;
+
+  const userDelegate = getPrismaUserDelegate();
+  if (userDelegate?.findUnique) {
+    try {
+      const row = await userDelegate.findUnique({ where: { id: userId } });
+      if (row) return persistedUserToStoredUser(row);
+    } catch (err) {
+      logger.warn({ err, userId }, "[db-persist] getPersistedUser failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    return rows[0] ? persistedUserToStoredUser(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getPersistedUser failed using Drizzle");
+    return null;
+  }
+}
+
+export async function getPersistedUserByEmail(email: string): Promise<StoredUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const userDelegate = getPrismaUserDelegate();
+  if (userDelegate?.findUnique) {
+    try {
+      const row = await userDelegate.findUnique({ where: { email: normalizedEmail } });
+      if (row) return persistedUserToStoredUser(row);
+    } catch (err) {
+      logger.warn({ err, email: normalizedEmail }, "[db-persist] getPersistedUserByEmail failed using Prisma");
+    }
+  }
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+    return rows[0] ? persistedUserToStoredUser(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, email: normalizedEmail }, "[db-persist] getPersistedUserByEmail failed using Drizzle");
+    return null;
+  }
+}
+
+function persistedUserToStoredUser(row: any): StoredUser {
+  const email = String(row.email ?? "").toLowerCase();
+  const fullName = String(row.fullName ?? row.full_name ?? email);
+  const username = String(row.username ?? email.split("@")[0] ?? "trader");
+  const referralCode = String(row.referralCode ?? row.referral_code ?? `ref_${row.id}`);
+  const role = row.role === "admin" || row.role === "demo" ? row.role : "user";
+  return {
+    user: {
+      id: String(row.id),
+      username,
+      email,
+      fullName,
+      country: String(row.country ?? "US"),
+      kycVerified: Boolean(row.kycVerified ?? row.kyc_verified),
+      avatarUrl: row.avatarUrl ?? row.avatar_url ?? null,
+      createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()).toISOString(),
+      selectedManagerId: row.selectedManagerId ?? row.selected_manager_id ?? null,
+      phone: row.phone ?? null,
+      merchant: Boolean(row.merchant),
+      moonpayEmail: row.moonpayEmail ?? row.moonpay_email ?? null,
+      buyVerified: Boolean(row.buyVerified ?? row.buy_verified),
+    },
+    passwordHash: String(row.passwordHash ?? row.password_hash ?? ""),
+    role,
+    referralCode,
+    referredBy: row.referredBy ?? row.referred_by ?? null,
+    merchant: Boolean(row.merchant),
+    tradingLocked: Boolean(row.tradingLocked ?? row.trading_locked),
+    demoMode: Boolean(row.demoMode ?? row.demo_mode),
+    phone: row.phone ?? null,
+    accountFlag: row.accountFlag ?? row.account_flag ?? null,
+    suspended: Boolean(row.suspended),
+    disabled: Boolean(row.disabled),
+  };
 }
 
 export function getPrismaModelDelegate(modelName: string): any | null {
@@ -103,6 +189,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     firstName,
     lastName,
     passwordHash: userData.passwordHash,
+    securityType: "password",
+    emailVerified: true,
     country: userData.country,
     phone: userData.phone ?? null,
   };
@@ -113,6 +201,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     username: userData.username,
     fullName: userData.fullName,
     passwordHash: userData.passwordHash,
+    securityType: "password",
+    emailVerified: true,
     country: userData.country,
     phone: userData.phone ?? null,
   };
@@ -122,6 +212,8 @@ function buildPrismaUserPayloadCandidates(userId: string, userData: {
     email: userData.email,
     username: userData.username,
     password_hash: userData.passwordHash,
+    security_type: "password",
+    email_verified: true,
     full_name: userData.fullName,
     country: userData.country,
     phone: userData.phone ?? null,
@@ -156,24 +248,42 @@ export async function persistUser(userId: string, userData: {
   if (!isUuid(userId)) return false;
 
   const userDelegate = getPrismaUserDelegate();
-  if (!userDelegate) {
-    logger.warn({ userId }, "[db-persist] Prisma user delegate unavailable; continuing with in-memory user state");
-    return true;
+  if (userDelegate) {
+    const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
+    let lastErr: unknown = null;
+    for (const payload of payloadCandidates) {
+      try {
+        await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
+        return true;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
   }
 
-  const payloadCandidates = buildPrismaUserPayloadCandidates(userId, userData);
-  let lastErr: unknown = null;
-  for (const payload of payloadCandidates) {
+  const db = getDb();
+  if (db) {
     try {
-      await tryPrismaUserUpsert(userDelegate, userId, payload, payload);
-      return true;
+      const rows = await db.insert(usersTable).values({
+        id: userId,
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.fullName,
+        phone: userData.phone ?? "",
+        country: userData.country,
+        passwordHash: userData.passwordHash,
+        securityType: "password",
+        emailVerified: true,
+      }).onConflictDoNothing({ target: usersTable.email }).returning({ id: usersTable.id });
+      return rows.length > 0;
     } catch (err) {
-      lastErr = err;
+      logger.error({ err, userId }, "[db-persist] persistUser failed using Drizzle");
     }
   }
 
-  const errMessage = lastErr instanceof Error ? lastErr.message : String(lastErr);
-  logger.error({ errMessage, err: lastErr, userId }, "[db-persist] persistUser failed using Prisma");
+  logger.error({ userId }, "[db-persist] no durable user persistence backend is available");
   return false;
 }
 
@@ -219,8 +329,16 @@ export async function persistSession(
   const prismaFallback = async (): Promise<boolean> => {
     const sessionDelegate = getPrismaUserSessionDelegate();
     if (!sessionDelegate) {
-      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; using in-memory session fallback");
-      return true;
+      logger.warn({ sessionId, userId }, "[db-persist] Prisma session delegate unavailable; trying Drizzle");
+      const db = getDb();
+      if (!db) return false;
+      try {
+        await db.insert(userSessionsTable).values({ id: sessionId, userId, expiresAt, isAdmin });
+        return true;
+      } catch (err) {
+        logger.error({ err, sessionId, userId }, "[db-persist] persistSession failed using Drizzle");
+        return false;
+      }
     }
     const sessionPayloadCandidates = [
       { id: sessionId, token: sessionId, userId, user_id: userId, expiresAt, expires_at: expiresAt, isAdmin, is_admin: isAdmin },
@@ -387,30 +505,49 @@ export async function persistAuditEvent(input: {
   metadata?: Record<string, unknown>;
   timestamp: string;
 }): Promise<void> {
-  if (!prismaClient) return;
-
   try {
+    const data = {
+      id: isUuid(input.id) ? input.id : undefined,
+      userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
+      action: input.action,
+      entity: input.category,
+      entityId: input.id,
+      metadata: { detail: input.detail, timestamp: input.timestamp, ...(input.metadata ?? {}) },
+      createdAt: new Date(input.timestamp),
+    };
     const delegate = getPrismaModelDelegate("AuditLog");
-    if (!delegate?.create) return;
-
-    await delegate.create({
-      data: {
-        id: isUuid(input.id) ? input.id : undefined,
-        userId: input.actorId && isUuid(input.actorId) ? input.actorId : null,
-        action: input.action,
-        entity: input.category,
-        entityId: input.id,
-        metadata: {
-          detail: input.detail,
-          timestamp: input.timestamp,
-          ...(input.metadata ?? {}),
-        },
-        createdAt: new Date(input.timestamp),
-      },
+    if (delegate?.create) {
+      await delegate.create({ data });
+      return;
+    }
+    const db = getDb();
+    if (!db) throw new Error("No durable audit database backend is available");
+    const { auditLogsTable } = await import("@workspace/db/schema");
+    await db.insert(auditLogsTable).values({
+      id: isUuid(input.id) ? input.id : undefined,
+      userId: data.userId,
+      adminId: data.userId,
+      action: input.action,
+      detail: input.detail,
+      payload: data.metadata,
     });
   } catch (err) {
-    logger.warn({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+    logger.error({ err, auditId: input.id }, "[db-persist] persistAuditEvent failed");
+    throw err;
   }
+}
+
+export async function listPersistedAuditEvents(limit = 100): Promise<unknown[]> {
+  const capped = Math.max(1, Math.min(limit, 500));
+  const delegate = getPrismaModelDelegate("AuditLog");
+  if (delegate?.findMany) {
+    const rows = await delegate.findMany({ orderBy: { createdAt: "desc" }, take: capped });
+    return rows;
+  }
+  const db = getDb();
+  if (!db) return [];
+  const { auditLogsTable } = await import("@workspace/db/schema");
+  return db.select().from(auditLogsTable).limit(capped);
 }
 
 export async function deleteUser(userId: string): Promise<boolean> {
@@ -754,6 +891,100 @@ export async function persistAmlScreening(input: {
   }
 }
 
+function persistedKycVerificationToResult(row: any): {
+  verificationId: string;
+  status: string;
+  userId: string;
+  provider: string;
+  createdAt: Date;
+  errorMessage?: string;
+} {
+  return {
+    verificationId: String(row.providerRef ?? row.provider_ref ?? row.id),
+    status: String(row.status ?? "pending"),
+    userId: String(row.userId ?? row.user_id),
+    provider: String(row.provider ?? "unconfigured"),
+    createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()),
+    errorMessage: row.rejectionReason ?? row.rejection_reason ?? undefined,
+  };
+}
+
+export async function getPersistedKycVerification(verificationId: string): Promise<ReturnType<typeof persistedKycVerificationToResult> | null> {
+  const delegate = getPrismaModelDelegate("KYCVerification");
+  if (!delegate?.findFirst) return null;
+  try {
+    const row = await delegate.findFirst({ where: { providerRef: verificationId } });
+    return row ? persistedKycVerificationToResult(row) : null;
+  } catch (err) {
+    logger.warn({ err, verificationId }, "[db-persist] getPersistedKycVerification failed");
+    return null;
+  }
+}
+
+export async function getLatestPersistedKycVerification(userId: string): Promise<ReturnType<typeof persistedKycVerificationToResult> | null> {
+  const delegate = getPrismaModelDelegate("KYCVerification");
+  if (!delegate?.findMany) return null;
+  try {
+    const rows = await delegate.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+    return rows[0] ? persistedKycVerificationToResult(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getLatestPersistedKycVerification failed");
+    return null;
+  }
+}
+
+function persistedAmlScreeningToResult(row: any): {
+  screeningId: string;
+  userId: string;
+  provider: string;
+  status: string;
+  riskLevel: string;
+  matches: Array<{ listType: string; matchScore: number; entity: string }>;
+  createdAt: Date;
+} {
+  let matches = row.matches ?? [];
+  if (typeof matches === "string") {
+    try { matches = JSON.parse(matches); } catch { matches = []; }
+  }
+  return {
+    screeningId: String(row.screeningId ?? row.screening_id ?? row.id),
+    userId: String(row.userId ?? row.user_id),
+    provider: String(row.provider ?? "mock"),
+    status: String(row.status ?? "review_required"),
+    riskLevel: String(row.riskLevel ?? row.risk_level ?? "high"),
+    matches: Array.isArray(matches) ? matches : [],
+    createdAt: new Date(row.createdAt ?? row.created_at ?? Date.now()),
+  };
+}
+
+function getAmlDelegate(): any | null {
+  return getPrismaModelDelegate("AMLScreening") ?? getPrismaModelDelegate("AmlScreening") ?? getPrismaModelDelegate("aml_screening") ?? getPrismaModelDelegate("aml_screenings");
+}
+
+export async function getPersistedAmlScreening(screeningId: string): Promise<ReturnType<typeof persistedAmlScreeningToResult> | null> {
+  const delegate = getAmlDelegate();
+  if (!delegate?.findFirst) return null;
+  try {
+    const row = await delegate.findFirst({ where: { id: screeningId } });
+    return row ? persistedAmlScreeningToResult(row) : null;
+  } catch (err) {
+    logger.warn({ err, screeningId }, "[db-persist] getPersistedAmlScreening failed");
+    return null;
+  }
+}
+
+export async function getLatestPersistedAmlScreening(userId: string): Promise<ReturnType<typeof persistedAmlScreeningToResult> | null> {
+  const delegate = getAmlDelegate();
+  if (!delegate?.findMany) return null;
+  try {
+    const rows = await delegate.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+    return rows[0] ? persistedAmlScreeningToResult(rows[0]) : null;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getLatestPersistedAmlScreening failed");
+    return null;
+  }
+}
+
 export async function persistBankAccount(
   bankAccountId: string,
   userId: string,
@@ -924,8 +1155,8 @@ export async function persistChatMessage(
   senderType: 'user' | 'admin' | 'bot',
   senderId: string | null,
   content: string,
-): Promise<void> {
-  if (!prismaClient || !isUuid(conversationId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(conversationId)) return false;
   try {
     // Ensure conversation exists (user_id stored as the owner)
     await prismaClient.conversations.upsert({
@@ -943,8 +1174,96 @@ export async function persistChatMessage(
         content,
       },
     });
-  } catch {
-    // silent
+    return true;
+  } catch (err) {
+    logger.error({ err, conversationId }, "[db-persist] persistChatMessage failed");
+    return false;
+  }
+}
+
+export async function getPersistedChatMessages(conversationId: string): Promise<Array<{
+  id: string;
+  userId: string;
+  senderName: string;
+  content: string;
+  isFromUser: boolean;
+  isBot: boolean;
+  escalated: boolean;
+  createdAt: string;
+}>> {
+  if (!prismaClient || !isUuid(conversationId)) return [];
+  try {
+    const rows = await prismaClient.chat_messages.findMany({
+      where: { conversation_id: conversationId },
+      orderBy: { created_at: "asc" },
+    });
+    return rows.map((row: any) => ({
+      id: String(row.id),
+      userId: conversationId,
+      senderName: row.sender_type === "bot" ? "XpressPro FX AI Support" : row.sender_type === "admin" ? "XpressPro FX Support" : "User",
+      content: String(row.content),
+      isFromUser: row.sender_type === "user",
+      isBot: row.sender_type === "bot",
+      escalated: false,
+      createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
+    }));
+  } catch (err) {
+    logger.error({ err, conversationId }, "[db-persist] getPersistedChatMessages failed");
+    return [];
+  }
+}
+
+export async function listPersistedChatConversations(): Promise<Array<{
+  userId: string;
+  messages: Array<{
+    id: string;
+    userId: string;
+    senderName: string;
+    content: string;
+    isFromUser: boolean;
+    isBot: boolean;
+    escalated: boolean;
+    createdAt: string;
+  }>;
+}>> {
+  if (!prismaClient?.chat_messages?.findMany) return [];
+  try {
+    const rows = await prismaClient.chat_messages.findMany({ orderBy: { created_at: "asc" } });
+    const conversations = new Map<string, Awaited<ReturnType<typeof getPersistedChatMessages>>>();
+    for (const row of rows as any[]) {
+      const userId = String(row.conversation_id ?? "");
+      if (!isUuid(userId)) continue;
+      const messages = conversations.get(userId) ?? [];
+      messages.push({
+        id: String(row.id),
+        userId,
+        senderName: row.sender_type === "bot" ? "XpressPro FX AI Support" : row.sender_type === "admin" ? "XpressPro FX Support" : "User",
+        content: String(row.content),
+        isFromUser: row.sender_type === "user",
+        isBot: row.sender_type === "bot",
+        escalated: false,
+        createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
+      });
+      conversations.set(userId, messages);
+    }
+    return [...conversations].map(([userId, messages]) => ({ userId, messages }));
+  } catch (err) {
+    logger.error({ err }, "[db-persist] listPersistedChatConversations failed");
+    return [];
+  }
+}
+
+export async function findUserIdByLiveChatTicket(ticketId: string): Promise<string | null> {
+  if (!prismaClient?.support_tickets?.findFirst) return null;
+  try {
+    const ticket = await prismaClient.support_tickets.findFirst({
+      where: { subject: { contains: `Live chat escalation ${ticketId}` } },
+      select: { user_id: true },
+    });
+    return ticket?.user_id && isUuid(String(ticket.user_id)) ? String(ticket.user_id) : null;
+  } catch (err) {
+    logger.error({ err, ticketId }, "[db-persist] findUserIdByLiveChatTicket failed");
+    return null;
   }
 }
 

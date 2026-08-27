@@ -47,6 +47,15 @@ export const env = {
     if (val === "false") return false;
     return false;
   })(),
+  ENABLE_LIVE_TRADING: (() => {
+    const raw = resolveEnvValue(process.env, "ENABLE_LIVE_TRADING");
+    if (raw === undefined) return false;
+    const val = raw.trim().toLowerCase();
+    if (val === "true") return true;
+    if (val === "false") return false;
+    return false;
+  })(),
+  ENABLE_DEV_OTP_LOG: resolveEnvValue(process.env, "ENABLE_DEV_OTP_LOG")?.toLowerCase() === "true",
 
   // Admin provisioning
   ADMIN_EMAIL: get("ADMIN_EMAIL"),
@@ -75,6 +84,13 @@ export const env = {
   // Blockchain providers (optional — falls back to ethers public provider)
   ALCHEMY_API_KEY: get("ALCHEMY_API_KEY"),
   INFURA_API_KEY: get("INFURA_API_KEY"),
+
+  // Trading execution providers (optional — live real-money trading remains off
+  // until explicitly enabled and backed by a vetted broker configuration).
+  BROKER_API_KEY: get("BROKER_API_KEY"),
+  BROKER_API_URL: get("BROKER_API_URL"),
+  BROKER_ACCOUNT_ID: get("BROKER_ACCOUNT_ID"),
+  BROKER_EXECUTION_PROVIDER: get("BROKER_EXECUTION_PROVIDER"),
 
   // MoonPay (optional — falls back to sandbox)
   MOONPAY_API_KEY: get("MOONPAY_API_KEY"),
@@ -134,15 +150,8 @@ export const env = {
   // Set automatically by Replit; ALLOWED_ORIGINS takes precedence when set.
   REPLIT_DOMAINS: get("REPLIT_DOMAINS"),
 
-  /**
-   * AES-256-GCM key for encrypting wallet credential material (seed phrases
-   * and private keys) at rest. Must be 64 hex characters (32 bytes).
-   *
-   * Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   *
-   * REQUIRED in production. Optional in development (credentials stored plain-text
-   * in the in-memory store which is not persisted across restarts).
-   */
+  // Legacy wallet-encryption setting retained for deployment compatibility.
+  // Connected wallets are public-address-only and never contain credentials.
   WALLET_ENCRYPTION_KEY: get("WALLET_ENCRYPTION_KEY"),
 
   /**
@@ -161,13 +170,21 @@ export function resolveDemoAuthEnabled(rawEnv: Record<string, string | undefined
   return false;
 }
 
+export function resolveLiveTradingEnabled(rawEnv: Record<string, string | undefined> = process.env) {
+  const explicitValue = rawEnv["ENABLE_LIVE_TRADING"]?.trim().toLowerCase();
+  if (explicitValue === "true") return true;
+  if (explicitValue === "false") return false;
+  return rawEnv.NODE_ENV?.trim().toLowerCase() !== "production";
+}
+
 export const isDemoAuthEnabled = resolveDemoAuthEnabled();
+export const isLiveTradingEnabled = resolveLiveTradingEnabled();
 export const hasSmtpCredentials = Boolean(
   env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS,
 );
 
-export function isDemoRouteAvailable(): boolean {
-  return isDemoAuthEnabled;
+export function isDemoRouteAvailable(rawEnv: Record<string, string | undefined> = process.env): boolean {
+  return rawEnv.ENABLE_DEMO_AUTH?.trim().toLowerCase() !== "false";
 }
 
 export function assertRequiredEnv(): { port: number } {
@@ -189,15 +206,6 @@ export function assertRequiredEnv(): { port: number } {
     throw new Error(
       "MOONPAY_SECRET_KEY must be set when MOONPAY_API_KEY is configured in production. " +
         "Unsigned live MoonPay checkout URLs are a critical security vulnerability.",
-    );
-  }
-
-  // In production, wallet credentials must be encrypted at rest.
-  if (isProduction && !env.WALLET_ENCRYPTION_KEY) {
-    throw new Error(
-      "WALLET_ENCRYPTION_KEY must be set in production. " +
-        "Wallet seed phrases and private keys cannot be stored in plain text. " +
-        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     );
   }
 

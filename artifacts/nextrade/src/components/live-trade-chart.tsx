@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Line, ComposedChart, CartesianGrid, XAxis, YAxis,
-  Tooltip, Legend, ResponsiveContainer,
+  Area, AreaChart, Bar, CartesianGrid, ComposedChart, Legend, Line,
+  ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -200,7 +200,7 @@ export function LiveTradeChart({
             <ComposedChart data={analyticsData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="time" stroke="#6b7280" />
-              <YAxis yAxisId="left" stroke="#6b7280" domain="dataMin - 10" domain="dataMax + 10" />
+              <YAxis yAxisId="left" stroke="#6b7280" domain={["dataMin - 10", "dataMax + 10"]} />
               <YAxis yAxisId="right" orientation="right" stroke="#6b7280" />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px', color: '#fff' }}

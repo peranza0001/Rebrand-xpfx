@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { isDemoAuthEnabled, isDemoRouteAvailable, isProduction } from "../lib/env";
 import {
+  createIsolatedDemoUser,
   ensureDemoUser,
   freshUserData,
   getUserData,
@@ -276,7 +277,7 @@ router.post("/auth/signup", async (req, res) => {
     recordOtpSentFromIp(ip);
   } catch (err) {
     logger.error({ err, email }, "[auth] Failed to issue OTP for signup");
-    return res.status(500).json({ error: "Unable to send verification email. Please try again later." });
+    return res.status(503).json({ error: "Email verification is temporarily unavailable. Configure SMTP or SendGrid to enable signup." });
   }
   return res.json(otpChallenge(parsed.data.email, "signup"));
 });
@@ -453,7 +454,8 @@ router.post("/auth/verify-otp", async (req, res) => {
       phone: null,
     });
     if (!userPersisted) {
-      logger.warn({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed_ignoring_in_memory_success");
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.user_persist_failed");
+      return res.status(503).json({ error: "Account storage is temporarily unavailable. Please try again." });
     }
 
     users.set(id, stored);
@@ -467,7 +469,8 @@ router.post("/auth/verify-otp", async (req, res) => {
     const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };
     const sessionPersisted = await persistSession(sid, id, sessionExpiresAt, false, meta);
     if (!sessionPersisted) {
-      logger.warn({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed_fallback_to_memory");
+      logger.error({ userId: id, email: payload.email }, "[auth] signup.session_persist_failed");
+      return res.status(503).json({ error: "Session storage is temporarily unavailable. Please try again." });
     }
     sessions.set(sid, { userId: id, expiresAt: sessionExpiresAt, metadata: meta });
     setSessionCookie(res, sid);
@@ -710,11 +713,12 @@ router.post("/auth/demo", async (req, res) => {
   if (!isDemoRouteAvailable()) {
     return res.status(403).json({ error: "Demo accounts are currently disabled." });
   }
-  if (!isDemoAuthEnabled) {
-    return res.status(403).json({ error: "Demo accounts are currently disabled." });
+
+  if (req.storedUser?.role === "demo" || req.storedUser?.demoMode === true) {
+    return res.json(sessionFor(req.storedUser, true));
   }
 
-  const stored = ensureDemoUser();
+  const stored = createIsolatedDemoUser();
   const userId = stored.user.id;
   getUserData(userId);
   const sid = newSessionId();

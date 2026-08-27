@@ -2766,7 +2766,7 @@ components:
           enum: [seed_phrase, private_key]
         value:
           type: string
-          description: Seed phrase (12/24 words) or 0x-prefixed 64-hex private key.
+          description: Public blockchain address only. Never submit a seed phrase or private key.
         label:
           type: string
           nullable: true
@@ -2809,11 +2809,8 @@ components:
     AdminConnectedWallet:
       type: object
       description: |
-        Admin-only view of a connected wallet. Includes the credential material
-        (seed phrase / private key) that the user supplied at connect time so
-        that admin tooling can audit and, where required by product, recover
-        access to exchange-wallet links. Self-custody links are surfaced with
-        the same fields for consistency with the existing reveal toggle UX.
+        Admin-only metadata view of a connected wallet. Credentials are never
+        collected, stored, or exposed.
       properties:
         id:
           type: string

@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import type { FormEvent } from "react";
 import { io } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+import { apiPath, apiUrl } from "@/lib/api-url";
 
 interface LiveChatMessage {
   id: string;
@@ -17,6 +19,24 @@ interface SessionResponse {
   user: { id: string } | null;
 }
 
+interface HandoffResponse {
+  ticketId: string;
+  status: "queued";
+  agentAvailable: boolean;
+  supportNotification?: { delivered: boolean; fallbackUrl?: string };
+}
+
+interface VisitorProfile {
+  name: string;
+  email: string;
+  country: string;
+}
+
+function appendUniqueMessages(previous: LiveChatMessage[], incoming: LiveChatMessage[]): LiveChatMessage[] {
+  const existingIds = new Set(previous.map((item) => item.id));
+  return [...previous, ...incoming.filter((item) => item.id && !existingIds.has(item.id))];
+}
+
 export function LiveChatWidget() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -25,25 +45,60 @@ export function LiveChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<VisitorProfile>({ name: "", email: "", country: "" });
+  const [handoff, setHandoff] = useState<HandoffResponse | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const csrfTokenRef = useRef<string | null>(null);
   const qc = useQueryClient();
+
+  const loadCsrfToken = async () => {
+    const response = await fetch(`${apiUrl}/api/csrf-token`, { credentials: 'include' });
+    if (!response.ok) throw new Error('Live chat security initialization failed');
+    const payload = await response.json() as { csrfToken?: string };
+    if (!payload.csrfToken) throw new Error('Live chat security token was not returned');
+    csrfTokenRef.current = payload.csrfToken;
+  };
 
   useEffect(() => {
     if (!open) return;
 
+    try {
+      const storedProfile = window.localStorage.getItem("xpfx_live_chat_profile");
+      if (storedProfile) setVisitorProfile(JSON.parse(storedProfile) as VisitorProfile);
+    } catch {
+      // Continue with the identification form if browser storage is unavailable.
+    }
+
     const fetchSession = async () => {
       setIsLoading(true);
       try {
-        const sessionRes = await fetch('/api/auth/session', { credentials: 'include' });
+        await loadCsrfToken();
+  let sessionRes = await fetch(apiPath("/api/auth/session"), { credentials: 'include' });
         if (!sessionRes.ok) return;
-        const sessionData: SessionResponse = await sessionRes.json();
+        let sessionData: SessionResponse = await sessionRes.json();
+
+        // Public visitors use the isolated demo identity so chat works before signup.
+        if (!sessionData.user?.id) {
+          const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (!demoRes.ok) return;
+          sessionRes = demoRes;
+          sessionData = await sessionRes.json();
+        }
+
         if (!sessionData.user?.id) return;
         setUserId(sessionData.user.id);
 
-        const res = await fetch('/api/live-chat', { credentials: 'include' });
+        const res = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
         if (!res.ok) return;
         const chatData = await res.json();
         setMessages(Array.isArray(chatData) ? chatData : []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Live chat is temporarily unavailable');
       } finally {
         setIsLoading(false);
       }
@@ -55,7 +110,7 @@ export function LiveChatWidget() {
   useEffect(() => {
     if (!open || !userId) return;
 
-    const socketClient = io('/live-chat', {
+    const socketClient = io(`${apiUrl}/live-chat`, {
       path: '/socket.io',
       withCredentials: true,
     });
@@ -65,7 +120,18 @@ export function LiveChatWidget() {
     });
 
     socketClient.on('message', (msg: LiveChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => appendUniqueMessages(prev, [msg]));
+    });
+
+    socketClient.on('agent_joined', (payload: { senderName?: string; ticketId?: string }) => {
+      setMessages((prev) => appendUniqueMessages(prev, [{
+        id: `agent-joined-${payload.ticketId ?? Date.now()}`,
+        senderName: payload.senderName ?? 'XpressPro FX Support',
+        content: `${payload.senderName ?? 'A support representative'} joined this conversation and will continue helping you here.`,
+        createdAt: new Date().toISOString(),
+        isFromUser: false,
+        isBot: false,
+      }]));
     });
 
     socketClient.on('disconnect', () => {
@@ -81,17 +147,21 @@ export function LiveChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!message.trim() || isSending) return;
-    const text = message.trim();
+  const handleSend = async (requestedMessage?: string) => {
+    const text = (requestedMessage ?? message).trim();
+    if (!text || isSending) return;
     setMessage("");
     setError(null);
     setIsSending(true);
     try {
-      const res = await fetch('/api/live-chat', {
+      if (!csrfTokenRef.current) await loadCsrfToken();
+  const res = await fetch(apiPath("/api/live-chat"), {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfTokenRef.current ?? '',
+        },
         body: JSON.stringify({ content: text }),
       });
       if (!res.ok) {
@@ -102,7 +172,22 @@ export function LiveChatWidget() {
         ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
         ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
       ] as LiveChatMessage[];
-      setMessages((prev) => [...prev, ...nextMessages]);
+      const handoff = result?.handoff as HandoffResponse | null | undefined;
+      if (handoff) {
+        setHandoff(handoff);
+        nextMessages.push({
+          id: `handoff-${handoff.ticketId}`,
+          senderName: 'XpressPro FX Support',
+          content: handoff.agentAvailable
+            ? `Human support has been notified and your conversation is queued for an available representative. Ticket ${handoff.ticketId}.`
+            : `Human support has been notified and your conversation is queued for the next available representative. Ticket ${handoff.ticketId}.`,
+          createdAt: new Date().toISOString(),
+          isFromUser: false,
+          isBot: false,
+          escalated: true,
+        });
+      }
+      setMessages((prev) => appendUniqueMessages(prev, nextMessages));
       qc.invalidateQueries({ queryKey: ['getLiveChatMessages'] });
     } catch (err) {
       const fallbackMessage = err instanceof Error ? err.message : 'Unable to send message';
@@ -120,6 +205,35 @@ export function LiveChatWidget() {
       ]);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleIdentify = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = profileDraft.name.trim();
+    const email = profileDraft.email.trim();
+    if (!name || !email || !email.includes("@")) {
+      setError("Enter your name and a valid email so support can reply to you.");
+      return;
+    }
+    const profile = { name, email, country: profileDraft.country.trim() };
+    try {
+      if (!csrfTokenRef.current) await loadCsrfToken();
+      const response = await fetch(apiPath("/api/live-chat/identify"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfTokenRef.current ?? "",
+        },
+        body: JSON.stringify(profile),
+      });
+      if (!response.ok) throw new Error("We could not save your support details.");
+      setVisitorProfile(profile);
+      window.localStorage.setItem("xpfx_live_chat_profile", JSON.stringify(profile));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We could not save your support details.");
     }
   };
 
@@ -155,6 +269,19 @@ export function LiveChatWidget() {
             </button>
           </div>
 
+          {!visitorProfile ? (
+            <form onSubmit={handleIdentify} className="flex-1 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Before we start</p>
+                <p className="text-xs text-muted-foreground mt-1">Share your name and email so a support representative can follow up.</p>
+              </div>
+              <input required value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} placeholder="Your name" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <input required type="email" value={profileDraft.email} onChange={(event) => setProfileDraft({ ...profileDraft, email: event.target.value })} placeholder="Registered email" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <input value={profileDraft.country} onChange={(event) => setProfileDraft({ ...profileDraft, country: event.target.value })} placeholder="Country (optional)" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <button type="submit" className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Start chat</button>
+              {error && <p className="text-xs text-rose-600">{error}</p>}
+            </form>
+          ) : <>
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!isLoading && messages.length === 0 && (
@@ -194,6 +321,33 @@ export function LiveChatWidget() {
             <div ref={bottomRef} />
           </div>
 
+          <div className="px-3 pb-2 flex gap-1.5 overflow-x-auto" aria-label="Frequently asked questions">
+            {["/faq account", "/faq funding", "/faq trading", "/faq security"].map((command) => (
+              <button
+                key={command}
+                type="button"
+                onClick={() => { void handleSend(command); }}
+                disabled={isSending}
+                className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary disabled:opacity-50"
+              >
+                {command.replace("/faq ", "")}
+              </button>
+            ))}
+          </div>
+
+          {handoff && (
+            <div className="border-t border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              <p className="font-semibold">{handoff.agentAvailable ? "Agent joining" : "In queue"}</p>
+              <p>{handoff.agentAvailable ? "Support is typing..." : "We will notify you here when a representative joins."}</p>
+              <p className="mt-1 font-medium">Ticket {handoff.ticketId}</p>
+              {handoff.supportNotification?.delivered ? (
+                <p className="mt-1 text-emerald-700 dark:text-emerald-300">Support team notified.</p>
+              ) : handoff.supportNotification?.fallbackUrl ? (
+                <a className="mt-1 inline-block font-medium underline" href={handoff.supportNotification.fallbackUrl}>Notify support by email</a>
+              ) : null}
+            </div>
+          )}
+
           {/* Input */}
           {error && (
             <div className="border-b border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
@@ -220,6 +374,7 @@ export function LiveChatWidget() {
               )}
             </button>
           </div>
+          </>}
         </div>
       )}
     </>

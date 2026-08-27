@@ -144,7 +144,7 @@ export const ConnectExchangeWalletBody = zod.object({
   provider: zod.enum(["moonpay", "coinbase"]),
   address: zod.string().min(1),
   label: zod.string().nullish(),
-});
+}).strict();
 
 export const ConnectExchangeWalletResponse = zod
   .object({

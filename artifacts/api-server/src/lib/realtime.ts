@@ -5,6 +5,11 @@ import { sessions, users, userData } from './store';
 import { SESSION_COOKIE } from './session';
 import { logger } from './logger';
 import { getAllowedOrigins, normalizeOrigin } from './cors';
+import { persistChatMessage } from './db-persist';
+import { generateAIReply } from './openai-client';
+import { pushAdminAlert } from './notify';
+import { getPersistedSession } from './db-persist';
+import { getChatbotResponse, keywordEscalation } from './chatbot';
 
 export async function initRealtime(server: http.Server) {
   const io = new IOServer(server, {
@@ -35,7 +40,7 @@ export async function initRealtime(server: http.Server) {
   (globalThis as any).__xpfx_io = io;
 
   // Simple auth: read cookie header, unsign using cookie-parser's signedCookie
-  io.use((socket: any, next: (err?: Error) => void) => {
+  io.use(async (socket: any, next: (err?: Error) => void) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie || '';
       const cookies = Object.fromEntries(cookieHeader.split(';').map((pair: string) => {
@@ -43,7 +48,7 @@ export async function initRealtime(server: http.Server) {
         return [k?.trim(), v.join('=')];
       }).filter(([k]: [string | undefined]) => Boolean(k)));
 
-      const raw = cookies[SESSION_COOKIE];
+      const raw = cookies[SESSION_COOKIE] ? decodeURIComponent(cookies[SESSION_COOKIE]) : undefined;
       if (!raw) {
         return next(new Error('Not authenticated'));
       }
@@ -52,7 +57,14 @@ export async function initRealtime(server: http.Server) {
       const secret = process.env.SESSION_SECRET || '';
       const signed = cookieParser.signedCookie(raw, secret);
       const sid = signed || raw;
-      const rec = sessions.get(sid as string);
+      let rec = sessions.get(sid as string);
+      if (!rec) {
+        const persisted = await getPersistedSession(String(sid));
+        if (persisted && new Date(persisted.expiresAt).getTime() > Date.now()) {
+          rec = { userId: persisted.userId, expiresAt: persisted.expiresAt };
+          sessions.set(String(sid), rec);
+        }
+      }
       const userId = rec?.userId;
       if (!userId) return next(new Error('Invalid session'));
       // attach userId to socket
@@ -69,6 +81,7 @@ export async function initRealtime(server: http.Server) {
   demo.on('connection', (socket) => {
     const userId = (socket as any).userId as string;
     logger.info({ userId }, '[realtime] demo-trading connected');
+    socket.join(`user:${userId}`);
 
     socket.on('join_instrument', (instrument: string) => {
       socket.join(`instrument:${instrument}`);
@@ -84,46 +97,91 @@ export async function initRealtime(server: http.Server) {
   chat.on('connection', (socket) => {
     const userId = (socket as any).userId as string;
     logger.info({ userId }, '[realtime] live-chat connected');
+    socket.join(`user:${userId}`);
 
     socket.on('join_admin_room', () => {
       socket.join('admins');
     });
 
     socket.on('join_conversation', (convId: string) => {
-      socket.join(`conv:${convId}`);
+      if (typeof convId === 'string' && convId === userId) {
+        socket.join(`conv:${userId}`);
+      }
     });
 
-    socket.on('send_message', (payload: { convId: string; content: string }) => {
-      const { convId, content } = payload;
+    socket.on('send_message', async (payload: { convId: string; content: string }, acknowledge?: (result: { ok: boolean; error?: string }) => void) => {
+      const content = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 10000) : '';
+      if (!content) return;
+      const convId = userId;
       const stored = users.get(userId);
       const senderName = stored?.user.fullName || stored?.user.username || 'User';
       const msg = {
         id: `msg_${Math.random().toString(36).slice(2, 9)}`,
         userId,
         senderName,
-        content: String(content).slice(0, 10000),
+        content,
         isFromUser: true,
         isBot: false,
         escalated: false,
         createdAt: new Date().toISOString(),
       };
-      // Persist into in-memory mailbox for now (store.liveChat)
+      const userPersisted = await persistChatMessage(userId, 'user', userId, msg.content);
+      if (!userPersisted) {
+        acknowledge?.({ ok: false, error: 'Chat storage is temporarily unavailable. Please try again.' });
+        socket.emit('message_error', { error: 'Chat storage is temporarily unavailable. Please try again.' });
+        return;
+      }
+
       const ud = userData.get(userId);
       if (ud) {
-        ud.liveChat.push({
-          id: msg.id,
-          userId,
-          senderName: msg.senderName,
-          content: msg.content,
-          isFromUser: true,
-          isBot: false,
-          escalated: false,
-          createdAt: msg.createdAt,
-        });
+        ud.liveChat.push(msg);
       }
 
       chat.to(`conv:${convId}`).emit('message', msg);
       chat.to('admins').emit('message', msg);
+
+      const localReply = getChatbotResponse(msg.content, senderName);
+      const escalated = keywordEscalation(msg.content) || localReply.shouldEscalate;
+      if (escalated) {
+        pushAdminAlert({
+          kind: 'live_chat.socket_handoff',
+          title: 'Live chat handoff requested',
+          body: `${senderName} requested a human agent via Socket.IO: ${msg.content.slice(0, 300)}`,
+          userId,
+          userEmail: stored?.user.email ?? null,
+          severity: 'warning',
+          linkUrl: `/live-chat/${userId}`,
+          email: true,
+        });
+      }
+
+      const ai = escalated || localReply.intent !== 'general' ? null : await generateAIReply({
+        userMessage: msg.content,
+        history: ud?.liveChat.slice(-10).map((item) => ({
+          role: item.isFromUser ? 'user' as const : 'assistant' as const,
+          content: item.content,
+        })) ?? [],
+        userName: senderName,
+      });
+      const botMessage = {
+        id: `msg_${Math.random().toString(36).slice(2, 9)}`,
+        userId,
+        senderName: 'XpressPro FX AI Support',
+        content: ai?.content || localReply.content,
+        isFromUser: false,
+        isBot: true,
+        escalated: escalated || Boolean(ai?.escalated),
+        createdAt: new Date().toISOString(),
+      };
+      const botPersisted = await persistChatMessage(userId, 'bot', null, botMessage.content);
+      if (!botPersisted) {
+        acknowledge?.({ ok: false, error: 'Your message was saved, but the support reply is temporarily unavailable.' });
+        socket.emit('message_error', { error: 'Your message was saved, but the support reply is temporarily unavailable.' });
+        return;
+      }
+      if (ud) ud.liveChat.push(botMessage);
+      chat.to(`conv:${convId}`).emit('message', botMessage);
+      acknowledge?.({ ok: true });
     });
 
     socket.on('disconnect', () => {

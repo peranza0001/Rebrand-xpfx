@@ -9,7 +9,7 @@ import { Router } from "express";
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { requireAuth } from "../lib/session";
 import { users, usersByEmail, hashPassword, logActivity } from "../lib/store";
-import { persistUser, persistResetPasswordToken, getPrismaClient } from "../lib/db-persist";
+import { persistUser, persistResetPasswordToken, getPersistedUserByEmail, getPrismaClient } from "../lib/db-persist";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { env } from "../lib/env";
@@ -122,7 +122,15 @@ router.post("/auth/forgot-password", async (req, res) => {
     return res.status(400).json({ error: "A valid email address is required." });
   }
   const normalized = email.toLowerCase().trim();
-  const userId = usersByEmail.get(normalized);
+  let userId = usersByEmail.get(normalized);
+  if (!userId) {
+    const persistedUser = await getPersistedUserByEmail(normalized);
+    if (persistedUser) {
+      userId = persistedUser.user.id;
+      users.set(userId, persistedUser);
+      usersByEmail.set(normalized, userId);
+    }
+  }
 
   if (userId) {
     const stored = users.get(userId);

@@ -209,6 +209,10 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
 
   const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
 
+  if (!hasEmailProvider && isProduction) {
+    throw new Error("Email verification is unavailable because no SMTP or SendGrid provider is configured.");
+  }
+
   try {
     await sendEmail(
       {
@@ -225,7 +229,7 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
     throw err;
   }
 
-  if (!hasEmailProvider && !isProduction) {
+  if (!hasEmailProvider && !isProduction && env.ENABLE_DEV_OTP_LOG) {
     logger.info(
       { to: maskEmail(email), subject, smtpConfigured: false, intent },
       "[otp] Verification code generated (stub send — no email provider configured)",

@@ -52,8 +52,69 @@ model User {
   kycDocuments               KYCDocument[]
   tradingAccounts            TradingAccount[]
   auditLogs                  AuditLog[]
+  copyRelationships           CopyRelationship[]
+  copyEvents                  CopyEvent[]
 
   @@map("users")
+}
+
+model CopyLeader {
+  id              String             @id @default(uuid())
+  displayName     String             @map("display_name")
+  strategy        String
+  riskLevel       String             @map("risk_level")
+  monthlyReturn   Decimal            @default(0) @map("monthly_return") @db.Decimal(10, 4)
+  winRate         Decimal            @default(0) @map("win_rate") @db.Decimal(10, 4)
+  maxDrawdown     Decimal            @default(0) @map("max_drawdown") @db.Decimal(10, 4)
+  followerCount   Int                @default(0) @map("follower_count")
+  suspended       Boolean            @default(false)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  relationships   CopyRelationship[]
+  events          CopyEvent[]
+
+  @@map("copy_leaders")
+}
+
+model CopyRelationship {
+  id              String      @id @default(uuid())
+  userId          String      @map("user_id")
+  leaderId        String      @map("leader_id")
+  allocationPct   Decimal     @map("allocation_pct") @db.Decimal(6, 3)
+  status          String      @default("active")
+  startedAt       DateTime    @default(now()) @map("started_at")
+  stoppedAt       DateTime?   @map("stopped_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leader          CopyLeader  @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  events          CopyEvent[]
+
+  @@unique([userId, leaderId])
+  @@index([userId, status])
+  @@map("copy_relationships")
+}
+
+model CopyEvent {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  leaderId        String            @map("leader_id")
+  relationshipId  String?           @map("relationship_id")
+  symbol          String
+  side            String
+  status          String            @default("simulated")
+  notional        Decimal           @db.Decimal(18, 8)
+  simulated       Boolean           @default(true)
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leader          CopyLeader        @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  relationship    CopyRelationship? @relation(fields: [relationshipId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("copy_events")
 }
 
 // ─── KYC DOCUMENTS ────────────────────────────────────────────────────────────

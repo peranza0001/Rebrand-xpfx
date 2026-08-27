@@ -310,6 +310,24 @@ export async function hydrateFromDb(): Promise<void> {
       supportTicketsByUser.set(userId, list);
     }
 
+    const dbChatMessages = await loadRowsFromDb<Record<string, unknown>>(
+      "hydrate.chat_messages",
+      async () => [],
+      async () => {
+        const prisma = getPrismaClient();
+        if (!prisma?.chat_messages) return [];
+        return prisma.chat_messages.findMany({ orderBy: { created_at: "asc" } });
+      },
+    );
+    const chatMessagesByUser = new Map<string, typeof dbChatMessages>();
+    for (const message of dbChatMessages) {
+      const userId = getHydratedRowValue<string>(message, "conversation_id", "conversationId");
+      if (!userId || !users.has(userId)) continue;
+      const list = chatMessagesByUser.get(userId) ?? [];
+      list.push(message);
+      chatMessagesByUser.set(userId, list);
+    }
+
     const dbP2PMerchantApplications = await loadRowsFromDb<Record<string, unknown>>(
       "hydrate.p2p_merchant_applications",
       (db) => db.select().from(p2pMerchantApplicationsTable),
@@ -481,6 +499,28 @@ export async function hydrateFromDb(): Promise<void> {
           createdAt: coerceDate(ticketRow.createdAt),
           updatedAt: coerceDate(ticketRow.updatedAt),
         })) as any;
+      }
+
+      const persistedChatMessages = chatMessagesByUser.get(userId);
+      if (persistedChatMessages) {
+        data.liveChat = persistedChatMessages.map((message) => {
+          const senderType = coerceString(message.sender_type ?? message.senderType, "user");
+          const isFromUser = senderType === "user";
+          return {
+            id: coerceString(message.id),
+            userId,
+            senderName: isFromUser
+              ? users.get(userId)?.user.fullName ?? "XpressPro FX User"
+              : senderType === "admin"
+                ? "XpressPro FX Support"
+                : "XpressPro FX AI Support",
+            content: coerceString(message.content),
+            isFromUser,
+            isBot: senderType === "bot",
+            escalated: false,
+            createdAt: coerceDate(message.created_at ?? message.createdAt),
+          };
+        });
       }
 
       const persistedP2PMerchantApplications = p2pMerchantApplicationsByUser.get(userId);

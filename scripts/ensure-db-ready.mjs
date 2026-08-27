@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const repoRoot = existsSync(path.join(root, 'prisma')) ? root : path.resolve(root, '..');
@@ -41,7 +41,7 @@ if (!databaseUrl) {
 }
 
 if (/db\.example\.internal|example\.internal|change_me_secure_password|placeholder/i.test(databaseUrl)) {
-  fail('Production database configuration is still using a placeholder/example PostgreSQL URL. Replace it with the real Railway Postgres connection string before starting the app or user data will be lost on restart/redeploy.');
+  fail('Production database configuration is still using a placeholder/example PostgreSQL URL. Replace it with the real Postgres-compatible provider URL before starting the app or user data will be lost on restart/redeploy.');
 }
 
 try {
@@ -55,7 +55,7 @@ try {
   const migrationTarget = directUrl || databaseUrl;
 
   log('Applying Prisma migrations before startup to keep auth data persistent across restarts.');
-  execSync(`DATABASE_URL="${migrationTarget}" npx prisma migrate deploy`, {
+  execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['prisma', 'migrate', 'deploy'], {
     cwd: repoRoot,
     stdio: 'inherit',
     env: {

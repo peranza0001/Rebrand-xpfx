@@ -430,35 +430,41 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // ─── GLOBAL RATE LIMITER ──────────────────────────────────────────────────────
-function positiveRateLimitEnv(name: string, fallback: number): number {
-  const value = Number(process.env[name]);
+function positiveRateLimitEnv(name: string, fallback: number, aliases: string[] = []): number {
+  const raw = [name, ...aliases].map((key) => process.env[key]).find((value) => value?.trim());
+  const value = Number(raw);
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
+const rateLimitResponse = { error: 'Too many requests', code: 'rate_limited' };
+const skipHealthRateLimit = (req: Request) => req.path === '/healthz' || req.path === '/healthz/db' || req.path === '/readyz' || req.path === '/livez';
+
 const globalLimiter = rateLimit({
-  windowMs: positiveRateLimitEnv('GENERAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
-  max: positiveRateLimitEnv('GENERAL_RATE_LIMIT_MAX', 100),
+  windowMs: positiveRateLimitEnv('GENERAL_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000, ['RATE_LIMIT_WINDOW_MS']),
+  max: positiveRateLimitEnv('GENERAL_RATE_LIMIT_MAX', 400, ['RATE_LIMIT_MAX']),
+  skip: skipHealthRateLimit,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests' }
+  message: rateLimitResponse,
 });
 
 // ─── AUTH RATE LIMITER ────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: positiveRateLimitEnv('AUTH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
-  max: positiveRateLimitEnv('AUTH_RATE_LIMIT_MAX', 10),
+  max: positiveRateLimitEnv('AUTH_RATE_LIMIT_MAX', 20),
+  skip: (req) => req.path === '/session' || skipHealthRateLimit(req),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests' }
+  message: rateLimitResponse,
 });
 
 // ─── LIVE CHAT RATE LIMITER ───────────────────────────────────────────────────
 const liveChatLimiter = rateLimit({
   windowMs: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_WINDOW_MS', 1 * 60 * 1000),
-  max: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_MAX', 30),
+  max: positiveRateLimitEnv('LIVE_CHAT_RATE_LIMIT_MAX', 60),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Live chat rate limit reached.' }
+  message: { ...rateLimitResponse, message: 'Live chat rate limit reached.' }
 });
 
 const financialActionLimiter = rateLimit({
@@ -588,6 +594,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use('/api/live-chat', (req: Request, res: Response, next: NextFunction) => {
+  // Inbound support mail is authenticated by the webhook secret/signature,
+  // not by a browser session.
+  if (req.path === '/email-reply') return next();
   if (!req.storedUser) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

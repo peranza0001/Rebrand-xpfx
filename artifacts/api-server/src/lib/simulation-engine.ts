@@ -1,6 +1,7 @@
-import { assetCatalog, getUserData, userData, newId, NOW } from './store';
+import { assetCatalog, getUserData, userData, newId, newUuid, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
+import { persistTransaction, persistWalletBalance } from './db-persist';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -12,6 +13,8 @@ export interface Order {
   price?: number; // for limit/stop
   amount: number; // units of asset
   leverage: number;
+  stopLoss?: number;
+  takeProfit?: number;
   status: 'open' | 'filled' | 'cancelled';
   createdAt: string;
 }
@@ -20,6 +23,16 @@ const instruments = assetCatalog.slice(0, 8).map((a) => ({ symbol: a.symbol, pri
 
 const ordersByInstrument = new Map<string, Order[]>();
 
+export function getCurrentPrice(instrument: string): number | undefined {
+  return instruments.find((item) => item.symbol === instrument)?.price;
+}
+
+export function calculateMargin(instrument: string, amount: number, leverage: number): number | undefined {
+  const price = getCurrentPrice(instrument);
+  if (price === undefined || !Number.isFinite(amount) || !Number.isFinite(leverage) || leverage <= 0) return undefined;
+  return Number(((price * amount) / leverage).toFixed(2));
+}
+
 export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Order {
   const id = newId('ord');
   const o: Order = { id, status: 'open', createdAt: NOW(), ...order };
@@ -27,6 +40,22 @@ export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): O
   list.push(o as Order);
   ordersByInstrument.set(order.instrument, list);
   return o as Order;
+}
+
+export function closePosition(userId: string, tradeId: string): boolean {
+  const data = getUserData(userId);
+  const trade = data.trades.find((candidate) => candidate.id === tradeId);
+  if (!trade || trade.status !== 'active') return false;
+
+  trade.status = 'completed';
+  trade.completedAt = NOW();
+  const margin = Number((trade as any).marginRequired ?? 0);
+  const profit = Number(trade.profit ?? 0);
+  const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
+  if (tradingWallet) {
+    tradingWallet.balance = Number((tradingWallet.balance + margin + profit).toFixed(2));
+  }
+  return true;
 }
 
 export function initSimulation(io: IOServer, demoNs: Namespace) {
@@ -69,6 +98,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               throw new Error("Insufficient demo balance for this practice trade.");
             }
             tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
+            void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
             
             // add trade record
             const trade = {
@@ -84,14 +114,26 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               profit: 0,
               expectedProfit: 0,
               leverage: o.leverage,
+              stopLoss: o.stopLoss ?? null,
+              takeProfit: o.takeProfit ?? null,
               marginRequired,
               managerId: null,
               createdAt: NOW(),
               completedAt: null,
             } as any;
             data.trades.unshift(trade);
+            void persistTransaction(newUuid(), tradingWallet.id, o.userId, {
+              type: 'demo_trade_open',
+              amount: marginRequired,
+              currency: 'USD',
+              status: 'margin_held',
+              description: `Demo trade opened: ${o.side} ${o.amount} ${o.instrument}`,
+              isDemo: true,
+            });
             demoNs.to(`instrument:${o.instrument}`).emit('order_filled', { order: o, trade });
           } catch (err) {
+            o.status = 'cancelled';
+            demoNs.to(`user:${o.userId}`).emit('order_rejected', { order: o, reason: (err as Error).message });
             logger.warn({ err }, 'Failed to process order fill');
           }
         } else {
@@ -111,11 +153,18 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
           t.profit = Math.round(pnl * 100) / 100;
 
+          const hitStopLoss = t.type === 'long'
+            ? (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current <= (t as any).stopLoss
+            : (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current >= (t as any).stopLoss;
+          const hitTakeProfit = t.type === 'long'
+            ? (t as any).takeProfit !== null && (t as any).takeProfit !== undefined && current >= (t as any).takeProfit
+            : (t as any).takeProfit !== null && (t as any).takeProfit !== undefined && current <= (t as any).takeProfit;
+
           // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
           const margin = (t as any).marginRequired ?? (t.entryPrice * t.amount / ((t as any).leverage || 1));
           const equity = margin + t.profit; // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
-          if (equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
+          if (hitStopLoss || hitTakeProfit || equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
             // Close trade
             t.status = 'completed';
             t.completedAt = NOW();
@@ -125,9 +174,18 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
               if (tradingWallet) {
                 tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
+                void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
+                void persistTransaction(newUuid(), tradingWallet.id, uid, {
+                  type: 'demo_trade_close',
+                  amount: finalCredit,
+                  currency: 'USD',
+                  status: 'completed',
+                  description: `Demo trade closed: ${t.pair}`,
+                  isDemo: true,
+                });
               }
               
-              demoNs.emit('trade_closed', { userId: uid, trade: t });
+              demoNs.to(`user:${uid}`).emit('trade_closed', { userId: uid, trade: t });
             } catch (err) {
               logger.warn({ err }, 'Failed to credit closed trade funds or record ledger');
             }
@@ -140,4 +198,4 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
   logger.info('[simulation] Initialized simulation engine with instruments: ' + instruments.map(i => i.symbol).join(', '));
 }
 
-export default { placeOrder, initSimulation };
+export default { placeOrder, closePosition, initSimulation };

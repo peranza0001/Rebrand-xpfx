@@ -70,8 +70,6 @@ export function recordAuditEvent(input: {
     lastHash = event.hash;
     auditEvents.unshift(event);
 
-    void persistAuditEventRecord(event);
-
     if (auditEvents.length > 2000) {
       auditEvents.length = 2000;
     }

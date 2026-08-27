@@ -47,13 +47,21 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
     normalizeString(env.COOKIE_SECRET) ||
     normalizeString(env.COOKIE_SIGNING_KEY);
   if (!sessionSecret) {
-    missing.push('SESSION_SECRET');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('SESSION_SECRET');
+    } else {
+      warnings.push('SESSION_SECRET');
+    }
   }
   resolved.SESSION_SECRET = sessionSecret;
 
   const jwtSecret = normalizeString(env.JWT_SECRET);
   if (!jwtSecret) {
-    missing.push('JWT_SECRET');
+    if (resolved.NODE_ENV === 'production') {
+      missing.push('JWT_SECRET');
+    } else {
+      warnings.push('JWT_SECRET');
+    }
   }
   resolved.JWT_SECRET = jwtSecret;
 
@@ -83,31 +91,19 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
   if (!walletEncryptionKey) {
-    if (resolved.NODE_ENV === 'production') {
-      missing.push('WALLET_ENCRYPTION_KEY');
-    } else {
-      warnings.push('WALLET_ENCRYPTION_KEY');
-    }
+    warnings.push('WALLET_ENCRYPTION_KEY');
   }
   resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
   const adminEmail = normalizeString(env.ADMIN_EMAIL);
   if (!adminEmail) {
-    if (resolved.NODE_ENV === 'production') {
-      missing.push('ADMIN_EMAIL');
-    } else {
-      warnings.push('ADMIN_EMAIL');
-    }
+    warnings.push('ADMIN_EMAIL');
   }
   resolved.ADMIN_EMAIL = adminEmail;
 
   const adminPassword = normalizeString(env.ADMIN_PASSWORD);
   if (!adminPassword) {
-    if (resolved.NODE_ENV === 'production') {
-      missing.push('ADMIN_PASSWORD');
-    } else {
-      warnings.push('ADMIN_PASSWORD');
-    }
+    warnings.push('ADMIN_PASSWORD');
   }
   resolved.ADMIN_PASSWORD = adminPassword;
 

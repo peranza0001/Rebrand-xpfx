@@ -5,13 +5,10 @@
  * XpressPro FX Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { ConnectExchangeWalletRequestMethod } from "./connectExchangeWalletRequestMethod";
 import type { ConnectExchangeWalletRequestProvider } from "./connectExchangeWalletRequestProvider";
 
 export interface ConnectExchangeWalletRequest {
   provider: ConnectExchangeWalletRequestProvider;
-  method: ConnectExchangeWalletRequestMethod;
-  /** Seed phrase (12/24 words) or 0x-prefixed 64-hex private key. */
-  value: string;
+  address: string;
   label?: string | null;
 }

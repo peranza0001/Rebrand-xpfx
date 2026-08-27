@@ -234,32 +234,30 @@ The chatbot automatically escalates to human when user mentions:
 
 To enable email replies (admin replying to support@xpressprofx.com):
 
-1. **Create Inbound Parse Webhook in SendGrid**
-   - Hostname: `support.xpressprofx.com` (or your domain)
-   - URL: `https://api.xpressprofx.com/live-chat/email-reply`
-   - POST method
+1. **Route inbound mail for `support@xpressprofx.com` to the API**
+  - Configure your mail provider's inbound parse/forwarding rule for `support@xpressprofx.com`.
+  - Send the provider request to `https://api.xpressprofx.com/api/webhooks/inbound-email`.
+  - Preserve the original `From`, `Subject`, and plain-text body fields.
+  - Configure `SENDGRID_SIGNING_KEY` for provider signature verification, or have your trusted mail gateway add `X-Webhook-Secret` matching `WEBHOOK_SECRET_GLOBAL`.
 
 2. **Format Expected by `/live-chat/email-reply`:**
    ```json
    {
-     "ticketId": "TC-ABC12345",
-     "userId": "user-id-123",
-     "senderName": "Jane Smith",
-     "fromEmail": "jane@company.com",
-     "content": "We've resolved your issue. Here are the next steps..."
+    "from": "support@xpressprofx.com",
+    "subject": "Re: [LIVECHAT] XPFX-TICKET123 needs support",
+    "text": "We've resolved your issue. Here are the next steps..."
    }
    ```
 
 3. **Test Webhook:**
    ```bash
-   curl -X POST https://api.xpressprofx.com/live-chat/email-reply \
+   curl -X POST https://api.xpressprofx.com/api/webhooks/inbound-email \
      -H "Content-Type: application/json" \
+     -H "X-Webhook-Secret: $WEBHOOK_SECRET_GLOBAL" \
      -d '{
-       "ticketId": "TC-TEST123",
-       "userId": "user-test",
-       "senderName": "Admin",
-       "fromEmail": "admin@company.com",
-       "content": "This is a test reply"
+       "from": "support@xpressprofx.com",
+       "subject": "Re: [LIVECHAT] XPFX-TEST123",
+       "text": "This is a test reply"
      }'
    ```
 

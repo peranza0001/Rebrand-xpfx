@@ -5,6 +5,7 @@ import { getDb } from "../lib/db-client";
 import { sql } from "drizzle-orm";
 import { getPrismaClient } from "../lib/db-persist";
 import { getIntegrationStatus } from "../lib/integration-config";
+import { getEmailProviderStatus } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -61,6 +62,7 @@ router.get("/admin/provisioning-status", (_req, res) => {
   res.json({
     provisioned: adminSeedStatus.provisioned,
     integrations: getIntegrationStatus(),
+    email: getEmailProviderStatus(),
   });
 });
 

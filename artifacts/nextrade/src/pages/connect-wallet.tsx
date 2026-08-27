@@ -36,6 +36,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, Wallet, AlertTriangle, Building2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { EthereumProvider } from "@walletconnect/ethereum-provider";
+
+declare global {
+  interface Window {
+    ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
+  }
+}
 
 type WalletChoice = "metamask" | "trust" | "coinbase" | "phantom" | "other";
 export function ConnectWallet() {
@@ -58,6 +65,8 @@ export function ConnectWallet() {
   const [choice, setChoice] = useState<WalletChoice>("metamask");
   const [customName, setCustomName] = useState("");
   const [address, setAddress] = useState("");
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim() || "";
 
   // Exchange-wallet connect form state (separate from the self-custody form
   // above). Tile-based provider picker per spec.
@@ -88,6 +97,75 @@ export function ConnectWallet() {
     address.trim().length > 0 &&
     (choice !== "other" || customName.trim().length > 0) &&
     !connect.isPending;
+
+  const completeSiwe = async (walletAddress: string, provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }) => {
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const nonceResponse = await fetch(`${apiUrl}/api/auth/siwe/nonce`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: walletAddress }),
+    });
+    const challenge = await nonceResponse.json();
+    if (!nonceResponse.ok) throw new Error(challenge.error || "Unable to start wallet verification.");
+    const signature = await provider.request({ method: "personal_sign", params: [challenge.message, walletAddress] });
+    const verifyResponse = await fetch(`${apiUrl}/api/auth/siwe/verify`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nonce: challenge.nonce, message: challenge.message, signature }),
+    });
+    const verified = await verifyResponse.json();
+    if (!verifyResponse.ok) throw new Error(verified.error || "Wallet signature verification failed.");
+    setAddress(walletAddress);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetConnectedWalletsQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetWalletsQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() }),
+    ]);
+    toast({ title: "Wallet verified", description: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} is now linked.` });
+    setLocation("/");
+  };
+
+  const handleInjectedConnect = async () => {
+    setWalletError(null);
+    if (!window.ethereum) {
+      setWalletError("No injected wallet was found. Install MetaMask or use WalletConnect.");
+      return;
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      if (String(chainId).toLowerCase() !== "0x1") throw new Error("Switch your wallet to Ethereum mainnet and try again.");
+      const walletAddress = accounts?.[0];
+      if (!walletAddress) throw new Error("No wallet account was returned.");
+      await completeSiwe(walletAddress, window.ethereum);
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "Wallet connection was rejected or unavailable.");
+    }
+  };
+
+  const handleWalletConnect = async () => {
+    setWalletError(null);
+    if (!walletConnectProjectId) {
+      setWalletError("WalletConnect is not configured. Use MetaMask or enter a public address.");
+      return;
+    }
+    try {
+      const provider = await EthereumProvider.init({
+        projectId: walletConnectProjectId,
+        chains: [1],
+        showQrModal: true,
+        metadata: { name: "XpressPro FX", description: "Wallet connection", url: window.location.origin, icons: [] },
+      });
+      await provider.connect();
+      const walletAddress = provider.accounts?.[0];
+      if (!walletAddress) throw new Error("WalletConnect did not return an account.");
+      await completeSiwe(walletAddress, provider);
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "WalletConnect connection failed.");
+    }
+  };
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,10 +260,21 @@ export function ConnectWallet() {
           <CardHeader>
             <CardTitle>External wallet</CardTitle>
             <CardDescription>
-              Choose your provider, then provide your seed phrase or private key.
+              Choose your provider, then provide a public wallet address only.
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 mb-4">
+              <Button type="button" onClick={handleInjectedConnect} variant="default" className="gap-2">
+                <Wallet className="h-4 w-4" />
+                Connect MetaMask
+              </Button>
+              <Button type="button" onClick={handleWalletConnect} variant="outline" className="gap-2" disabled={!walletConnectProjectId}>
+                <Wallet className="h-4 w-4" />
+                {walletConnectProjectId ? "Connect WalletConnect" : "WalletConnect not configured"}
+              </Button>
+            </div>
+            {walletError && <p className="text-sm text-destructive mb-4" role="alert">{walletError}</p>}
             <form onSubmit={handleConnect} className="space-y-4">
               <div className="space-y-2">
                 <Label>Wallet provider</Label>
@@ -227,7 +316,7 @@ export function ConnectWallet() {
                   data-testid="input-wallet-address"
                 />
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                   <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   Use a public address only. Never enter a seed phrase or private key.
                 </p>
               </div>
@@ -365,7 +454,7 @@ export function ConnectWallet() {
 
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="py-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 space-y-2">
               <div className="text-sm">
                 <span className="font-medium">Need to do this later?</span>{" "}

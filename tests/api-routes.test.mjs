@@ -17,6 +17,7 @@ process.env.JWT_SECRET = 'test-jwt-secret';
 process.env.WALLET_ENCRYPTION_KEY = 'test-wallet-encryption-key';
 process.env.ADMIN_EMAIL = 'admin@example.com';
 process.env.ADMIN_PASSWORD = 'admin-password';
+process.env.ENABLE_DEMO_AUTH = 'true';
 
 const app = (await import('../artifacts/api-server/src/app.ts')).default;
 
@@ -71,6 +72,91 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(payload[0].key);
 });
 
+test('public visitors can start chat and receive a bot reply', async () => {
+  const demoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  assert.equal(demoResponse.status, 200);
+  const cookie = parseCookie(demoResponse.headers.get('set-cookie'));
+  assert.ok(cookie.includes('xpfx_sid='));
+
+  const secondDemoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  assert.equal(secondDemoResponse.status, 200);
+  const firstDemo = await demoResponse.clone().json();
+  const secondDemo = await secondDemoResponse.json();
+  assert.notEqual(firstDemo.user.id, secondDemo.user.id);
+
+  const chatResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ content: 'How do I use the demo account?' }),
+  });
+  assert.equal(chatResponse.status, 200);
+  const chatPayload = await chatResponse.json();
+  assert.ok(chatPayload.userMessage?.isFromUser);
+  assert.ok(chatPayload.botReply?.content);
+  assert.doesNotMatch(chatPayload.botReply.content, /our support team is reviewing your message/i);
+  assert.match(chatPayload.botReply.content, /how can i help|demo trading/i);
+
+  const topicResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ content: 'What are leverage and margin risks?' }),
+  });
+  assert.equal(topicResponse.status, 200);
+  const topicPayload = await topicResponse.json();
+  assert.match(topicPayload.botReply.content, /leverage|margin/i);
+  assert.doesNotMatch(topicPayload.botReply.content, /support team is reviewing your message/i);
+
+  const handoffResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ content: 'I need a human agent to help with a security issue.' }),
+  });
+  assert.equal(handoffResponse.status, 200);
+  const handoffPayload = await handoffResponse.json();
+  assert.equal(handoffPayload.escalated, true);
+  assert.equal(handoffPayload.handoff.status, 'queued');
+  assert.match(handoffPayload.handoff.ticketId, /^XPFX-/);
+  assert.equal(typeof handoffPayload.handoff.supportNotification?.delivered, 'boolean');
+  if (!handoffPayload.handoff.supportNotification.delivered) {
+    assert.match(handoffPayload.handoff.supportNotification.fallbackUrl, /^mailto:/);
+  }
+  assert.match(handoffPayload.botReply.content, /human support|support team/i);
+  assert.doesNotMatch(handoffPayload.botReply.content, /type "agent"/i);
+
+  const emailReplyResponse = await fetch(`${baseUrl}/api/live-chat/email-reply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ticketId: handoffPayload.handoff.ticketId,
+      senderName: 'Support Representative',
+      content: 'A support representative has joined this conversation.',
+      fromEmail: 'support@xpressprofx.com',
+    }),
+  });
+  assert.equal(emailReplyResponse.status, 200);
+  const emailReplyPayload = await emailReplyResponse.json();
+  assert.equal(emailReplyPayload.success, true);
+  assert.equal(emailReplyPayload.msg.isFromUser, false);
+
+  const chatHistoryResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    headers: { Cookie: cookie },
+  });
+  const chatHistory = await chatHistoryResponse.json();
+  assert.ok(chatHistory.some((item) => item.content === 'A support representative has joined this conversation.'));
+});
+
 test('demo trading endpoints are available for authenticated sessions', async () => {
   const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
@@ -103,9 +189,45 @@ test('demo trading endpoints are available for authenticated sessions', async ()
       'Content-Type': 'application/json',
       Cookie: cookie,
     },
-    body: JSON.stringify({ symbol: 'EUR/USD', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
+    body: JSON.stringify({ symbol: 'BTC', type: 'market', side: 'buy', amount: 0.01, leverage: 10 }),
   });
   assert.equal(orderResponse.status, 200);
   const orderPayload = await orderResponse.json();
   assert.equal(orderPayload.success, true);
+
+  const invalidOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'EUR/USD', type: 'market', side: 'buy', amount: -1, leverage: 10 }),
+  });
+  assert.equal(invalidOrderResponse.status, 400);
+
+  const unsupportedOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'NOT-A-MARKET', type: 'market', side: 'buy', amount: 1000, leverage: 10 }),
+  });
+  assert.equal(unsupportedOrderResponse.status, 400);
+
+  const overMarginOrderResponse = await fetch(`${baseUrl}/api/demo/order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ symbol: 'BTC', type: 'market', side: 'buy', amount: 1000000, leverage: 1 }),
+  });
+  assert.equal(overMarginOrderResponse.status, 400);
+
+  const resetResponse = await fetch(`${baseUrl}/api/demo/reset-balance`, {
+    method: 'POST',
+    headers: { Cookie: cookie },
+  });
+  assert.equal(resetResponse.status, 403);
 });

@@ -10,6 +10,8 @@ import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
+import { isLiveTradingEnabled } from "../lib/env";
+import { submitBrokerOrder } from "../lib/broker-client";
 
 const router: IRouter = Router();
 
@@ -53,7 +55,29 @@ router.get("/forex/instruments", (_req, res) => {
 
 // Place forex/stock market order
 router.post("/forex/order/market", requireAuth, async (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: "Trading is locked on your account." });
+  }
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Live trading is unavailable until ENABLE_LIVE_TRADING=true and a verified broker execution provider is configured.", code: "provider_unavailable" });
+  }
   const { symbol, side, quantity, leverage = 1.0, comment } = req.body;
+
+  const brokerResult = await submitBrokerOrder({
+    symbol,
+    side,
+    quantity,
+    leverage,
+    type: "market",
+    userId: req.userId,
+  });
+  if (!brokerResult.ok) {
+    return res.status(503).json({
+      error: brokerResult.message || "Broker execution is currently unavailable.",
+      code: "provider_unavailable",
+      provider: brokerResult.provider,
+    });
+  }
 
   if (!symbol || !side || !quantity) {
     return res.status(400).json({ error: "Missing required fields: symbol, side, quantity" });
@@ -72,8 +96,7 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
     return res.status(403).json({ error: `Leverage exceeds your limit of ${maxLeverage}x` });
   }
 
-  // Calculate required margin
-  const entryPrice = Math.random() * 100 + 50; // Simulated price (replace with real feed)
+  const entryPrice = Number(brokerResult.executionPrice ?? (Math.random() * 100 + 50));
   const notionalValue = quantity * entryPrice;
   const requiredMargin = (notionalValue * instrument.marginRequirement) / leverage;
 
@@ -135,13 +158,38 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
   return res.status(201).json({
     success: true,
     trade,
+    provider: brokerResult.provider,
+    orderId: brokerResult.orderId,
     message: `Market order executed: ${quantity} ${symbol} @ $${entryPrice.toFixed(2)}`
   });
 });
 
 // Place limit order (pending order to execute at specific price)
 router.post("/forex/order/limit", requireAuth, async (req, res) => {
+  if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
+    return res.status(403).json({ error: "Trading is locked on your account." });
+  }
+  if (!isLiveTradingEnabled) {
+    return res.status(503).json({ error: "Live trading is unavailable until ENABLE_LIVE_TRADING=true and a verified broker execution provider is configured.", code: "provider_unavailable" });
+  }
   const { symbol, side, quantity, limitPrice, leverage = 1.0, expiryDays = 30 } = req.body;
+
+  const brokerResult = await submitBrokerOrder({
+    symbol,
+    side,
+    quantity,
+    leverage,
+    type: "limit",
+    limitPrice,
+    userId: req.userId,
+  });
+  if (!brokerResult.ok) {
+    return res.status(503).json({
+      error: brokerResult.message || "Broker execution is currently unavailable.",
+      code: "provider_unavailable",
+      provider: brokerResult.provider,
+    });
+  }
 
   if (!symbol || !side || !quantity || !limitPrice) {
     return res.status(400).json({
@@ -191,6 +239,8 @@ router.post("/forex/order/limit", requireAuth, async (req, res) => {
   return res.status(201).json({
     success: true,
     order: limitOrder,
+    provider: brokerResult.provider,
+    orderId: brokerResult.orderId,
     message: `Limit order pending: Will execute when ${symbol} reaches $${limitPrice}`
   });
 });

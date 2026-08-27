@@ -10,6 +10,7 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
 // ---------------------------------------------------------------------------
 // Module-level configuration
@@ -390,12 +391,25 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, {
-    credentials: "include",
-    ...init,
-    method,
-    headers,
-  });
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_REQUEST_TIMEOUT_MS);
+  const requestSignal = init.signal;
+  const abortRequest = () => timeoutController.abort();
+  requestSignal?.addEventListener("abort", abortRequest, { once: true });
+
+  let response: Response;
+  try {
+    response = await fetch(input, {
+      credentials: "include",
+      ...init,
+      method,
+      headers,
+      signal: timeoutController.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+    requestSignal?.removeEventListener("abort", abortRequest);
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

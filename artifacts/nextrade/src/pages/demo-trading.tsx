@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { ShieldCheck, RefreshCw, Zap, Target, TrendingUp, Activity, Shield } from "lucide-react";
+import { ShieldCheck, RefreshCw, Zap, Target, TrendingUp, Activity, Shield, Play, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,9 @@ import { ModernDashboardHeader } from "@/components/modern-dashboard-header";
 import { AdvancedTradingPanel } from "@/components/advanced-trading-panel";
 import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
+import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { DemoTradingGuide } from "@/components/demo-trading-guide";
+import { apiPath, apiUrl } from "@/lib/api-url";
 
 type MarketItem = {
   symbol: string;
@@ -44,10 +46,10 @@ type MarketHistoryPoint = {
 };
 
 const initialMarkets: MarketItem[] = [
-  { symbol: "EUR/USD", price: 1.0854, change: 0.18, bias: "bullish" },
-  { symbol: "GBP/JPY", price: 188.74, change: -0.42, bias: "bearish" },
-  { symbol: "BTC/USD", price: 64820, change: 1.03, bias: "bullish" },
-  { symbol: "XAU/USD", price: 2384.7, change: -0.64, bias: "bearish" },
+  { symbol: "BTC", price: 65850, change: 2.4, bias: "bullish" },
+  { symbol: "ETH", price: 3245, change: 1.8, bias: "bullish" },
+  { symbol: "SOL", price: 174, change: -1.2, bias: "bearish" },
+  { symbol: "USDT", price: 1, change: 0.01, bias: "bullish" },
 ];
 
 const initialPositions: Position[] = [];
@@ -58,7 +60,7 @@ function formatCurrency(value: number) {
 
 function DemoTradingContent() {
   const [, navigate] = useLocation();
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, isDemo, user, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const demoMutation = useStartDemoSession();
   const [markets, setMarkets] = useState(initialMarkets);
@@ -73,16 +75,14 @@ function DemoTradingContent() {
       ])
     )
   );
-  const [side, setSide] = useState<"Buy" | "Sell">("Buy");
-  const [size, setSize] = useState("2500");
-  const [, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
+  const [message, setMessage] = useState("Your practice account is ready. Choose a market, then try a Buy or Sell trade.");
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoRequested, setDemoRequested] = useState(false);
   const [demoStarted, setDemoStarted] = useState(false);
 
   const refreshDemoState = async () => {
     try {
-      const res = await fetch('/api/demo/account', { credentials: 'include' });
+      const res = await fetch(apiPath('/api/demo/account'), { credentials: 'include' });
       if (!res.ok) return;
       const snapshot = await res.json() as { balance: number; positions: Position[]; openPositions: number; totalPnl: number };
       setDemoBalance(snapshot.balance);
@@ -99,9 +99,9 @@ function DemoTradingContent() {
     void refreshDemoState();
 
     // Connect to Socket.IO demo-trading namespace for live prices
-    const socket: Socket = io('/demo-trading', { path: '/socket.io', withCredentials: true });
+    const socket: Socket = io(`${apiUrl}/demo-trading`, { path: '/socket.io', withCredentials: true });
     socket.on('connect', () => {
-      ['EUR/USD', 'GBP/JPY', 'BTC/USD', 'XAU/USD'].forEach((s) => socket.emit('join_instrument', s));
+      initialMarkets.forEach((market) => socket.emit('join_instrument', market.symbol));
     });
     socket.on('price_update', (payload: any) => {
       setMarkets((prev) => prev.map((item) => {
@@ -121,12 +121,21 @@ function DemoTradingContent() {
         };
       });
     });
+    socket.on('order_filled', () => {
+      void refreshDemoState();
+    });
+    socket.on('trade_closed', () => {
+      void refreshDemoState();
+    });
+    socket.on('order_rejected', (payload: { reason?: string }) => {
+      setMessage(payload?.reason ?? 'The demo order was rejected.');
+    });
 
     return () => { socket.disconnect(); };
   }, [isAuthenticated, isLoading]);
 
   const ensureDemoSession = async () => {
-    if (isAuthenticated) return true;
+    if (isAuthenticated && isDemo) return true;
     if (demoRequested) return demoStarted;
 
     setDemoError(null);
@@ -150,7 +159,7 @@ function DemoTradingContent() {
     if (!isAuthenticated && !demoRequested && !isLoading) {
       void ensureDemoSession();
     }
-  }, [isAuthenticated, demoRequested, isLoading]);
+  }, [isAuthenticated, isDemo, demoRequested, isLoading]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -225,41 +234,44 @@ function DemoTradingContent() {
     return Math.min(100, score);
   }, [isAuthenticated, user]);
 
-  const liveTradeSnapshots = positions.map((position) => ({
-    id: position.id,
-    symbol: position.symbol,
-    side: position.side === "long" ? "buy" : "sell",
-    entryPrice: position.entryPrice,
-    currentPrice: position.currentPrice,
-    size: position.size,
-    pnl: position.pnl,
-    pnlPercent: position.pnlPercent,
-    stopLoss: position.entryPrice * (position.side === "long" ? 0.98 : 1.02),
-    takeProfit: position.entryPrice * (position.side === "long" ? 1.03 : 0.97),
-    status: "open",
-  }));
+  const liveTradeSnapshots: LiveTradeSnapshot[] = positions.map((position) => {
+    const normalizedSide = String(position.side ?? "long").toLowerCase() as "long" | "short";
+    return {
+      id: position.id,
+      symbol: position.symbol,
+      side: (normalizedSide === "long" ? "buy" : "sell") as LiveTradeSnapshot["side"],
+      entryPrice: position.entryPrice,
+      currentPrice: position.currentPrice,
+      size: position.size,
+      pnl: position.pnl,
+      pnlPercent: position.pnlPercent,
+      stopLoss: position.entryPrice * (normalizedSide === "long" ? 0.98 : 1.02),
+      takeProfit: position.entryPrice * (normalizedSide === "long" ? 1.03 : 0.97),
+      status: "open",
+    };
+  });
 
   const liveChartData = markets.slice(0, 12).map((market, index) => ({
     time: Date.now() - (markets.length - index) * 60 * 1000,
     price: market.price,
   }));
 
-  const placeDemoOrder = async () => {
+  const placeDemoOrder = async (order?: { symbol?: string; side?: 'buy' | 'sell'; volume?: number; orderType?: 'market' | 'limit' | 'stop'; price?: number; stopLoss?: number; takeProfit?: number }) => {
     if (!isAuthenticated) {
       const started = await ensureDemoSession();
       if (!started) return;
     }
 
-    const sizeValue = Number(size);
+    const sizeValue = Number(order?.volume ?? 0.01);
     if (!sizeValue || Number.isNaN(sizeValue)) {
       setMessage("Enter a valid position size to continue.");
       return;
     }
 
-    const safeSize = Math.max(100, Math.round(sizeValue));
+    const safeSize = Number(sizeValue.toFixed(4));
     try {
-      const body = { instrument: selectedMarket.symbol, type: 'market', side: side === 'Buy' ? 'buy' : 'sell', amount: safeSize, leverage: 10 };
-      const resp = await fetch('/api/demo/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
+      const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? 'buy', amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
+      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
         throw new Error(errorText || 'Order failed');
@@ -269,6 +281,17 @@ function DemoTradingContent() {
     } catch (err: unknown) {
       const error = err as { message?: string };
       setMessage(error.message ?? 'Failed to submit demo order.');
+    }
+  };
+
+  const resetDemoAccount = async () => {
+    try {
+      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', credentials: 'include' });
+      if (!response.ok) throw new Error('Unable to reset the practice account.');
+      await refreshDemoState();
+      setMessage('Practice account reset to $10,000. Try a new strategy.');
+    } catch (error: unknown) {
+      setDemoError(error instanceof Error ? error.message : 'Unable to reset the practice account.');
     }
   };
 
@@ -413,6 +436,56 @@ function DemoTradingContent() {
         </Card>
       </div>
 
+      <Card className="border-emerald-500/30 bg-linear-to-br from-emerald-500/10 via-background to-background">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Play className="h-5 w-5 text-emerald-600" />
+                Start your first practice trade
+              </CardTitle>
+              <CardDescription className="mt-1">A simple three-step tour using simulated funds only.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void resetDemoAccount()} disabled={!isAuthenticated}>
+              <RotateCcw className="mr-1.5 h-4 w-4" />
+              Reset demo
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              ["1", "Pick a market", "Select BTC, ETH, SOL, or USDT below."],
+              ["2", "Choose a direction", "Buy if you expect a rise; Sell if you expect a fall."],
+              ["3", "Watch the result", "Your price and P&L update while the simulation runs."],
+            ].map(([number, title, description]) => (
+              <div key={number} className="flex gap-3 rounded-lg border border-border/70 bg-card/60 p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">{number}</span>
+                <div>
+                  <div className="text-sm font-semibold">{title}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => void placeDemoOrder({ symbol: selectedMarket.symbol, side: 'buy', volume: 0.01 })} disabled={!isAuthenticated} className="bg-emerald-600 hover:bg-emerald-700">
+              <TrendingUp className="mr-1.5 h-4 w-4" />
+              Buy {selectedMarket.symbol} with 0.01 units
+            </Button>
+            <Button onClick={() => void placeDemoOrder({ symbol: selectedMarket.symbol, side: 'sell', volume: 0.01 })} disabled={!isAuthenticated} variant="destructive">
+              <TrendingUp className="mr-1.5 h-4 w-4 rotate-180" />
+              Sell {selectedMarket.symbol} with 0.01 units
+            </Button>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              No real funds or orders are used
+            </div>
+          </div>
+          <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground" role="status">{message}</div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
           <CardHeader>
@@ -444,16 +517,13 @@ function DemoTradingContent() {
           <AdvancedTradingPanel
             positions={positions}
             selectedSymbol={selectedMarket.symbol}
+            currentPrice={selectedMarket.price}
             balance={demoBalance}
             freeMargin={demoBalance - positions.reduce((sum, p) => sum + p.size * selectedMarket.price * 0.1, 0)}
-            onPlaceOrder={async (order) => {
-              setSize(String(order.amount));
-              setSide(order.side === 'buy' ? 'Buy' : 'Sell');
-              await placeDemoOrder();
-            }}
+            onPlaceOrder={placeDemoOrder}
             onClosePosition={async (posId) => {
               try {
-                const resp = await fetch(`/api/demo/position/${posId}`, { method: 'DELETE', credentials: 'include' });
+                const resp = await fetch(apiPath(`/api/demo/position/${posId}`), { method: 'DELETE', credentials: 'include' });
                 if (resp.ok) {
                   await refreshDemoState();
                   setMessage('Position closed successfully.');
@@ -505,7 +575,7 @@ function DemoTradingContent() {
         chartSeries={liveChartData}
         onCloseTrade={async (tradeId) => {
           try {
-            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            const resp = await fetch(apiPath(`/api/demo/position/${tradeId}`), { method: "DELETE", credentials: "include" });
             if (resp.ok) {
               await refreshDemoState();
               setMessage("Demo position closed successfully.");
@@ -517,7 +587,7 @@ function DemoTradingContent() {
         }}
         onCancelTrade={async (tradeId) => {
           try {
-            const resp = await fetch(`/api/demo/position/${tradeId}`, { method: "DELETE", credentials: "include" });
+            const resp = await fetch(apiPath(`/api/demo/position/${tradeId}`), { method: "DELETE", credentials: "include" });
             if (resp.ok) {
               await refreshDemoState();
               setMessage("Demo position cancelled.");

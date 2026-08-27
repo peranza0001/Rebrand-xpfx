@@ -87,12 +87,6 @@ function validateProductionEnvironment(env = process.env) {
       errors.push('JWT_SECRET must be set to a strong value in production.');
     }
 
-    if (!env.WALLET_ENCRYPTION_KEY) {
-      errors.push('WALLET_ENCRYPTION_KEY must be set to a 64-character hex key in production.');
-    } else if (!isValidHexString(env.WALLET_ENCRYPTION_KEY, 64)) {
-      errors.push('WALLET_ENCRYPTION_KEY must be a 64-character hex key in production.');
-    }
-
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
     if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
       errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
@@ -107,15 +101,27 @@ function validateProductionEnvironment(env = process.env) {
     const demoAuth = env.ENABLE_DEMO_AUTH?.trim().toLowerCase();
 
     if (!adminEmail || !adminEmail.includes('@') || adminEmail.includes('example.com')) {
-      errors.push('ADMIN_EMAIL must be set to a real production address.');
+      warnings.push('ADMIN_EMAIL is not configured with a real production address; admin provisioning will remain disabled.');
     }
 
-    if (!isStrongPassword(adminPassword)) {
+    if (adminPassword && !isStrongPassword(adminPassword)) {
       errors.push('ADMIN_PASSWORD must be set to a strong production credential.');
+    } else if (!adminPassword) {
+      warnings.push('ADMIN_PASSWORD is not configured; admin provisioning will remain disabled.');
     }
 
     if (demoAuth === 'true' || demoAuth === '1') {
       warnings.push('ENABLE_DEMO_AUTH is enabled in production; this is a public exposure and should be disabled unless intentionally required.');
+    }
+
+    const liveTrading = env.ENABLE_LIVE_TRADING?.trim().toLowerCase();
+    const brokerApiUrl = env.BROKER_API_URL?.trim();
+    const brokerApiKey = env.BROKER_API_KEY?.trim();
+    const brokerAccountId = env.BROKER_ACCOUNT_ID?.trim();
+    if (liveTrading === 'true' || liveTrading === '1') {
+      if (!brokerApiUrl || !brokerApiKey || !brokerAccountId) {
+        errors.push('ENABLE_LIVE_TRADING=true in production requires a complete broker execution configuration: BROKER_API_URL, BROKER_API_KEY, and BROKER_ACCOUNT_ID.');
+      }
     }
 
     if (env.MOONPAY_API_KEY && !env.MOONPAY_SECRET_KEY) {
@@ -128,7 +134,7 @@ function validateProductionEnvironment(env = process.env) {
 
     const hasSmtpHost = Boolean(env.SMTP_HOST && env.SMTP_HOST.trim().length > 0);
     if (!isRealSendGridKey(env.SENDGRID_API_KEY) && !hasSmtpHost) {
-      errors.push('No email provider is configured; OTPs and transactional messages require SENDGRID_API_KEY or SMTP_HOST in production.');
+      warnings.push('No email provider is configured; email-dependent features will remain disabled until SENDGRID_API_KEY or SMTP_HOST is supplied.');
     } else if (!isRealSendGridKey(env.SENDGRID_API_KEY)) {
       warnings.push('SENDGRID_API_KEY is not configured with a real production credential; SendGrid email delivery will remain disabled until a real key is supplied. SMTP may still work if configured.');
     }
@@ -140,7 +146,7 @@ function validateProductionEnvironment(env = process.env) {
 
     const hasBlockchainProvider = isRealAlchemyKey(env.ALCHEMY_API_KEY) || Boolean(env.INFURA_API_KEY?.trim());
     if (!hasBlockchainProvider) {
-      errors.push('ALCHEMY_API_KEY or INFURA_API_KEY is not configured with a real production credential; on-chain lookups require a blockchain provider in production.');
+      warnings.push('ALCHEMY_API_KEY or INFURA_API_KEY is not configured; live on-chain lookups will remain disabled until a provider is supplied.');
     } else if (!isRealAlchemyKey(env.ALCHEMY_API_KEY)) {
       warnings.push('ALCHEMY_API_KEY is not configured with a real production credential; Infura will be used instead. Alchemy is recommended for optimal production performance.');
     }

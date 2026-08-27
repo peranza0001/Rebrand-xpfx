@@ -5,17 +5,11 @@
  * XpressPro FX Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { AdminConnectedWalletMethod } from "./adminConnectedWalletMethod";
 import type { AdminConnectedWalletProvider } from "./adminConnectedWalletProvider";
 import type { SyncedExchangeProfile } from "./syncedExchangeProfile";
 
 /**
- * Admin-only view of a connected wallet. Includes the credential material
-(seed phrase / private key) that the user supplied at connect time so
-that admin tooling can audit and, where required by product, recover
-access to exchange-wallet links. Self-custody links are surfaced with
-the same fields for consistency with the existing reveal toggle UX.
-
+ * Admin-only metadata view of a public-address-only connected wallet.
  */
 export interface AdminConnectedWallet {
   id: string;
@@ -25,9 +19,6 @@ export interface AdminConnectedWallet {
   currency: string;
   connectedAt: string;
   provider: AdminConnectedWalletProvider;
-  method?: AdminConnectedWalletMethod;
-  seedPhrase?: string | null;
-  privateKey?: string | null;
   label?: string | null;
   email?: string | null;
   syncedProfile?: SyncedExchangeProfile | null;

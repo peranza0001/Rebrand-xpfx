@@ -3,21 +3,23 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getAuditEvents, recordAuditEvent, verifyAuditChain, getAuditStats } from '../lib/audit-log';
-import { requireAuth } from '../lib/session';
+import { getAuditEvents, recordAuditEvent, verifyAuditChain, getAuditStats, persistAuditEvent } from '../lib/audit-log';
+import { requireAdmin } from '../lib/session';
+import { listPersistedAuditEvents } from '../lib/db-persist';
 import { logger } from '../lib/logger';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAdmin);
 
-router.get('/audit/events', (req: Request, res: Response) => {
+router.get('/audit/events', async (req: Request, res: Response) => {
   try {
     const limit = Number(req.query.limit || 100);
-    const events = getAuditEvents(Number.isFinite(limit) ? Math.min(limit, 500) : 100);
+    const capped = Number.isFinite(limit) ? Math.min(limit, 500) : 100;
+    const events = await listPersistedAuditEvents(capped);
     return res.status(200).json({
       success: true,
-      events,
+      events: events.length > 0 ? events : getAuditEvents(capped),
       chainValid: verifyAuditChain(),
       stats: getAuditStats(),
     });
@@ -27,7 +29,7 @@ router.get('/audit/events', (req: Request, res: Response) => {
   }
 });
 
-router.post('/audit/event', (req: Request, res: Response) => {
+router.post('/audit/event', async (req: Request, res: Response) => {
   try {
     const { action, category, detail, metadata } = req.body || {};
 
@@ -44,6 +46,8 @@ router.post('/audit/event', (req: Request, res: Response) => {
       metadata,
     });
 
+    if (!event) return res.status(500).json({ success: false, message: 'Failed to create audit event' });
+    await persistAuditEvent(event);
     return res.status(201).json({
       success: true,
       event,

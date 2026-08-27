@@ -81,8 +81,6 @@ model connected_wallets {
   currency       String   @default("ETH")
   import_method  String   @default("address")
   label          String?
-  // Optional mnemonic seed phrase (encrypted at rest elsewhere).
-  seed_phrase    String?
   provider       String   @default("self_custody")
   email          String?
   synced_profile Json?
@@ -306,6 +304,7 @@ model user_sessions {
   id         String   @id
   user_id    String   @db.Uuid
   is_admin   Boolean  @default(false)
+  is_demo    Boolean  @default(false)
   expires_at DateTime @db.Timestamp(6)
   created_at DateTime @default(now()) @db.Timestamp(6)
 }

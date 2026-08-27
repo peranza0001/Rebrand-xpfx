@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { validateEmail } from '../lib/email-utils';
 import { generatePasswordResetToken, verifyPasswordResetToken, markResetTokenAsUsed } from '../lib/password-reset';
 import { hashPassword, usersByEmail, users, logActivity } from '../lib/store';
-import { persistUser, persistResetPasswordToken } from '../lib/db-persist';
+import { persistUser, persistResetPasswordToken, getPersistedUserByEmail } from '../lib/db-persist';
 import { logger } from '../lib/logger';
 import { sendEmail } from '../lib/email';
 
@@ -63,7 +63,15 @@ router.post('/password-reset/request', async (req: Request, res: Response) => {
     const lowerEmail = email.toLowerCase();
 
     // Check if user exists
-    const userId = usersByEmail.get(lowerEmail);
+    let userId = usersByEmail.get(lowerEmail);
+    if (!userId) {
+      const persistedUser = await getPersistedUserByEmail(lowerEmail);
+      if (persistedUser) {
+        userId = persistedUser.user.id;
+        users.set(userId, persistedUser);
+        usersByEmail.set(lowerEmail, userId);
+      }
+    }
     const userExists = userId ? users.has(userId) : false;
 
     // For security, always respond positively even if user doesn't exist

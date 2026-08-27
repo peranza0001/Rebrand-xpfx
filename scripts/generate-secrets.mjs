@@ -26,10 +26,10 @@ const defaultProductionValues = {
   NODE_ENV: 'production',
   PORT: '3000',
   LOG_LEVEL: 'info',
-  ALLOWED_ORIGINS: 'https://web-production-45a7e.up.railway.app,https://xpressprofxcom.vercel.app',
-  PUBLIC_APP_URL: 'https://xpressprofxcom.vercel.app',
-  FRONTEND_URL: 'https://xpressprofxcom.vercel.app',
-  VITE_API_URL: 'https://web-production-45a7e.up.railway.app',
+  ALLOWED_ORIGINS: 'https://rebrand-xpfx-api-server.vercel.app,https://web-production-94f970.up.railway.app',
+  PUBLIC_APP_URL: 'https://rebrand-xpfx-api-server.vercel.app',
+  FRONTEND_URL: 'https://rebrand-xpfx-api-server.vercel.app',
+  VITE_API_URL: 'https://web-production-94f970.up.railway.app',
   SESSION_SECRET: 'change_me_session_secret',
   JWT_SECRET: 'change_me_jwt_secret',
   WALLET_ENCRYPTION_KEY: 'change_me_wallet_encryption_key',
@@ -95,8 +95,9 @@ const secrets = {
   SMTP_USER: () => defaultProductionValues.SMTP_USER,
 };
 
-if (isProductionMode) {
+if (isProductionMode && !process.env.ENV_FILE) {
   console.log('ℹ Production mode detected — skipping repo secret generation so Railway runtime values remain authoritative.');
+  console.log('ℹ No secrets to generate');
   process.exit(0);
 }
 
