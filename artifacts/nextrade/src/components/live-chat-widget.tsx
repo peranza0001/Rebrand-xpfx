@@ -48,6 +48,7 @@ export function LiveChatWidget() {
   const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
   const [profileDraft, setProfileDraft] = useState<VisitorProfile>({ name: "", email: "", country: "" });
   const [handoff, setHandoff] = useState<HandoffResponse | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const csrfTokenRef = useRef<string | null>(null);
   const qc = useQueryClient();
@@ -111,19 +112,30 @@ export function LiveChatWidget() {
   }, [open]);
 
   useEffect(() => {
-    if (!open || !userId) return;
+    if (!userId) return;
 
     const socketClient = io(`${apiUrl}/live-chat`, {
       path: '/socket.io',
       withCredentials: true,
     });
 
+    const refetchHistory = async () => {
+      const response = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
+      if (!response.ok) return;
+      const history = await response.json();
+      if (Array.isArray(history)) {
+        setMessages((previous) => appendUniqueMessages(history as LiveChatMessage[], previous));
+      }
+    };
+
     socketClient.on('connect', () => {
       socketClient.emit('join_conversation', userId);
+      void refetchHistory();
     });
 
     socketClient.on('message', (msg: LiveChatMessage) => {
       setMessages((prev) => appendUniqueMessages(prev, [msg]));
+      if (!open && !msg.isFromUser) setUnreadCount((count) => count + 1);
     });
 
     socketClient.on('agent_joined', (payload: { senderName?: string; ticketId?: string }) => {
@@ -145,6 +157,10 @@ export function LiveChatWidget() {
       socketClient.disconnect();
     };
   }, [open, userId]);
+
+  useEffect(() => {
+    if (open) setUnreadCount(0);
+  }, [open]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -248,6 +264,11 @@ export function LiveChatWidget() {
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center hover:opacity-90 transition-all duration-200 hover:scale-105"
         aria-label="Open live chat"
       >
+        {unreadCount > 0 && !open && (
+          <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-rose-600 px-1 text-[11px] font-semibold leading-5 text-white" aria-label={`${unreadCount} unread chat messages`}>
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
         {open ? (
           <X className="w-6 h-6 text-primary-foreground" />
         ) : (
