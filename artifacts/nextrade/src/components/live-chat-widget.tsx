@@ -13,6 +13,7 @@ interface LiveChatMessage {
   isFromUser: boolean;
   isBot?: boolean;
   escalated?: boolean;
+  deliveryStatus?: "sending" | "sent" | "failed";
 }
 
 interface SessionResponse {
@@ -167,12 +168,26 @@ export function LiveChatWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async (requestedMessage?: string) => {
+  const handleSend = async (requestedMessage?: string, retryMessageId?: string) => {
     const text = (requestedMessage ?? message).trim();
     if (!text || isSending) return;
     setMessage("");
     setError(null);
     setIsSending(true);
+    const pendingId = retryMessageId ?? `pending-${Date.now()}`;
+    if (retryMessageId) {
+      setMessages((previous) => previous.map((item) => item.id === retryMessageId ? { ...item, deliveryStatus: "sending" } : item));
+    } else {
+      setMessages((previous) => [...previous, {
+        id: pendingId,
+        userId: userId ?? "",
+        senderName: "You",
+        content: text,
+        createdAt: new Date().toISOString(),
+        isFromUser: true,
+        deliveryStatus: "sending",
+      }]);
+    }
     try {
       if (!csrfTokenRef.current) await loadCsrfToken();
   const res = await fetch(apiPath("/api/live-chat"), {
@@ -192,6 +207,9 @@ export function LiveChatWidget() {
         ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
         ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
       ] as LiveChatMessage[];
+      const sentUserMessage = nextMessages.find((item) => item.isFromUser);
+      if (sentUserMessage) sentUserMessage.deliveryStatus = "sent";
+      setMessages((previous) => previous.filter((item) => item.id !== pendingId));
       const handoff = result?.handoff as HandoffResponse | null | undefined;
       if (handoff) {
         setHandoff(handoff);
@@ -212,17 +230,7 @@ export function LiveChatWidget() {
     } catch (err) {
       const fallbackMessage = err instanceof Error ? err.message : 'Unable to send message';
       setError(fallbackMessage);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          senderName: 'System',
-          content: 'Your message could not be sent right now. Please try again in a moment.',
-          createdAt: new Date().toISOString(),
-          isFromUser: false,
-          isBot: false,
-        },
-      ]);
+      setMessages((previous) => previous.map((item) => item.id === pendingId ? { ...item, deliveryStatus: "failed" } : item));
     } finally {
       setIsSending(false);
     }
@@ -348,6 +356,13 @@ export function LiveChatWidget() {
                   }`}
                 >
                   <div>{m.content}</div>
+                  {m.isFromUser && m.deliveryStatus && (
+                    <div className="mt-1 text-[10px] opacity-75">
+                      {m.deliveryStatus === "sending" ? "Sending..." : m.deliveryStatus === "failed" ? (
+                        <button type="button" className="underline" onClick={() => { void handleSend(m.content, m.id); }}>Retry</button>
+                      ) : "Sent"}
+                    </div>
+                  )}
                   {m.escalated && (
                     <div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-600">Escalated</div>
                   )}
