@@ -63,6 +63,7 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
 export function getAllowedOrigins(): string[] {
   const raw = process.env.ALLOWED_ORIGINS?.trim() || process.env.CORS_ORIGINS?.trim() || process.env.REPLIT_DOMAINS?.trim() || '';
   const fallbackOrigins = [
+    'https://web-production-94f970.up.railway.app',
     'https://rebrand-xpfx-production-1988.up.railway.app',
     'https://web-production-45a7e.up.railway.app',
     'https://xpressprofx.com',
