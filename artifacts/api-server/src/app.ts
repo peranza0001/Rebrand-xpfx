@@ -14,6 +14,7 @@ import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
+import { getPrismaClient } from './lib/db-persist';
 import { logger } from './lib/logger';
 import { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
@@ -93,21 +94,38 @@ async function _dbHealthHandler(_req: Request, res: Response) {
 }
 
 async function _readinessHandler(_req: Request, res: Response) {
-  // Platform health checks must remain reachable even when the database is
-  // temporarily unavailable or intentionally isolated from a worker. The deep
-  // database probe is handled by /healthz/db, which is where DB outages should
-  // surface as degraded or failed conditions.
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ ready: false, reason: 'database-not-configured' });
+    }
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
+  }
+
+  const prisma = getPrismaClient();
+  if (prisma?.$queryRaw) {
+    try {
+      await prisma.$queryRaw`select 1`;
+      return res.status(200).json({ ready: true, reason: 'database-ready' });
+    } catch {
+      return res.status(503).json({ ready: false, reason: 'database-unavailable' });
+    }
   }
 
   const db = getDb();
   if (!db) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ ready: false, reason: 'database-client-unavailable' });
+    }
     return res.status(200).json({ ready: true, reason: 'no-db-client' });
   }
 
-  return res.status(200).json({ ready: true, reason: 'app-ready' });
+  try {
+    await db.execute(sql`select 1`);
+    return res.status(200).json({ ready: true, reason: 'database-ready' });
+  } catch {
+    return res.status(503).json({ ready: false, reason: 'database-unavailable' });
+  }
 }
 
 app.use((req, res, next) => {

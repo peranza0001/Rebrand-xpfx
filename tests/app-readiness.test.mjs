@@ -47,6 +47,10 @@ test('health endpoints are registered and app imports cleanly', async () => {
   assert(routePaths.includes('/api/healthz'), '/api/healthz route should be registered');
   assert(routePaths.includes('/api/livez'), '/api/livez route should be registered');
   assert(routePaths.includes('/api/readyz'), '/api/readyz route should be registered');
+
+  const appSource = await fs.promises.readFile(new URL('../artifacts/api-server/src/app.ts', import.meta.url), 'utf8');
+  assert.match(appSource, /database-not-configured/);
+  assert.match(appSource, /\$queryRaw`select 1`/);
   assert(routePaths.includes('/metrics'), '/metrics route should be registered');
 });
 
@@ -84,7 +88,7 @@ test('GET /metrics returns Prometheus exposition format', async () => {
 
 test('production health endpoints remain reachable over http for platform probes', async () => {
   await withTestServer(async (baseUrl) => {
-    for (const path of ['/health', '/healthz', '/livez', '/readyz', '/api/health', '/api/healthz', '/api/livez', '/api/readyz']) {
+    for (const path of ['/health', '/healthz', '/livez', '/api/health', '/api/healthz', '/api/livez']) {
       const response = await fetch(`${baseUrl}${path}`, {
         method: 'GET',
         redirect: 'manual',
@@ -92,6 +96,17 @@ test('production health endpoints remain reachable over http for platform probes
       });
 
       assert.equal(response.status, 200, `${path} should remain available to platform health checks`);
+      assert.equal(response.headers.get('location'), null, `${path} should not redirect`);
+    }
+
+    for (const path of ['/readyz', '/api/readyz']) {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: { 'x-forwarded-proto': 'http' },
+      });
+
+      assert.equal(response.status, 503, `${path} should report missing production dependencies`);
       assert.equal(response.headers.get('location'), null, `${path} should not redirect`);
     }
   });
@@ -179,7 +194,7 @@ test('sensitive financial endpoints enforce no-store browser safety headers', as
       },
     });
 
-    assert.equal(response.status, 200, '/api/readyz should return successfully');
+    assert.equal(response.status, 503, '/api/readyz should report missing production dependencies');
     assert.match(response.headers.get('cache-control') ?? '', /no-store/i, 'financial readiness responses should not be cached');
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff', 'financial responses should disable MIME sniffing');
     assert.equal(response.headers.get('x-frame-options'), 'DENY', 'financial responses should prevent framing');
