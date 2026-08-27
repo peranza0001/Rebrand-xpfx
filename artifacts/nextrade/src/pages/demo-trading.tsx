@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { io, type Socket } from 'socket.io-client';
 import { useLocation } from "wouter";
-import { ShieldCheck, RefreshCw, Zap, Target, TrendingUp, Activity, Shield } from "lucide-react";
+import { ShieldCheck, RefreshCw, Zap, Target, TrendingUp, Activity, Shield, Play, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +77,7 @@ function DemoTradingContent() {
   );
   const [side, setSide] = useState<"Buy" | "Sell">("Buy");
   const [size, setSize] = useState("2500");
-  const [, setMessage] = useState("Paper trading is live. Use the workspace below to practise risk-managed execution.");
+  const [message, setMessage] = useState("Your practice account is ready. Choose a market, then try a Buy or Sell trade.");
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoRequested, setDemoRequested] = useState(false);
   const [demoStarted, setDemoStarted] = useState(false);
@@ -286,6 +286,17 @@ function DemoTradingContent() {
     }
   };
 
+  const resetDemoAccount = async () => {
+    try {
+      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', credentials: 'include' });
+      if (!response.ok) throw new Error('Unable to reset the practice account.');
+      await refreshDemoState();
+      setMessage('Practice account reset to $10,000. Try a new strategy.');
+    } catch (error: unknown) {
+      setDemoError(error instanceof Error ? error.message : 'Unable to reset the practice account.');
+    }
+  };
+
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-full">
       {/* Modern professional dashboard header for demo account */}
@@ -426,6 +437,56 @@ function DemoTradingContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-emerald-500/30 bg-linear-to-br from-emerald-500/10 via-background to-background">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Play className="h-5 w-5 text-emerald-600" />
+                Start your first practice trade
+              </CardTitle>
+              <CardDescription className="mt-1">A simple three-step tour using simulated funds only.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void resetDemoAccount()} disabled={!isAuthenticated}>
+              <RotateCcw className="mr-1.5 h-4 w-4" />
+              Reset demo
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              ["1", "Pick a market", "Select BTC, ETH, SOL, or USDT below."],
+              ["2", "Choose a direction", "Buy if you expect a rise; Sell if you expect a fall."],
+              ["3", "Watch the result", "Your price and P&L update while the simulation runs."],
+            ].map(([number, title, description]) => (
+              <div key={number} className="flex gap-3 rounded-lg border border-border/70 bg-card/60 p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">{number}</span>
+                <div>
+                  <div className="text-sm font-semibold">{title}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => void placeDemoOrder({ symbol: selectedMarket.symbol, side: 'buy', volume: 0.01 })} disabled={!isAuthenticated} className="bg-emerald-600 hover:bg-emerald-700">
+              <TrendingUp className="mr-1.5 h-4 w-4" />
+              Buy {selectedMarket.symbol} with 0.01 units
+            </Button>
+            <Button onClick={() => void placeDemoOrder({ symbol: selectedMarket.symbol, side: 'sell', volume: 0.01 })} disabled={!isAuthenticated} variant="destructive">
+              <TrendingUp className="mr-1.5 h-4 w-4 rotate-180" />
+              Sell {selectedMarket.symbol} with 0.01 units
+            </Button>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              No real funds or orders are used
+            </div>
+          </div>
+          <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground" role="status">{message}</div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>

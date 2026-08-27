@@ -57,7 +57,7 @@ export function AdvancedTradingPanel({
 }: AdvancedTradingPanelProps) {
   const [orderType, setOrderType] = useState<"market" | "limit" | "stop">("market");
   const [orderSide, setOrderSide] = useState<"buy" | "sell">("buy");
-  const [volume, setVolume] = useState("0.1");
+  const [volume, setVolume] = useState("0.01");
   const [entryPrice, setEntryPrice] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
@@ -164,7 +164,7 @@ export function AdvancedTradingPanel({
               min="0.01"
               value={volume}
               onChange={(e) => setVolume(e.target.value)}
-              placeholder="1.0"
+              placeholder="0.01"
               className="font-mono"
             />
             <div className="text-xs text-muted-foreground">
