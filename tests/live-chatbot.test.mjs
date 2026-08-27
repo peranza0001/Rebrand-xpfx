@@ -49,3 +49,9 @@ test('chatbot supports FAQ commands for self-service visitors', () => {
   assert.equal(security.intent, 'security');
   assert.match(security.content, /never ask for your password/i);
 });
+
+test('unknown financial-support requests are safe to escalate when the AI provider is unavailable', () => {
+  const response = getChatbotResponse('Can you explain an unsupported feature to me?', 'Visitor');
+  assert.equal(response.intent, 'general');
+  assert.equal(response.shouldEscalate, false);
+});

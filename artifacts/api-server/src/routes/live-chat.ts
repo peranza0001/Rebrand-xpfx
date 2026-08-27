@@ -145,17 +145,21 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     }));
 
   const localReply = getChatbotResponse(parsed.data.content, userName);
+  const faqReply = generateFaqReply(safeContent);
   const ai = userMsg.escalated || localReply.intent !== "general"
     ? null
-    : generateFaqReply(safeContent) ?? await generateAIReply({
+    : faqReply ?? await generateAIReply({
       userMessage: safeContent,
       history,
       userName,
     });
-  const replyText = userMsg.escalated
+  const providerUnavailable = !userMsg.escalated && localReply.intent === "general" && !faqReply && !ai;
+  const replyText = providerUnavailable
+    ? "The AI assistant is temporarily unavailable, so I am connecting you to a human support representative. Your message has been saved to this conversation."
+    : userMsg.escalated
     ? localReply.content
     : ai?.content || localReply.content;
-  const aiEscalated = ai?.escalated ?? false;
+  const aiEscalated = providerUnavailable || (ai?.escalated ?? false);
   const escalated = userMsg.escalated || aiEscalated;
 
   const botReply: LiveChatMsg = {
