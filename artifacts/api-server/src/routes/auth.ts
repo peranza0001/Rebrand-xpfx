@@ -716,6 +716,10 @@ router.post("/auth/demo", async (req, res) => {
   }
 
   if (req.storedUser?.role === "demo" || req.storedUser?.demoMode === true) {
+    const demoAccountPersisted = await ensurePersistedDemoAccount(req.storedUser.user.id, demoConfig.defaultBalance);
+    if (!demoAccountPersisted) {
+      return res.status(503).json({ error: "Demo trading is temporarily unavailable because the demo account could not be persisted." });
+    }
     return res.json(sessionFor(req.storedUser, true));
   }
 
