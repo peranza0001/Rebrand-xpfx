@@ -1220,8 +1220,8 @@ export async function persistSupportTicket(
     createdAt: string;
     updatedAt: string;
   },
-): Promise<void> {
-  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return false;
   try {
     await prismaClient.support_tickets.upsert({
       where: { id: ticketId },
@@ -1240,8 +1240,10 @@ export async function persistSupportTicket(
         updated_at: new Date(ticketData.updatedAt),
       },
     });
-  } catch {
-    // Silent fail
+    return true;
+  } catch (err) {
+    logger.error({ err, ticketId, userId }, "[db-persist] support ticket persistence failed");
+    return false;
   }
 }
 

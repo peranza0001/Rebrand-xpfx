@@ -191,14 +191,17 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       createdAt: ticketCreatedAt,
       updatedAt: ticketCreatedAt,
     };
-    data.supportTickets.unshift(ticket);
-    void persistSupportTicket(ticket.id, req.userId!, {
+    const ticketPersisted = await persistSupportTicket(ticket.id, req.userId!, {
       subject: ticket.subject,
       status: ticket.status,
       priority: ticket.priority,
       createdAt: ticket.createdAt,
       updatedAt: ticket.updatedAt,
     });
+    if (!ticketPersisted) {
+      return res.status(503).json({ error: "Chat escalation is temporarily unavailable. Please try again." });
+    }
+    data.supportTickets.unshift(ticket);
     handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
     
     if (!presence.anyOnline) {
