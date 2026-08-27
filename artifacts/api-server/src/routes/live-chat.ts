@@ -84,13 +84,6 @@ router.post("/live-chat/identify", requireAuth, (req, res) => {
   return res.json({ name, email, country });
 });
 
-async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
-  const persisted = await persistChatMessage(userId, senderType, senderId, content);
-  if (!persisted) {
-    logger.warn({ userId, senderType }, "live-chat persistence unavailable; serving from active session");
-  }
-}
-
 // GET /live-chat — current user's messages
 router.get("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
@@ -128,7 +121,12 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
-  await persistChatBestEffort(req.userId!, 'user', req.userId!, userMsg.content);
+  const userPersisted = await persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
+  if (!userPersisted) {
+    data.liveChat.pop();
+    logger.error({ userId: req.userId! }, "live-chat message could not be durably persisted");
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
 
   try {
     const ns = getChatNamespace();
@@ -171,7 +169,11 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
-  await persistChatBestEffort(req.userId!, 'bot', null, botReply.content);
+  const botPersisted = await persistChatMessage(req.userId!, 'bot', null, botReply.content);
+  if (!botPersisted) {
+    data.liveChat.pop();
+    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+  }
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
