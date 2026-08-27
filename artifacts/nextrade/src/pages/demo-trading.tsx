@@ -87,7 +87,7 @@ function DemoTradingContent() {
       const snapshot = await res.json() as { balance: number; positions: Position[]; openPositions: number; totalPnl: number };
       setDemoBalance(snapshot.balance);
       setPositions(snapshot.positions);
-      setMessage(snapshot.positions.length > 0 ? `Live account snapshot loaded with ${snapshot.openPositions} open position${snapshot.openPositions === 1 ? '' : 's'}.` : 'Live account snapshot loaded. Place a new paper order to begin.');
+      setMessage(snapshot.positions.length > 0 ? `Demo account state loaded with ${snapshot.openPositions} open position${snapshot.openPositions === 1 ? '' : 's'}.` : 'Demo account state loaded. Place a new simulated order to begin.');
     } catch {
       // graceful fallback
     }
@@ -204,7 +204,7 @@ function DemoTradingContent() {
   }, [positions, demoBalance]);
 
   const equityHistory = useMemo(() => {
-    const baseEquity = 50000;
+    const baseEquity = demoBalance;
     const totalPnL = positions.reduce((sum, p) => sum + p.pnl, 0);
     return [
       { timestamp: Date.now() - 4 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity },
@@ -543,7 +543,7 @@ function DemoTradingContent() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Selected market price chart</CardTitle>
-          <CardDescription>Track price action in your live demo environment as the market moves.</CardDescription>
+          <CardDescription>Track simulated positions while streamed market prices move.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted p-4 text-sm">
