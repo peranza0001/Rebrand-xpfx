@@ -161,6 +161,12 @@ test('first-party live chat is the only chat widget loaded in the frontend', asy
   assert.match(html, /src="\/src\/main\.tsx"/i, 'Frontend entry should still load normally');
 });
 
+test('visitor chat captures explicit support consent before starting', async () => {
+  const widget = await fs.promises.readFile(new URL('../artifacts/nextrade/src/components/live-chat-widget.tsx', import.meta.url), 'utf8');
+  assert.match(widget, /consentAccepted/);
+  assert.match(widget, /support may process this conversation/);
+});
+
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = baseUrl;

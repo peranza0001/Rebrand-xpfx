@@ -46,6 +46,7 @@ export function LiveChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
+  const [consentAccepted, setConsentAccepted] = useState(false);
   const [profileDraft, setProfileDraft] = useState<VisitorProfile>({ name: "", email: "", country: "" });
   const [handoff, setHandoff] = useState<HandoffResponse | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -235,6 +236,10 @@ export function LiveChatWidget() {
       setError("Enter your name and a valid email so support can reply to you.");
       return;
     }
+    if (!consentAccepted) {
+      setError("Please agree to the support-chat data notice before starting.");
+      return;
+    }
     const profile = { name, email, country: profileDraft.country.trim() };
     try {
       if (!csrfTokenRef.current) await loadCsrfToken();
@@ -305,6 +310,10 @@ export function LiveChatWidget() {
               <input required value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} placeholder="Your name" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
               <input required type="email" value={profileDraft.email} onChange={(event) => setProfileDraft({ ...profileDraft, email: event.target.value })} placeholder="Registered email" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
               <input value={profileDraft.country} onChange={(event) => setProfileDraft({ ...profileDraft, country: event.target.value })} placeholder="Country (optional)" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
+              <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} className="mt-0.5" />
+                <span>I agree that support may process this conversation to respond to my request. Do not include passwords, codes, payment details, or wallet secrets.</span>
+              </label>
               <button type="submit" className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Start chat</button>
               {error && <p className="text-xs text-rose-600">{error}</p>}
             </form>
