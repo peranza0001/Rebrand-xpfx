@@ -21,6 +21,7 @@ import {
   p2pMerchantApplicationsTable,
   p2pNotificationsTable,
   supportTicketsTable,
+  tradesTable,
   transactionsTable,
   usersTable,
   userSessionsTable,
@@ -248,6 +249,42 @@ export async function hydrateFromDb(): Promise<void> {
       const list = transactionsByUser.get(userId) ?? [];
       list.push(tx);
       transactionsByUser.set(userId, list);
+    }
+
+    const dbTrades = await loadRowsFromDb<Record<string, unknown>>(
+      "hydrate.trades",
+      (db) => db.select().from(tradesTable),
+      async () => {
+        const prisma = getPrismaClient();
+        if (!prisma?.trades) return [];
+        return prisma.trades.findMany({});
+      },
+    );
+    for (const tradeRow of dbTrades) {
+      const userId = getHydratedRowValue<string>(tradeRow, "userId", "user_id");
+      if (!userId || !users.has(userId)) continue;
+      const data = userData.get(userId) ?? freshUserData(userId);
+      const tradeId = getHydratedRowValue<string>(tradeRow, "id");
+      if (!tradeId || data.trades.some((trade) => trade.id === tradeId)) continue;
+      data.trades.push({
+        id: tradeId,
+        pair: coerceString(getHydratedRowValue(tradeRow, "pair", "symbol")),
+        type: getHydratedRowValue<"long" | "short">(tradeRow, "type") ?? "long",
+        status: getHydratedRowValue<"active" | "completed" | "cancelled">(tradeRow, "status") ?? "active",
+        entryPrice: coerceNumber(getHydratedRowValue(tradeRow, "entryPrice", "entry_price", "openPrice", "open_price")),
+        currentPrice: coerceNumber(getHydratedRowValue(tradeRow, "currentPrice", "current_price", "openPrice", "open_price")),
+        targetPrice: coerceNumber(getHydratedRowValue(tradeRow, "targetPrice", "target_price"), 0),
+        amount: coerceNumber(getHydratedRowValue(tradeRow, "amount", "lotSize", "lot_size")),
+        currency: coerceString(getHydratedRowValue(tradeRow, "currency"), "USD"),
+        profit: coerceNumber(getHydratedRowValue(tradeRow, "profit")),
+        expectedProfit: coerceNumber(getHydratedRowValue(tradeRow, "expectedProfit", "expected_profit")),
+        managerId: getHydratedRowValue<string | null>(tradeRow, "managerId", "manager_id") ?? null,
+        createdAt: coerceDate(getHydratedRowValue(tradeRow, "createdAt", "created_at", "openedAt", "opened_at")),
+        completedAt: getHydratedRowValue<string | Date | null>(tradeRow, "completedAt", "completed_at", "closedAt", "closed_at")
+          ? coerceDate(getHydratedRowValue(tradeRow, "completedAt", "completed_at", "closedAt", "closed_at"))
+          : null,
+      } as any);
+      userData.set(userId, data);
     }
 
     const dbConnectedWallets = await loadRowsFromDb<Record<string, unknown>>(

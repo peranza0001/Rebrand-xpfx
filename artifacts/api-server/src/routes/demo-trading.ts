@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/session';
 import { assetCatalog, demoConfig, getUserData, newUuid, NOW } from '../lib/store';
-import { persistTransaction, persistWalletBalance } from '../lib/db-persist';
+import { deletePersistedDemoTrades, persistDemoTrade, persistTransaction, persistWalletBalance } from '../lib/db-persist';
 import sim, { calculateMargin, getCurrentPrice } from '../lib/simulation-engine';
 
 const router = Router();
@@ -116,7 +116,7 @@ router.post('/demo/order', requireAuth, (req, res) => {
   return res.json({ success: true, order });
 });
 
-router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
+router.delete('/demo/position/:tradeId', requireAuth, async (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
@@ -147,6 +147,7 @@ router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
   const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
   if (!tradingWallet) return res.status(500).json({ error: 'Demo wallet not found' });
   const returnAmount = Math.round((margin + typedTrade.profit) * 100) / 100;
+  await persistDemoTrade(req.userId!, typedTrade);
   tradingWallet.balance = Number((tradingWallet.balance + returnAmount).toFixed(2));
   void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
   void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
@@ -161,7 +162,7 @@ router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
   return res.json({ success: true, trade, balance: tradingWallet.balance });
 });
 
-router.post('/demo/reset-balance', requireAuth, (req, res) => {
+router.post('/demo/reset-balance', requireAuth, async (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Only isolated demo accounts can reset demo trading data.' });
   }
@@ -171,6 +172,7 @@ router.post('/demo/reset-balance', requireAuth, (req, res) => {
   if (trading) trading.balance = defaultAmount;
   data.trades = [];
   data.transactions = [];
+  await deletePersistedDemoTrades(req.userId!);
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
 });
 

@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
-import { userSessionsTable, usersTable } from "@workspace/db/schema";
+import { tradesTable, userSessionsTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 import type { StoredUser } from "./store";
 
@@ -752,6 +752,71 @@ export async function persistTransaction(
     });
   } catch (err) {
     logger.warn({ err, transactionId }, '[db-persist] persistTransaction failed; continuing without DB persistence');
+  }
+}
+
+export async function persistDemoTrade(userId: string, trade: {
+  id: string;
+  pair: string;
+  type: "long" | "short";
+  status: "active" | "completed" | "cancelled";
+  entryPrice: number;
+  currentPrice: number;
+  targetPrice?: number | null;
+  amount: number;
+  currency: string;
+  profit: number;
+  expectedProfit?: number;
+  managerId?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+}): Promise<boolean> {
+  if (!isUuid(userId) || !isUuid(trade.id)) return false;
+  const db = getDb();
+  if (!db) return false;
+  try {
+    await db.insert(tradesTable).values({
+      id: trade.id,
+      userId,
+      pair: trade.pair,
+      type: trade.type,
+      status: trade.status,
+      entryPrice: String(trade.entryPrice),
+      currentPrice: String(trade.currentPrice),
+      targetPrice: String(trade.targetPrice ?? trade.entryPrice),
+      amount: String(trade.amount),
+      currency: trade.currency,
+      profit: String(trade.profit),
+      expectedProfit: String(trade.expectedProfit ?? 0),
+      managerId: trade.managerId ?? null,
+      createdAt: new Date(trade.createdAt),
+      completedAt: trade.completedAt ? new Date(trade.completedAt) : null,
+    }).onConflictDoUpdate({
+      target: tradesTable.id,
+      set: {
+        status: trade.status,
+        currentPrice: String(trade.currentPrice),
+        profit: String(trade.profit),
+        completedAt: trade.completedAt ? new Date(trade.completedAt) : null,
+      },
+    });
+    return true;
+  } catch (err) {
+    logger.warn({ err, tradeId: trade.id, userId }, "[db-persist] persistDemoTrade failed");
+    return false;
+  }
+}
+
+export async function deletePersistedDemoTrades(userId: string): Promise<boolean> {
+  if (!isUuid(userId)) return false;
+  const db = getDb();
+  if (!db) return false;
+  try {
+    await db.delete(tradesTable).where(eq(tradesTable.userId, userId));
+    return true;
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] deletePersistedDemoTrades failed");
+    return false;
   }
 }
 

@@ -1,7 +1,7 @@
 import { assetCatalog, getUserData, userData, newId, newUuid, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
-import { persistTransaction, persistWalletBalance } from './db-persist';
+import { persistDemoTrade, persistTransaction, persistWalletBalance } from './db-persist';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -102,7 +102,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             
             // add trade record
             const trade = {
-              id: newId('t'),
+              id: newUuid(),
               pair: o.instrument,
               type: o.side === 'buy' ? 'long' : 'short',
               status: 'active',
@@ -122,6 +122,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               completedAt: null,
             } as any;
             data.trades.unshift(trade);
+            await persistDemoTrade(o.userId, trade);
             void persistTransaction(newUuid(), tradingWallet.id, o.userId, {
               type: 'demo_trade_open',
               amount: marginRequired,
@@ -152,6 +153,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           t.currentPrice = current;
           const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
           t.profit = Math.round(pnl * 100) / 100;
+          void persistDemoTrade(uid, t as any);
 
           const hitStopLoss = t.type === 'long'
             ? (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current <= (t as any).stopLoss
