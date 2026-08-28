@@ -16,12 +16,45 @@ This audit covers the consolidated deployment, email, UX, investment-plan, and l
 
 ## Itemized UX Status
 
-| Area | Repository status | Live status |
+Live status is `not verified` for every item because Railway/Vercel dashboard access and a confirmed live URL are not available in this workspace.
+
+| Requirement | Repository status | Live status |
 | --- | --- | --- |
-| Home, About, Contact, Markets, Legal pages | Present in NexTrade source and routed | Not verified: no live deployment access in this workspace |
-| Trade, Copy Trading, Buy, Sell, Stocks, Shares, Commodities, Signals, Register, Login | Related routes/components exist, but exact requested path coverage is not fully evidenced by the current route audit | Not verified |
-| Live ticker, portfolio metrics, transaction ledger, onboarding, testimonials, FAQ, fee/status trust elements | Present in several source components; exact item-by-item production rendering requires browser/live verification | Not verified |
-| Enterprise dashboard components | Multiple components exist in source, including portfolio, risk, sentiment, AI, journal, social, alerts, mobile, analytics, and compliance surfaces | Not verified |
+| `/` home | Present and routed | Not verified |
+| `/about` | Present and routed | Not verified |
+| `/trade` | Related trading surface exists; exact path not verified | Not verified |
+| `/copy-trading` | Related copy-trading surface exists; exact path not verified | Not verified |
+| `/contact` | Present and routed | Not verified |
+| `/buy` | Related buy flow exists; exact path not verified | Not verified |
+| `/sell` | Related sell flow exists; exact path not verified | Not verified |
+| `/stocks` | Stocks market data exists; exact path not verified | Not verified |
+| `/shares` | No dedicated route confirmed | Not verified |
+| `/commodities` | Commodities market data exists; exact path not verified | Not verified |
+| `/signals` | Signals components exist; exact path not verified | Not verified |
+| `/register` | Signup route exists | Not verified |
+| `/login` | Login route exists | Not verified |
+| `/dashboard/markets` | Dashboard market surface exists; exact nested route not verified | Not verified |
+| `/dashboard/support` | Support/livechat surfaces exist; exact nested route not verified | Not verified |
+| `/legal/privacy` | Legal page exists; exact nested route not verified | Not verified |
+| `/legal/terms` | Legal page exists; exact nested route not verified | Not verified |
+| Live ticker strip | Present in public home/market components | Not verified |
+| Portfolio value with percent change | Present in dashboard components | Not verified |
+| Itemized transaction ledger | Related transaction/wallet surfaces exist; exact UX not verified | Not verified |
+| Four-step onboarding | Related onboarding/checklist surfaces exist; exact four-step rendering not verified | Not verified |
+| Testimonials | Present in public home source | Not verified |
+| FAQ | Present through support/livechat FAQ prompts | Not verified |
+| Every-fee-shown-upfront motif | Fee surfaces exist; complete cross-route coverage not verified | Not verified |
+| Operational status line | Health/status APIs exist; public status-line rendering not verified | Not verified |
+| Portfolio Allocation | Present in source | Not verified |
+| Risk Calculator | Present in source | Not verified |
+| Market Sentiment | Present in source | Not verified |
+| AI Assistant | Present in source | Not verified |
+| Trade Journal | Present in source | Not verified |
+| Social Trading | Present in source | Not verified |
+| Alerts | Present in source | Not verified |
+| Mobile View | Present in source | Not verified |
+| Analytics | Present in source | Not verified |
+| Compliance | Present in source | Not verified |
 
 ## Investment Plans: Current Gap
 
