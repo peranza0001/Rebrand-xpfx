@@ -225,6 +225,26 @@ model Trade {
   @@map("trades")
 }
 
+model DemoOrder {
+  id         String          @id @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  instrument String
+  type       DemoOrderType
+  side       DemoOrderSide
+  price      Decimal?        @db.Decimal(20, 8)
+  amount     Decimal         @db.Decimal(20, 8)
+  leverage   Int
+  stopLoss   Decimal?        @map("stop_loss") @db.Decimal(20, 8)
+  takeProfit Decimal?        @map("take_profit") @db.Decimal(20, 8)
+  status     DemoOrderStatus @default(open)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@index([instrument, status])
+  @@map("demo_orders")
+}
+
 // ─── TRANSACTIONS ─────────────────────────────────────────────────────────────
 
 model Transaction {
@@ -365,6 +385,23 @@ enum TradeStatus {
   CLOSED
   PENDING
   CANCELLED
+}
+
+enum DemoOrderType {
+  market
+  limit
+  stop
+}
+
+enum DemoOrderSide {
+  buy
+  sell
+}
+
+enum DemoOrderStatus {
+  open
+  filled
+  cancelled
 }
 
 enum TransactionType {

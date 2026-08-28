@@ -1,7 +1,7 @@
-import { assetCatalog, getUserData, userData, newId, newUuid, NOW } from './store';
+import { assetCatalog, getUserData, userData, newUuid, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
-import { persistDemoTrade, persistTransaction, persistWalletBalance } from './db-persist';
+import { getPersistedOpenDemoOrders, persistDemoOrder, persistDemoTrade, persistTransaction, persistWalletBalance } from './db-persist';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -33,13 +33,27 @@ export function calculateMargin(instrument: string, amount: number, leverage: nu
   return Number(((price * amount) / leverage).toFixed(2));
 }
 
-export function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Order {
-  const id = newId('ord');
+export async function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Promise<Order | null> {
+  const id = newUuid();
   const o: Order = { id, status: 'open', createdAt: NOW(), ...order };
   const list = ordersByInstrument.get(order.instrument) ?? [];
   list.push(o as Order);
   ordersByInstrument.set(order.instrument, list);
-  return o as Order;
+  if (!await persistDemoOrder(o)) {
+    list.splice(list.findIndex((existing) => existing.id === id), 1);
+    if (list.length === 0) ordersByInstrument.delete(order.instrument);
+    return null;
+  }
+  return o;
+}
+
+export async function restorePersistedDemoOrders(): Promise<void> {
+  const orders = await getPersistedOpenDemoOrders();
+  for (const order of orders) {
+    const list = ordersByInstrument.get(order.instrument) ?? [];
+    if (!list.some((existing) => existing.id === order.id)) list.push(order);
+    ordersByInstrument.set(order.instrument, list);
+  }
 }
 
 export function closePosition(userId: string, tradeId: string): boolean {
@@ -59,6 +73,7 @@ export function closePosition(userId: string, tradeId: string): boolean {
 }
 
 export function initSimulation(io: IOServer, demoNs: Namespace) {
+  void restorePersistedDemoOrders();
   // On each tick, random walk prices and evaluate orders
   setInterval(async () => {
     instruments.forEach(async (inst) => {
@@ -87,6 +102,12 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
 
         if (filled) {
           o.status = 'filled';
+          if (!await persistDemoOrder(o)) {
+            o.status = 'cancelled';
+            await persistDemoOrder(o);
+            demoNs.to(`user:${o.userId}`).emit('order_rejected', { order: o, reason: 'Demo order could not be durably filled.' });
+            continue;
+          }
           // create a trade and ledger entries
           try {
             const data = getUserData(o.userId);
@@ -98,7 +119,9 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               throw new Error("Insufficient demo balance for this practice trade.");
             }
             tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
-            void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
+            if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
+              throw new Error("Demo balance could not be durably updated.");
+            }
             
             // add trade record
             const trade = {
@@ -122,18 +145,23 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               completedAt: null,
             } as any;
             data.trades.unshift(trade);
-            await persistDemoTrade(o.userId, trade);
-            void persistTransaction(newUuid(), tradingWallet.id, o.userId, {
+            if (!await persistDemoTrade(o.userId, trade)) {
+              throw new Error("Demo trade could not be durably stored.");
+            }
+            if (!await persistTransaction(newUuid(), tradingWallet.id, o.userId, {
               type: 'demo_trade_open',
               amount: marginRequired,
               currency: 'USD',
               status: 'margin_held',
               description: `Demo trade opened: ${o.side} ${o.amount} ${o.instrument}`,
               isDemo: true,
-            });
+            })) {
+              throw new Error("Demo trade ledger entry could not be persisted.");
+            }
             demoNs.to(`instrument:${o.instrument}`).emit('order_filled', { order: o, trade });
           } catch (err) {
             o.status = 'cancelled';
+            await persistDemoOrder(o);
             demoNs.to(`user:${o.userId}`).emit('order_rejected', { order: o, reason: (err as Error).message });
             logger.warn({ err }, 'Failed to process order fill');
           }
@@ -153,7 +181,7 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           t.currentPrice = current;
           const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
           t.profit = Math.round(pnl * 100) / 100;
-          void persistDemoTrade(uid, t as any);
+          await persistDemoTrade(uid, t as any);
 
           const hitStopLoss = t.type === 'long'
             ? (t as any).stopLoss !== null && (t as any).stopLoss !== undefined && current <= (t as any).stopLoss
@@ -176,15 +204,19 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
               const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
               if (tradingWallet) {
                 tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
-                void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
-                void persistTransaction(newUuid(), tradingWallet.id, uid, {
+                if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
+                  throw new Error("Demo balance could not be durably settled.");
+                }
+                if (!await persistTransaction(newUuid(), tradingWallet.id, uid, {
                   type: 'demo_trade_close',
                   amount: finalCredit,
                   currency: 'USD',
                   status: 'completed',
                   description: `Demo trade closed: ${t.pair}`,
                   isDemo: true,
-                });
+                })) {
+                  throw new Error("Demo settlement ledger entry could not be persisted.");
+                }
               }
               
               demoNs.to(`user:${uid}`).emit('trade_closed', { userId: uid, trade: t });

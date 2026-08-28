@@ -16,7 +16,7 @@ The live site exposes the confirmed route families `/buy`, `/sell`, `/stocks`, `
 | Live chat and human escalation | Partially implemented | Preserve current widget and guardrails; add durable queue assignment, delivery state, and admin workflow |
 | Contact form | Partially implemented | Contact submission now uses the support-ticket API for authenticated users; anonymous durable intake remains a separate schema decision |
 | WhatsApp support | Not verified | No business number exists in repository/live HTML; do not invent a number, obtain the approved business number |
-| Demo start/account/order/reset | Partially implemented | `/demo/start` now awaits durable account provisioning; order state and reload source-of-truth still need DB-backed completion |
+| Demo start/account/order/reset | Implemented but needs update | Added durable demo orders, awaited fill/settlement writes, startup restoration, and restart-style fixture coverage; a live PostgreSQL restart test remains deployment validation |
 | UX merge | Partially implemented | Add missing live-site routes and consolidate shared public navigation/content |
 | RBAC | Partially implemented | Existing `requireAdmin`/`requireFullAuth` gates need a complete route-by-route authorization audit |
 | Password reset, lockout, timeout | Partially implemented | Password reset and timeout code exist; account lockout and complete enforcement need verification and tests |
@@ -35,7 +35,7 @@ The repository contains a persistent widget, CSRF handling, local FAQ responses,
 
 ### Demo trading
 
-`/auth/demo` provisions a Prisma `TradingAccount` when available, but the demo trading engine continues to use `userData`, in-memory order queues, and floating-point arithmetic as the active source of truth. Several balance/transaction persistence calls are fire-and-forget. `/demo/start` now provides an explicit durable startup contract and fails closed if account provisioning fails. A complete DB-backed order state machine and restart regression remain outstanding.
+`/auth/demo` provisions a Prisma `TradingAccount` when available. Demo orders now have a durable `demo_orders` table and API migration; placement, fill/cancellation, and automatic settlement await persistence, and open orders are restored during simulation startup. Filled trades are restored by the existing startup hydration path. The regression suite uses an injected database fixture to prove write/read restoration across a simulated process boundary; a deployment-level restart against a real PostgreSQL instance remains external validation.
 
 ### UX merge
 
@@ -55,6 +55,7 @@ Production password login now issues and requires an email OTP before creating a
 - Added `POST /demo/start`, requiring an isolated demo session and awaited durable demo-account provisioning.
 - Replaced the fake contact-form timeout with a real support-ticket API request and truthful success/failure handling.
 - Required production non-demo password logins to complete email OTP verification before session creation.
+- Added durable demo-order persistence, startup restoration, and restart-style regression coverage.
 - API build, frontend build, repository typecheck, demo-auth tests, and live-chat safety tests pass.
 
 ## Prioritized next implementation plan

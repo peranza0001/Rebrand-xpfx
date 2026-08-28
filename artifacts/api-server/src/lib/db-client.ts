@@ -20,11 +20,13 @@ import { logger } from "./logger";
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
 
 let _db: DbClient | null = null;
+let _testDb: DbClient | null | undefined;
 let _warned = false;
 let _lastInitAttempt = 0;
 const REINIT_COOLDOWN_MS = 15_000; // don't hammer a dead DB on every request
 
 export function getDb(): DbClient | null {
+  if (_testDb !== undefined) return _testDb;
   if (_db) return _db;
 
   const url = getRawDatabaseUrl();
@@ -69,6 +71,10 @@ export function getDb(): DbClient | null {
     logger.error({ err }, "[db] Failed to initialise pool");
     return null;
   }
+}
+
+export function setDbForTests(db: DbClient | null | undefined): void {
+  _testDb = db;
 }
 
 /**

@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
-import { tradesTable, userSessionsTable, usersTable } from "@workspace/db/schema";
+import { demoOrdersTable, tradesTable, userSessionsTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 import type { StoredUser } from "./store";
 
@@ -75,6 +75,79 @@ export async function ensurePersistedDemoAccount(userId: string, startingBalance
   } catch (err) {
     logger.error({ err, userId }, "[db-persist] demo account provisioning failed");
     return false;
+  }
+}
+
+export type PersistedDemoOrder = {
+  id: string;
+  userId: string;
+  instrument: string;
+  type: "market" | "limit" | "stop";
+  side: "buy" | "sell";
+  price?: number;
+  amount: number;
+  leverage: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  status: "open" | "filled" | "cancelled";
+  createdAt: string;
+};
+
+export async function persistDemoOrder(order: PersistedDemoOrder): Promise<boolean> {
+  if (!isUuid(order.userId) || !isUuid(order.id)) return false;
+  const db = getDb();
+  if (!db) return false;
+  try {
+    await db.insert(demoOrdersTable).values({
+      id: order.id,
+      userId: order.userId,
+      instrument: order.instrument,
+      type: order.type,
+      side: order.side,
+      price: order.price === undefined ? null : String(order.price),
+      amount: String(order.amount),
+      leverage: order.leverage,
+      stopLoss: order.stopLoss === undefined ? null : String(order.stopLoss),
+      takeProfit: order.takeProfit === undefined ? null : String(order.takeProfit),
+      status: order.status,
+      createdAt: new Date(order.createdAt),
+      updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: demoOrdersTable.id,
+      set: {
+        status: order.status,
+        updatedAt: new Date(),
+      },
+    });
+    return true;
+  } catch (err) {
+    logger.warn({ err, orderId: order.id, userId: order.userId }, "[db-persist] persistDemoOrder failed");
+    return false;
+  }
+}
+
+export async function getPersistedOpenDemoOrders(): Promise<PersistedDemoOrder[]> {
+  const db = getDb();
+  if (!db) return [];
+  try {
+    const rows = await db.select().from(demoOrdersTable).where(eq(demoOrdersTable.status, "open"));
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      instrument: row.instrument,
+      type: row.type,
+      side: row.side,
+      price: row.price === null ? undefined : Number(row.price),
+      amount: Number(row.amount),
+      leverage: row.leverage,
+      stopLoss: row.stopLoss === null ? undefined : Number(row.stopLoss),
+      takeProfit: row.takeProfit === null ? undefined : Number(row.takeProfit),
+      status: row.status,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  } catch (err) {
+    logger.warn({ err }, "[db-persist] getPersistedOpenDemoOrders failed");
+    return [];
   }
 }
 

@@ -67,7 +67,7 @@ router.get('/demo/instruments', requireAuth, (_req, res) => {
   res.json(list);
 });
 
-router.post('/demo/order', requireAuth, (req, res) => {
+router.post('/demo/order', requireAuth, async (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
@@ -122,7 +122,7 @@ router.post('/demo/order', requireAuth, (req, res) => {
     });
   }
 
-  const order = sim.placeOrder({
+  const order = await sim.placeOrder({
     userId: req.userId!,
     instrument: resolvedInstrument,
     type,
@@ -133,6 +133,10 @@ router.post('/demo/order', requireAuth, (req, res) => {
     stopLoss: stopLossValue,
     takeProfit: takeProfitValue,
   });
+
+  if (!order) {
+    return res.status(503).json({ error: 'Demo order could not be durably stored.' });
+  }
 
   return res.json({ success: true, order });
 });
