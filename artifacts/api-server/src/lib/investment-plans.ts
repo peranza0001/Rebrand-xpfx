@@ -59,7 +59,6 @@ export interface InvestmentPlanDefinition extends InvestmentPlan {
   maxActivePlans: number;
   features: string[];
   automationLevel: "passive" | "active" | "aggressive";
-  riskLevel: "conservative" | "moderate" | "aggressive" | "low" | "low-med" | "medium" | "med-high" | "high" | "very-high" | "extreme";
   recommendedHoldDays: number;
 }
 
