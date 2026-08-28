@@ -88,6 +88,7 @@ export interface LiveChatMsg {
   isFromUser: boolean;
   isBot: boolean;
   escalated: boolean;
+  deliveryStatus?: "sending" | "sent" | "delivered" | "failed";
   createdAt: string;
 }
 

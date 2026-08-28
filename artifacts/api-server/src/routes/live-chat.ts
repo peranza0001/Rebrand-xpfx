@@ -20,7 +20,7 @@ import {
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
-import { findUserIdByLiveChatTicket, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
+import { findUserIdByLiveChatTicket, getPersistedChatAssignment, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket, updatePersistedChatAssignment } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -334,9 +334,37 @@ router.get("/admin/live-chats", requireAdmin, async (req, res) => {
       lastMessageAt: lastMsg?.createdAt ?? NOW(),
       escalated: messages.some((m) => m.escalated),
       unreadByAdmin: unread,
+      assignment: await getPersistedChatAssignment(userId),
     });
   }
   return res.json(sessions);
+});
+
+router.post("/admin/live-chats/:userId/claim", requireAdmin, async (req, res) => {
+  const userId = String(req.params.userId || "");
+  if (!users.has(userId)) return res.status(404).json({ error: "Conversation owner not found." });
+  const current = await getPersistedChatAssignment(userId);
+  if (current?.assignedTo && current.assignedTo !== req.userId) {
+    return res.status(409).json({ error: "Conversation is already assigned to another agent." });
+  }
+  if (!await updatePersistedChatAssignment(userId, req.userId!)) {
+    return res.status(503).json({ error: "Conversation assignment could not be persisted." });
+  }
+  touchAdminPresence(req.userId!);
+  return res.json({ status: "claimed", assignedTo: req.userId! });
+});
+
+router.post("/admin/live-chats/:userId/release", requireAdmin, async (req, res) => {
+  const userId = String(req.params.userId || "");
+  const current = await getPersistedChatAssignment(userId);
+  if (!current) return res.status(404).json({ error: "Conversation not found." });
+  if (current.assignedTo && current.assignedTo !== req.userId) {
+    return res.status(409).json({ error: "Conversation is assigned to another agent." });
+  }
+  if (!await updatePersistedChatAssignment(userId, null)) {
+    return res.status(503).json({ error: "Conversation release could not be persisted." });
+  }
+  return res.json({ status: "open", assignedTo: null });
 });
 
 // POST /admin/live-chats/:userId/reply — admin replies (via panel or email)

@@ -235,6 +235,9 @@ model conversations {
   user_id    String   @db.Uuid
   subject    String?
   status     String   @default("open")
+  assigned_to String? @db.Uuid
+  claimed_at DateTime? @db.Timestamp(6)
+  last_message_at DateTime? @db.Timestamp(6)
   created_at DateTime @default(now()) @db.Timestamp(6)
   updated_at DateTime @updatedAt @db.Timestamp(6)
 }
@@ -246,6 +249,7 @@ model chat_messages {
   sender_id       String?     @db.Uuid
   content         String
   read            Boolean     @default(false)
+  delivery_status String      @default("delivered")
   created_at      DateTime    @default(now()) @db.Timestamp(6)
 }
 

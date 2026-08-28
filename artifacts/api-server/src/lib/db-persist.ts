@@ -1338,8 +1338,8 @@ export async function persistChatMessage(
     // Ensure conversation exists (user_id stored as the owner)
     await prismaClient.conversations.upsert({
       where: { id: conversationId },
-      update: { updated_at: new Date() },
-      create: { id: conversationId, user_id: senderId ?? conversationId, subject: null },
+      update: { updated_at: new Date(), last_message_at: new Date() },
+      create: { id: conversationId, user_id: senderId ?? conversationId, subject: null, last_message_at: new Date() },
     });
 
     await prismaClient.chat_messages.create({
@@ -1349,12 +1349,54 @@ export async function persistChatMessage(
         sender_type: senderType === 'admin' ? 'admin' : senderType === 'bot' ? 'bot' : 'user',
         sender_id: senderId ?? null,
         content,
+        delivery_status: "delivered",
       },
     });
     return true;
   } catch (err) {
     logger.error({ err, conversationId }, "[db-persist] persistChatMessage failed");
     return false;
+  }
+}
+
+export async function updatePersistedChatAssignment(
+  conversationId: string,
+  assignedTo: string | null,
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(conversationId) || (assignedTo !== null && !isUuid(assignedTo))) return false;
+  try {
+    await prismaClient.conversations.update({
+      where: { id: conversationId },
+      data: {
+        assigned_to: assignedTo,
+        claimed_at: assignedTo ? new Date() : null,
+        status: assignedTo ? "claimed" : "open",
+      },
+    });
+    return true;
+  } catch (err) {
+    logger.error({ err, conversationId, assignedTo }, "[db-persist] chat assignment update failed");
+    return false;
+  }
+}
+
+export async function getPersistedChatAssignment(conversationId: string): Promise<{
+  status: string;
+  assignedTo: string | null;
+  claimedAt: string | null;
+} | null> {
+  if (!prismaClient || !isUuid(conversationId)) return null;
+  try {
+    const row = await prismaClient.conversations.findUnique({ where: { id: conversationId } });
+    if (!row) return null;
+    return {
+      status: String(row.status ?? "open"),
+      assignedTo: row.assigned_to ? String(row.assigned_to) : null,
+      claimedAt: row.claimed_at ? new Date(row.claimed_at).toISOString() : null,
+    };
+  } catch (err) {
+    logger.error({ err, conversationId }, "[db-persist] chat assignment lookup failed");
+    return null;
   }
 }
 
@@ -1366,6 +1408,7 @@ export async function getPersistedChatMessages(conversationId: string): Promise<
   isFromUser: boolean;
   isBot: boolean;
   escalated: boolean;
+  deliveryStatus?: "sent" | "delivered";
   createdAt: string;
 }>> {
   if (!prismaClient || !isUuid(conversationId)) return [];
@@ -1382,6 +1425,7 @@ export async function getPersistedChatMessages(conversationId: string): Promise<
       isFromUser: row.sender_type === "user",
       isBot: row.sender_type === "bot",
       escalated: false,
+      deliveryStatus: String(row.delivery_status ?? "delivered") as "sent" | "delivered",
       createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
     }));
   } catch (err) {
@@ -1400,6 +1444,7 @@ export async function listPersistedChatConversations(): Promise<Array<{
     isFromUser: boolean;
     isBot: boolean;
     escalated: boolean;
+    deliveryStatus?: "sent" | "delivered";
     createdAt: string;
   }>;
 }>> {
@@ -1419,6 +1464,7 @@ export async function listPersistedChatConversations(): Promise<Array<{
         isFromUser: row.sender_type === "user",
         isBot: row.sender_type === "bot",
         escalated: false,
+        deliveryStatus: String(row.delivery_status ?? "delivered") as "sent" | "delivered",
         createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
       });
       conversations.set(userId, messages);
