@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { loadCsrfToken, resolveApiBaseUrl } from '@/lib/api-url';
+import { resolveApiBaseUrl } from '@/lib/api-url';
 
 type SessionSummary = {
   userId: string;
@@ -49,10 +49,10 @@ export default function AdminLiveChat() {
     socket.on('connect', () => {
       socket.emit('join_admin_room');
       // touch admin presence via heartbeat endpoint — optional
-      void loadCsrfToken(apiUrl).then((csrfToken) => fetch(`${apiUrl}/api/admin/presence/heartbeat`, {
+      void loadCsrfToken().then(() => fetch(`${apiUrl}/api/admin/presence/heartbeat`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'X-CSRF-Token': csrfToken },
+        headers: { 'X-CSRF-Token': csrfTokenRef.current ?? '' },
       })).catch(() => undefined);
     });
 
