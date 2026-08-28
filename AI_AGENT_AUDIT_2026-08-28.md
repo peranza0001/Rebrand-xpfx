@@ -23,6 +23,7 @@ The live site exposes the confirmed route families `/buy`, `/sell`, `/stocks`, `
 | KYC/AML | Partially implemented | Provider interfaces and KYC routes exist; funds-movement enforcement and provider-backed decisions need verification |
 | Financial precision | Not compliant with requested bar | Demo and forex paths still use JavaScript number arithmetic; migrate critical money paths to decimal arithmetic |
 | Durable compliance audit | Partially implemented | Audit routes/models exist; append-only integrity and complete critical-action coverage need verification |
+| 2FA and identity claims | Partially implemented | Production password login now requires OTP before session creation; durable PIN-based 2FA and end-to-end production tests remain |
 | Error tracking/metrics/health | Partially implemented | Sentry, Prometheus, readiness and health paths exist; production deployment checks need end-to-end validation |
 | Critical regression coverage | Partially implemented | Existing auth/chat tests pass; add durable demo start/order/fill/PnL/reset regression |
 
@@ -46,13 +47,14 @@ The live `/trade` behavior described in the supplied prompt uses leverage plus a
 
 ### Public security claims
 
-The claims “2FA enforced server-side” and “Identity verified before funds move” are **not certified by this audit**. The repository contains OTP/PIN/auth and KYC code, but the claims require route-by-route proof that every protected authentication and funds-movement path enforces them and that the resulting state is durable. Until that verification and tests exist, the claims should be treated as unverified P0 release blockers.
+Production password login now issues and requires an email OTP before creating a session; OTP delivery failure fails closed. The separate PIN feature is still in-memory and is not enforced as a durable second factor, so any claim covering PIN-based 2FA remains unverified. Identity verification is now enforced server-side on withdrawals, wallet transfers, crypto buy/sell, asset purchases, live forex order entry, and connected-wallet sends. Provider-backed KYC/AML and end-to-end production tests remain required before certification.
 
 ## Work completed in this session
 
 - Confirmed the live domain is a separate Vercel/Next.js deployment.
 - Added `POST /demo/start`, requiring an isolated demo session and awaited durable demo-account provisioning.
 - Replaced the fake contact-form timeout with a real support-ticket API request and truthful success/failure handling.
+- Required production non-demo password logins to complete email OTP verification before session creation.
 - API build, frontend build, repository typecheck, demo-auth tests, and live-chat safety tests pass.
 
 ## Prioritized next implementation plan

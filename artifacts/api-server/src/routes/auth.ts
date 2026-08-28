@@ -334,6 +334,19 @@ router.post("/auth/login", async (req, res) => {
     });
   }
 
+  if (process.env.NODE_ENV === "production" && stored.role !== "demo") {
+    try {
+      await issueOtp({ email: stored.user.email, intent: "login", userId: stored.user.id });
+    } catch (err) {
+      logger.error({ err, userId: stored.user.id }, "[auth] login.otp_issue_failed");
+      return res.status(503).json({
+        error: "Login verification is temporarily unavailable. Please try again later.",
+        code: "otp_unavailable",
+      });
+    }
+    return res.json(otpChallenge(stored.user.email, "login"));
+  }
+
   const sid = newSessionId();
   const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   // capture lightweight metadata for the session
