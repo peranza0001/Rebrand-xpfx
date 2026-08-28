@@ -17,6 +17,7 @@ import { requireAdmin, requireAuth } from "../lib/session";
 import { notifyUser } from "../lib/notify";
 import { getUserData, logActivity, managers, users } from "../lib/store";
 import { generatePlanProjection, INVESTMENT_PLANS, type InvestmentPlanType } from "../lib/investment-plans";
+import { subtractMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -126,7 +127,7 @@ router.post("/investment-plans/:planId/subscribe", requireAuth, (req, res) => {
     });
   }
 
-  mainWallet.balance = Number((mainWallet.balance - subscriptionAmount).toFixed(2));
+  mainWallet.balance = subtractMoney(mainWallet.balance, subscriptionAmount);
   const projection = generatePlanProjection(planId, subscriptionAmount);
   const manager = req.storedUser!.user.selectedManagerId ? managers.find((m) => m.id === req.storedUser!.user.selectedManagerId) ?? managers[0] ?? null : managers[0] ?? null;
 

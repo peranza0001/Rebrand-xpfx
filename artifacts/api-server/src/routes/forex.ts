@@ -12,6 +12,7 @@ import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } 
 import { logger } from "../lib/logger";
 import { isLiveTradingEnabled } from "../lib/env";
 import { submitBrokerOrder } from "../lib/broker-client";
+import { addMoney, money, moneyToNumber, subtractMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -97,8 +98,8 @@ router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (
   }
 
   const entryPrice = Number(brokerResult.executionPrice ?? (Math.random() * 100 + 50));
-  const notionalValue = quantity * entryPrice;
-  const requiredMargin = (notionalValue * instrument.marginRequirement) / leverage;
+  const notionalValue = money(quantity).times(entryPrice);
+  const requiredMargin = moneyToNumber(notionalValue.times(instrument.marginRequirement).div(leverage));
 
   // Get trading wallet
   const tradingWallet = data.wallets.find(w => w.type === "trading");
@@ -131,7 +132,7 @@ router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (
   };
 
   // Deduct margin from wallet
-  tradingWallet.balance -= requiredMargin;
+  tradingWallet.balance = subtractMoney(tradingWallet.balance, requiredMargin);
   // PHASE 1 FIX: Persist balance change to survive server restarts
   void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
   data.trades.push(trade as any);
@@ -396,8 +397,9 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
 
   // Calculate P&L
   const exitPrice = closePrice || Math.random() * 100 + 50;
-  const priceChange = exitPrice - trade.entryPrice;
-  const profitLoss = trade.type === "long" ? priceChange * trade.amount : -priceChange * trade.amount;
+  const priceChange = money(exitPrice).minus(trade.entryPrice);
+  const profitLossDecimal = (trade.type === "long" ? priceChange : priceChange.negated()).times(trade.amount).toDecimalPlaces(2);
+  const profitLoss = profitLossDecimal.toNumber();
 
   // Close trade
   const typedTrade = trade as any;
@@ -413,8 +415,8 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Trading wallet not found" });
   }
 
-  const returnAmount = (typedTrade.amount * typedTrade.entryPrice * 0.02) + profitLoss;
-  tradingWallet.balance += returnAmount;
+  const returnAmount = money(typedTrade.amount).times(typedTrade.entryPrice).times(0.02).plus(profitLossDecimal).toDecimalPlaces(2);
+  tradingWallet.balance = addMoney(tradingWallet.balance, returnAmount);
   // PHASE 1 FIX: Persist balance change to survive server restarts
   void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
 

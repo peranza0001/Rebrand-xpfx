@@ -29,6 +29,7 @@ import {
 } from "../lib/db-persist";
 import { merchantAdminThread } from "../lib/p2p-chat";
 import { requireAuth, requireFullAuth } from "../lib/session";
+import { addMoney, multiplyMoney, subtractMoney } from "../lib/money";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser } from "../lib/notify";
 import {
@@ -131,7 +132,7 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
   // Universal gas-fee gate — applies to any P2P order that moves money
   // (buyer side debits funds; seller side will receive funds on release).
   if (!enforceGasFee(req, res, "p2p_order")) return;
-  const orderTotalUsd = Math.round(parsed.data.amount * listing.price * 100) / 100;
+  const orderTotalUsd = multiplyMoney(parsed.data.amount, listing.price);
   const main = data.wallets.find((w) => w.type === "main");
   // Determine whether the current user is funding (buyer side) or
   // receiving (seller side). For sell-listings the current user buys; for
@@ -198,9 +199,8 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
           error: `Insufficient platform main wallet balance ($${main?.balance ?? 0}) to fund this $${orderTotalUsd} order.`,
         });
       }
-      main.balance = Math.round((main.balance - orderTotalUsd) * 100) / 100;
-      main.pendingBalance =
-        Math.round((main.pendingBalance + orderTotalUsd) * 100) / 100;
+      main.balance = subtractMoney(main.balance, orderTotalUsd);
+      main.pendingBalance = addMoney(main.pendingBalance, orderTotalUsd);
       data.transactions.unshift({
         id: newId("tx"),
         walletId: main.id,

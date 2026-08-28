@@ -3,6 +3,7 @@ import { PurchaseAssetBody } from "@workspace/api-zod";
 import { assetCatalog, claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
 import { requireAuth, requireVerifiedIdentity } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
+import { multiplyMoney, subtractMoney } from "../lib/money";
 import {
   getPlatformReceivingAddress,
   verifyOnChainPayment,
@@ -53,7 +54,7 @@ router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req
   }
   const data = getUserData(req.userId!);
   if (!enforceGasFee(req, res, "asset_purchase")) return;
-  const totalCost = Math.round(asset.price * parsed.data.amount * 100) / 100;
+  const totalCost = multiplyMoney(asset.price, parsed.data.amount);
   const main = data.wallets.find((w) => w.type === "main");
   if (parsed.data.paymentMethod === "main_wallet") {
     if (!main || main.balance < totalCost) {
@@ -66,7 +67,7 @@ router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req
         message: "Insufficient balance in main wallet.",
       });
     }
-    main.balance = Math.round((main.balance - totalCost) * 100) / 100;
+    main.balance = subtractMoney(main.balance, totalCost);
   }
   if (parsed.data.paymentMethod === "external_wallet") {
     if (!parsed.data.externalWalletId || !parsed.data.txHash) {

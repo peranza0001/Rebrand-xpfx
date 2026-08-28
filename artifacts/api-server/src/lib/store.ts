@@ -13,6 +13,7 @@ import { persistTransaction, persistUser, persistWalletBalance } from './db-pers
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import { logger } from "./logger";
+import { addMoney, subtractMoney } from "./money";
 import type {
   AccountManager,
   ActivityLogEntry,
@@ -1294,7 +1295,7 @@ export function applyWalletDebit(
     throw new Error(`Insufficient balance. Needed ${amount}, available ${wallet.balance}.`);
   }
 
-  wallet.balance = Number((wallet.balance - amount).toFixed(2));
+  wallet.balance = subtractMoney(wallet.balance, amount);
   const transaction: Transaction = {
     id: newUuid(),
     walletId: wallet.id,
@@ -1342,7 +1343,7 @@ export function applyWalletCredit(
     throw new Error('No funding wallet available.');
   }
 
-  wallet.balance = Number((wallet.balance + amount).toFixed(2));
+  wallet.balance = addMoney(wallet.balance, amount);
   const transaction: Transaction = {
     id: newUuid(),
     walletId: wallet.id,
@@ -1401,8 +1402,8 @@ export function transferBetweenWallets(
     throw new Error(`Insufficient balance in ${from.label}.`);
   }
 
-  from.balance = Number((from.balance - amount).toFixed(2));
-  to.balance = Number((to.balance + amount).toFixed(2));
+  from.balance = subtractMoney(from.balance, amount);
+  to.balance = addMoney(to.balance, amount);
 
   const maybeCurrency = input.currency ?? from.currency ?? 'USD';
   const description = input.description ?? `Transfer from ${from.label} to ${to.label}`;

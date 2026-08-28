@@ -9,6 +9,7 @@
 import { logActivity, NOW, userData, users } from "./store";
 import { notifyUser, pushAdminAlert } from "./notify";
 import { logger } from "./logger";
+import { adjustMoney } from "./money";
 
 let started = false;
 
@@ -28,9 +29,8 @@ function sweepOnce(): void {
       // Release any held funds back to the main wallet (mirrors the reject path).
       const main = data.wallets.find((w) => w.type === "main");
       if (main) {
-        main.pendingBalance =
-          Math.round((main.pendingBalance - wd.amount) * 100) / 100;
-        main.balance = Math.round((main.balance + wd.amount) * 100) / 100;
+        main.pendingBalance = adjustMoney(main.pendingBalance, -wd.amount);
+        main.balance = adjustMoney(main.balance, wd.amount);
       }
       const tx = data.transactions.find(
         (t) =>

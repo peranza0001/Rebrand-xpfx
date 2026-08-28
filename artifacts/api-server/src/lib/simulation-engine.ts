@@ -2,6 +2,7 @@ import { assetCatalog, getUserData, userData, newUuid, NOW } from './store';
 import type { Server as IOServer, Namespace } from 'socket.io';
 import { logger } from './logger';
 import { getPersistedOpenDemoOrders, persistDemoOrder, persistDemoTrade, persistTransaction, persistWalletBalance } from './db-persist';
+import { addMoney, money, moneyToNumber, subtractMoney } from './money';
 
 export type OrderType = 'market' | 'limit' | 'stop';
 export interface Order {
@@ -30,7 +31,7 @@ export function getCurrentPrice(instrument: string): number | undefined {
 export function calculateMargin(instrument: string, amount: number, leverage: number): number | undefined {
   const price = getCurrentPrice(instrument);
   if (price === undefined || !Number.isFinite(amount) || !Number.isFinite(leverage) || leverage <= 0) return undefined;
-  return Number(((price * amount) / leverage).toFixed(2));
+  return moneyToNumber(money(price).times(amount).div(leverage));
 }
 
 export async function placeOrder(order: Omit<Order, 'id' | 'status' | 'createdAt'>): Promise<Order | null> {
@@ -67,7 +68,7 @@ export function closePosition(userId: string, tradeId: string): boolean {
   const profit = Number(trade.profit ?? 0);
   const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
   if (tradingWallet) {
-    tradingWallet.balance = Number((tradingWallet.balance + margin + profit).toFixed(2));
+    tradingWallet.balance = addMoney(tradingWallet.balance, money(margin).plus(profit));
   }
   return true;
 }
@@ -111,14 +112,14 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           // create a trade and ledger entries
           try {
             const data = getUserData(o.userId);
-            const notional = current * o.amount; // USD exposure
-            const marginRequired = Number((notional / o.leverage).toFixed(2));
+            const notional = money(current).times(o.amount); // USD exposure
+            const marginRequired = moneyToNumber(notional.div(o.leverage));
             
             const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
             if (!tradingWallet || tradingWallet.balance < marginRequired) {
               throw new Error("Insufficient demo balance for this practice trade.");
             }
-            tradingWallet.balance = Number((tradingWallet.balance - marginRequired).toFixed(2));
+            tradingWallet.balance = subtractMoney(tradingWallet.balance, marginRequired);
             if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
               throw new Error("Demo balance could not be durably updated.");
             }
@@ -179,8 +180,9 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
           if (t.pair !== inst.symbol) continue; // only update trades for current instrument
           const current = inst.price;
           t.currentPrice = current;
-          const pnl = t.type === 'long' ? (current - t.entryPrice) * t.amount : (t.entryPrice - current) * t.amount;
-          t.profit = Math.round(pnl * 100) / 100;
+          const priceDelta = money(current).minus(t.entryPrice);
+          const pnl = (t.type === 'long' ? priceDelta : priceDelta.negated()).times(t.amount).toDecimalPlaces(2);
+          t.profit = pnl.toNumber();
           await persistDemoTrade(uid, t as any);
 
           const hitStopLoss = t.type === 'long'
@@ -191,25 +193,25 @@ export function initSimulation(io: IOServer, demoNs: Namespace) {
             : (t as any).takeProfit !== null && (t as any).takeProfit !== undefined && current <= (t as any).takeProfit;
 
           // Stop-out logic: if unrealized loss exceeds margin or margin ratio below threshold
-          const margin = (t as any).marginRequired ?? (t.entryPrice * t.amount / ((t as any).leverage || 1));
-          const equity = margin + t.profit; // margin + unrealized pnl
+          const margin = (t as any).marginRequired ?? moneyToNumber(money(t.entryPrice).times(t.amount).div((t as any).leverage || 1));
+          const equity = money(margin).plus(t.profit); // margin + unrealized pnl
           const stopOutThreshold = 0.25; // 25% of margin
-          if (hitStopLoss || hitTakeProfit || equity <= 0 || equity / Math.max(1, margin) < stopOutThreshold) {
+          if (hitStopLoss || hitTakeProfit || equity.lte(0) || equity.div(Math.max(1, margin)).lt(stopOutThreshold)) {
             // Close trade
             t.status = 'completed';
             t.completedAt = NOW();
             // Credit demo margin and P&L back to the demo wallet only.
             try {
-              const finalCredit = Math.round((margin + t.profit) * 100) / 100;
+              const finalCredit = money(margin).plus(t.profit).toDecimalPlaces(2);
               const tradingWallet = data.wallets.find((wallet) => wallet.type === "trading");
               if (tradingWallet) {
-                tradingWallet.balance = Number((tradingWallet.balance + finalCredit).toFixed(2));
+                tradingWallet.balance = addMoney(tradingWallet.balance, finalCredit);
                 if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
                   throw new Error("Demo balance could not be durably settled.");
                 }
                 if (!await persistTransaction(newUuid(), tradingWallet.id, uid, {
                   type: 'demo_trade_close',
-                  amount: finalCredit,
+                  amount: finalCredit.toNumber(),
                   currency: 'USD',
                   status: 'completed',
                   description: `Demo trade closed: ${t.pair}`,

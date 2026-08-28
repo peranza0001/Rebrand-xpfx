@@ -5,6 +5,7 @@ import { getPrismaModelDelegate } from "./db-persist";
 import { getUserData, newUuid } from "./store";
 import { persistWallet } from "./db-persist";
 import { recordLedgerEntry } from "./wallet-ledger";
+import { adjustMoney } from "./money";
 
 export type DigitalPaymentMethod = "apple_pay" | "google_pay";
 
@@ -81,7 +82,7 @@ export async function settlePaymentIntent(processorId: string): Promise<boolean>
   const data = getUserData(String(payment.userId));
   const wallet = data.wallets.find((candidate) => candidate.type === "main");
   if (!wallet) return false;
-  wallet.balance = Math.round((wallet.balance + Number(payment.amount)) * 100) / 100;
+  wallet.balance = adjustMoney(wallet.balance, Number(payment.amount));
   await persistWallet(wallet.id, String(payment.userId), { walletType: wallet.type, balance: wallet.balance, pendingBalance: wallet.pendingBalance, currency: wallet.currency, label: wallet.label, address: wallet.address });
   await recordLedgerEntry({ userId: String(payment.userId), walletId: wallet.id, entryType: "deposit_approved", amount: Number(payment.amount), assetSymbol: String(payment.currency), sourceType: "stripe_payment_intent", sourceId: processorId, description: "Confirmed digital wallet payment" });
   await delegate.update({ where: { processorId }, data: { status: "succeeded", updatedAt: new Date() } });
