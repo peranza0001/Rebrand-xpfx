@@ -13,7 +13,7 @@ The live site exposes the confirmed route families `/buy`, `/sell`, `/stocks`, `
 | Requirement | Status | Action |
 |---|---|---|
 | Domain and stack reconciliation | Fully verified | Keep the live Next.js site as the UX reference and merge its routes into this Vite product |
-| Live chat and human escalation | Partially implemented | Preserve current widget and guardrails; add durable queue assignment, delivery state, and admin workflow |
+| Live chat and human escalation | Implemented but needs update | Durable claim/release assignment and delivery state now exist; canned responses, internal notes, and a live PostgreSQL restart test remain |
 | Contact form | Partially implemented | Contact submission now uses the support-ticket API for authenticated users; anonymous durable intake remains a separate schema decision |
 | WhatsApp support | Not verified | No business number exists in repository/live HTML; do not invent a number, obtain the approved business number |
 | Demo start/account/order/reset | Implemented but needs update | Added durable demo orders, awaited fill/settlement writes, startup restoration, and restart-style fixture coverage; a live PostgreSQL restart test remains deployment validation |
@@ -31,7 +31,7 @@ The live site exposes the confirmed route families `/buy`, `/sell`, `/stocks`, `
 
 ### Live chat
 
-The repository contains a persistent widget, CSRF handling, local FAQ responses, AI fallback, escalation keyword detection, persisted chat message/ticket helpers, Socket.IO notifications, business-hours routing, and adversarial chatbot tests. The current implementation still hydrates an in-memory per-user conversation and mirrors persistence into it, while admin queue assignment, claim state, canned responses, internal notes, delivery acknowledgements, and retry state are not fully represented as durable workflow data.
+The repository contains a persistent widget, CSRF handling, local FAQ responses, AI fallback, escalation keyword detection, persisted chat message/ticket helpers, Socket.IO notifications, business-hours routing, and adversarial chatbot tests. Conversation claim/release assignment and message delivery status now persist through the root Prisma chat tables, and a fixture regression verifies restoration after the in-process state is discarded. Canned responses, internal notes, delivery retry acknowledgements, and a live PostgreSQL restart test remain open.
 
 ### Demo trading
 
@@ -56,6 +56,7 @@ Production password login now issues and requires an email OTP before creating a
 - Replaced the fake contact-form timeout with a real support-ticket API request and truthful success/failure handling.
 - Required production non-demo password logins to complete email OTP verification before session creation.
 - Added durable demo-order persistence, startup restoration, and restart-style regression coverage.
+- Added durable live-chat assignment claim/release state, delivery status, and workflow regression coverage.
 - API build, frontend build, repository typecheck, demo-auth tests, and live-chat safety tests pass.
 
 ## Prioritized next implementation plan
