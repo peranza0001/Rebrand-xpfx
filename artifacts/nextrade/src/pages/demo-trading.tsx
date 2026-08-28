@@ -135,7 +135,21 @@ function DemoTradingContent() {
   }, [isAuthenticated, isLoading]);
 
   const ensureDemoSession = async () => {
-    if (isAuthenticated && isDemo) return true;
+    if (isAuthenticated && isDemo) {
+      try {
+        const csrfToken = await loadCsrfToken();
+        const response = await fetch(apiPath('/api/demo/start'), {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': csrfToken },
+          credentials: 'include',
+        });
+        if (!response.ok) throw new Error('Unable to provision the durable demo account.');
+        return true;
+      } catch (error) {
+        setDemoError(error instanceof Error ? error.message : 'Unable to start demo session.');
+        return false;
+      }
+    }
     if (demoRequested) return demoStarted;
 
     setDemoError(null);
@@ -144,6 +158,13 @@ function DemoTradingContent() {
     try {
       await demoMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
+      const csrfToken = await loadCsrfToken();
+      const response = await fetch(apiPath('/api/demo/start'), {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken },
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Unable to provision the durable demo account.');
       setDemoStarted(true);
       return true;
     } catch (error: unknown) {
@@ -291,7 +312,7 @@ function DemoTradingContent() {
       const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, credentials: 'include' });
       if (!response.ok) throw new Error('Unable to reset the practice account.');
       await refreshDemoState();
-      setMessage('Practice account reset to $10,000. Try a new strategy.');
+      setMessage('Practice account reset to its configured starting balance. Try a new strategy.');
     } catch (error: unknown) {
       setDemoError(error instanceof Error ? error.message : 'Unable to reset the practice account.');
     }
