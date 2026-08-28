@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import Decimal from 'decimal.js-light';
 import { requireAuth } from '../lib/session';
 import { assetCatalog, demoConfig, getUserData, newUuid, NOW } from '../lib/store';
 import { deletePersistedDemoTrades, ensurePersistedDemoAccount, persistDemoTrade, persistTransaction, persistWalletBalance } from '../lib/db-persist';
@@ -155,29 +156,38 @@ router.delete('/demo/position/:tradeId', requireAuth, async (req, res) => {
   }
 
   const typedTrade = trade as any;
-  const margin = Number(typedTrade.marginRequired ?? (trade.entryPrice * trade.amount) / (typedTrade.leverage || 1));
-  const profitLoss = trade.type === 'long'
-    ? (exitPrice - trade.entryPrice) * trade.amount
-    : (trade.entryPrice - exitPrice) * trade.amount;
+  const margin = typedTrade.marginRequired !== undefined && typedTrade.marginRequired !== null
+    ? new Decimal(typedTrade.marginRequired).toDecimalPlaces(2)
+    : new Decimal(trade.entryPrice).times(trade.amount).div(typedTrade.leverage || 1).toDecimalPlaces(2);
+  const priceDelta = new Decimal(exitPrice).minus(trade.entryPrice);
+  const profitLoss = (trade.type === 'long' ? priceDelta : priceDelta.negated())
+    .times(trade.amount)
+    .toDecimalPlaces(2);
   typedTrade.status = 'completed';
   typedTrade.currentPrice = exitPrice;
-  typedTrade.profit = Math.round(profitLoss * 100) / 100;
+  typedTrade.profit = profitLoss.toNumber();
   typedTrade.completedAt = NOW();
 
   const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
   if (!tradingWallet) return res.status(500).json({ error: 'Demo wallet not found' });
-  const returnAmount = Math.round((margin + typedTrade.profit) * 100) / 100;
-  await persistDemoTrade(req.userId!, typedTrade);
-  tradingWallet.balance = Number((tradingWallet.balance + returnAmount).toFixed(2));
-  void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
-  void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
+  const returnAmount = margin.plus(profitLoss).toDecimalPlaces(2);
+  if (!await persistDemoTrade(req.userId!, typedTrade)) {
+    return res.status(503).json({ error: 'Demo trade could not be durably settled.' });
+  }
+  tradingWallet.balance = new Decimal(tradingWallet.balance).plus(returnAmount).toDecimalPlaces(2).toNumber();
+  if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
+    return res.status(503).json({ error: 'Demo balance could not be durably settled.' });
+  }
+  if (!await persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
     type: 'demo_trade_close',
-    amount: returnAmount,
+    amount: returnAmount.toNumber(),
     currency: 'USD',
     status: 'completed',
     description: `Demo trade closed: ${trade.pair}`,
     isDemo: true,
-  });
+  })) {
+    return res.status(503).json({ error: 'Demo settlement ledger entry could not be persisted.' });
+  }
 
   return res.json({ success: true, trade, balance: tradingWallet.balance });
 });
@@ -192,7 +202,12 @@ router.post('/demo/reset-balance', requireAuth, async (req, res) => {
   if (trading) trading.balance = defaultAmount;
   data.trades = [];
   data.transactions = [];
-  await deletePersistedDemoTrades(req.userId!);
+  if (trading && !await persistWalletBalance(trading.id, defaultAmount, 0)) {
+    return res.status(503).json({ error: 'Demo balance could not be durably reset.' });
+  }
+  if (!await deletePersistedDemoTrades(req.userId!)) {
+    return res.status(503).json({ error: 'Demo trades could not be durably reset.' });
+  }
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
 });
 

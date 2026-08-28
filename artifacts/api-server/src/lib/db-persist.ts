@@ -706,8 +706,8 @@ export async function persistWalletBalance(
   walletId: string,
   balance: number,
   pendingBalance: number = 0,
-): Promise<void> {
-  if (!prismaClient || !isUuid(walletId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(walletId)) return false;
   try {
     await prismaClient.wallets.update({
       where: { id: walletId },
@@ -716,8 +716,10 @@ export async function persistWalletBalance(
         pending_balance: pendingBalance,
       },
     });
+    return true;
   } catch (err) {
     logger.warn({ err, walletId, balance }, '[db-persist] persistWalletBalance failed; balance may be lost on redeploy');
+    return false;
   }
 }
 
@@ -736,8 +738,8 @@ export async function persistTransaction(
     description: string;
     isDemo?: boolean;
   },
-): Promise<void> {
-  if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
+): Promise<boolean> {
+  if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return false;
   try {
     const columnCacheKey = 'transactions.is_demo';
     if (!hasColumnCache.has(columnCacheKey)) {
@@ -783,8 +785,10 @@ export async function persistTransaction(
       update: updateObj,
       create: createObj,
     });
+    return true;
   } catch (err) {
     logger.warn({ err, transactionId }, '[db-persist] persistTransaction failed; continuing without DB persistence');
+    return false;
   }
 }
 
