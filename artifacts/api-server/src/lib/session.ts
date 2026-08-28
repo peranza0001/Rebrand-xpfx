@@ -4,7 +4,7 @@
  * map. Attaches `req.user` (StoredUser) and `req.userId` when authenticated.
  */
 import type { NextFunction, Request, Response } from "express";
-import { sessions, users, usersByEmail } from "./store";
+import { getUserData, sessions, users, usersByEmail } from "./store";
 import { isProduction } from "./env";
 import { deleteSession, getPersistedSession, getPersistedUser } from "./db-persist";
 
@@ -90,6 +90,25 @@ export function requireFullAuth(req: Request, res: Response, next: NextFunction)
     res.status(403).json({ error: "Demo accounts cannot perform this action." });
     return;
   }
+  next();
+}
+
+export function requireVerifiedIdentity(req: Request, res: Response, next: NextFunction): void {
+  if (!req || !req.storedUser) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const kycApproved = req.storedUser.user.kycVerified
+    || getUserData(req.userId!).kyc.status === "approved";
+  if (!kycApproved) {
+    res.status(403).json({
+      error: "Identity verification is required before moving funds.",
+      code: "kyc_required",
+    });
+    return;
+  }
+
   next();
 }
 

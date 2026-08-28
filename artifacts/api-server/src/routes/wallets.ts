@@ -21,7 +21,7 @@ import {
   transferBetweenWallets,
   type StoredConnectedWallet,
 } from "../lib/store";
-import { requireAuth } from "../lib/session";
+import { requireAuth, requireVerifiedIdentity } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { persistConnectedWallet, persistTransaction, persistWallet } from "../lib/db-persist";
 import {
@@ -39,7 +39,7 @@ router.get("/wallets/transactions", requireAuth, (req, res) => {
   res.json(getUserData(req.userId!).transactions);
 });
 
-router.post("/wallets/transfer", requireAuth, async (req, res) => {
+router.post("/wallets/transfer", requireAuth, requireVerifiedIdentity, async (req, res) => {
   const amount = Number(req.body?.amount ?? 0);
   const fromWalletId = String(req.body?.fromWalletId ?? "");
   const toWalletId = String(req.body?.toWalletId ?? "");
