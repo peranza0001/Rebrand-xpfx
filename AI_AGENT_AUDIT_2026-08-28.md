@@ -1,4 +1,57 @@
-# XpressPro FX implementation audit
+# XpressPro FX Audit - 2026-08-28
+
+## Scope
+
+This audit covers the consolidated deployment, email, UX, investment-plan, and live-chat requirements against the repository state available in this workspace.
+
+## Verified Locally
+
+- `npm run typecheck` passes.
+- `npm run lint` passes.
+- `npm run build:all` passes for the API, client library, NexTrade, admin portal, and API schemas.
+- `npm run predeploy` passes.
+- Existing application-readiness, production-environment, demo-auth, secrets, runtime-bootstrap, API-route, money-precision, live-chat persistence, and investment-plan tests pass.
+- The API health payload now exposes `commitSha` from `RAILWAY_GIT_COMMIT_SHA`, `GIT_COMMIT_SHA`, or `SOURCE_VERSION`, allowing a live deployment to be compared with `git rev-parse origin/main`.
+- A regression test covers the live-chat widget's open/close toggle, unread increment, durable history fetch, and visitor-profile persistence behavior at the source-contract level.
+
+## Itemized UX Status
+
+| Area | Repository status | Live status |
+| --- | --- | --- |
+| Home, About, Contact, Markets, Legal pages | Present in NexTrade source and routed | Not verified: no live deployment access in this workspace |
+| Trade, Copy Trading, Buy, Sell, Stocks, Shares, Commodities, Signals, Register, Login | Related routes/components exist, but exact requested path coverage is not fully evidenced by the current route audit | Not verified |
+| Live ticker, portfolio metrics, transaction ledger, onboarding, testimonials, FAQ, fee/status trust elements | Present in several source components; exact item-by-item production rendering requires browser/live verification | Not verified |
+| Enterprise dashboard components | Multiple components exist in source, including portfolio, risk, sentiment, AI, journal, social, alerts, mobile, analytics, and compliance surfaces | Not verified |
+
+## Investment Plans: Current Gap
+
+- The 12-plan catalog and in-memory calculation engine exist in source.
+- The active API route still stores `activePlanSubscription` in the in-memory `UserData` object and derives a projected balance. It is not a durable Prisma investment ledger.
+- No active scheduler invokes `processDailyTick`.
+- The current Prisma schema contains legacy investment/SmartVest tables, but the new engine's investment records, fee ledger, rank gating, WalletAdapter, and PerformanceSource implementations are not integrated into that schema.
+- Therefore the new 12-tier system must not be reported as production-ready or real-capital-backed until schema, migration, wallet-ledger transactionality, scheduler, admin queue, and live verification are completed.
+- No production database query was run: owner-controlled database credentials and a confirmed production connection were not available in this workspace. No old records were deleted or migrated.
+
+## SendGrid and Deployment: External Blockers
+
+- The application recognizes SendGrid configuration and falls back to SMTP or a local audit stub. Local validation reports that no production email provider is configured in this environment.
+- SendGrid key validity/account status cannot be checked without owner-controlled Railway environment access and must not be inferred from local configuration.
+- Railway project dashboard, deploy logs, actual service URL, and live commit SHA cannot be verified from this workspace. The new health `commitSha` field is the evidence hook for the owner-controlled live check.
+- No real email was sent, no vendor contract was configured, and no live-money or identity verification action was performed.
+
+## Live Chat
+
+- First-party `/api/live-chat` routes, Socket.IO namespace, durable persistence helpers, consent notice, escalation logic, unread state, and responsive widget are present in source.
+- Local persistence and route tests exist and pass.
+- A browser-level Playwright test against the confirmed live URL remains outstanding because no confirmed live URL or browser test harness was available in this workspace.
+
+## Required Owner-Controlled Follow-Up
+
+1. Confirm the canonical Railway service URL in the Railway dashboard.
+2. Compare that deployment's `/health.commitSha` with `git rev-parse origin/main` and inspect the latest deploy logs.
+3. Query the production database read-only for legacy investment counts before any migration.
+4. Validate SendGrid key status through the provider's read-only API; rotate only through the owner-controlled secret manager if invalid.
+5. Complete the durable investment schema/ledger/scheduler integration before enabling new real-capital subscriptions.# XpressPro FX implementation audit
 
 Date: 2026-08-28
 

@@ -63,10 +63,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 function buildHealthPayload(extra: Record<string, unknown> = {}) {
+  const commitSha = process.env.RAILWAY_GIT_COMMIT_SHA
+    || process.env.GIT_COMMIT_SHA
+    || process.env.SOURCE_VERSION
+    || null;
   return {
     status: 'ok',
     service: 'XpressPro FX API',
     version: '1.0.0',
+    commitSha,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),

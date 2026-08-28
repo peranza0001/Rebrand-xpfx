@@ -112,6 +112,22 @@ test('production health endpoints remain reachable over http for platform probes
   });
 });
 
+test('health endpoints expose the deployed commit when the platform provides it', async () => {
+  const previousSha = process.env.GIT_COMMIT_SHA;
+  process.env.GIT_COMMIT_SHA = 'test-commit-sha';
+  try {
+    await withTestServer(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/health`, { redirect: 'manual' });
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.commitSha, 'test-commit-sha');
+    });
+  } finally {
+    if (previousSha === undefined) delete process.env.GIT_COMMIT_SHA;
+    else process.env.GIT_COMMIT_SHA = previousSha;
+  }
+});
+
 test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;
@@ -165,6 +181,14 @@ test('visitor chat captures explicit support consent before starting', async () 
   const widget = await fs.promises.readFile(new URL('../artifacts/nextrade/src/components/live-chat-widget.tsx', import.meta.url), 'utf8');
   assert.match(widget, /consentAccepted/);
   assert.match(widget, /support may process this conversation/);
+});
+
+test('live chat widget contains open-close, unread, and durable-history behaviors', async () => {
+  const widget = await fs.promises.readFile(new URL('../artifacts/nextrade/src/components/live-chat-widget.tsx', import.meta.url), 'utf8');
+  assert.match(widget, /setOpen\(\(v\) => !v\)/, 'bubble must toggle open and closed');
+  assert.match(widget, /setUnreadCount\(\(count\) => count \+ 1\)/, 'incoming messages must increment unread state');
+  assert.match(widget, /fetch\(apiPath\("\/api\/live-chat"\)/, 'history must be loaded from the durable API');
+  assert.match(widget, /localStorage\.setItem\("xpfx_live_chat_profile"/, 'visitor identity must survive reloads');
 });
 
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
