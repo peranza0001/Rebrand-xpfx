@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { PurchaseAssetBody } from "@workspace/api-zod";
 import { assetCatalog, claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
-import { requireAuth } from "../lib/session";
+import { requireAuth, requireVerifiedIdentity } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import {
   getPlatformReceivingAddress,
@@ -18,7 +18,7 @@ router.get("/assets/catalog", requireAuth, (_req, res) => {
   res.json(assetCatalog);
 });
 
-router.post("/assets/purchase", requireAuth, async (req, res) => {
+router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req, res) => {
   const parsed = PurchaseAssetBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({

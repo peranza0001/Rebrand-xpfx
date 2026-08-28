@@ -5,7 +5,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { requireAuth } from "../lib/session";
+import { requireAuth, requireVerifiedIdentity } from "../lib/session";
 import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
@@ -54,7 +54,7 @@ router.get("/forex/instruments", (_req, res) => {
 });
 
 // Place forex/stock market order
-router.post("/forex/order/market", requireAuth, async (req, res) => {
+router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }
@@ -165,7 +165,7 @@ router.post("/forex/order/market", requireAuth, async (req, res) => {
 });
 
 // Place limit order (pending order to execute at specific price)
-router.post("/forex/order/limit", requireAuth, async (req, res) => {
+router.post("/forex/order/limit", requireAuth, requireVerifiedIdentity, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }

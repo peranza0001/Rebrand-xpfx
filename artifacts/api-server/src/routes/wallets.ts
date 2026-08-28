@@ -290,7 +290,7 @@ router.delete("/wallets/exchange/:walletId", requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/wallets/connected/:walletId/send", requireAuth, async (req, res) => {
+router.post("/wallets/connected/:walletId/send", requireAuth, requireVerifiedIdentity, async (req, res) => {
   if (!enforceGasFee(req, res, "wallet_transfer")) return;
   const parsed = SendFromConnectedWalletBody.safeParse(req.body);
   if (!parsed.success) {

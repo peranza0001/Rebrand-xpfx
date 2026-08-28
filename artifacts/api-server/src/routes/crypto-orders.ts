@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getUserData, newId, newUuid, NOW } from "../lib/store";
 import { persistTransaction } from "../lib/db-persist";
-import { requireAuth } from "../lib/session";
+import { requireAuth, requireVerifiedIdentity } from "../lib/session";
 import { isLiveTradingEnabled } from "../lib/env";
 import { submitBrokerOrder } from "../lib/broker-client";
 
@@ -75,7 +75,7 @@ router.get("/crypto/orders", requireAuth, (req, res) => {
   res.json([...orders.values()]);
 });
 
-router.post("/crypto/buy", requireAuth, async (req, res) => {
+router.post("/crypto/buy", requireAuth, requireVerifiedIdentity, async (req, res) => {
   if (!isLiveTradingEnabled) {
     return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
@@ -105,7 +105,7 @@ router.post("/crypto/buy", requireAuth, async (req, res) => {
   return res.status(202).json({ ok: true, stub: false, provider: brokerResult.provider, orderId: brokerResult.orderId, notice: "Crypto buy accepted by configured broker execution provider.", order });
 });
 
-router.post("/crypto/sell", requireAuth, async (req, res) => {
+router.post("/crypto/sell", requireAuth, requireVerifiedIdentity, async (req, res) => {
   if (!isLiveTradingEnabled) {
     return res.status(503).json({ error: "Crypto trading is unavailable until ENABLE_LIVE_TRADING=true and a live execution provider is configured.", code: "provider_unavailable" });
   }
