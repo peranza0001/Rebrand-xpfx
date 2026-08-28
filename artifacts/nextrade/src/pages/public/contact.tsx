@@ -1,7 +1,7 @@
 /**
  * Public Contact page
  * -------------------
- * Contact form (front-end only — submission is simulated with a toast),
+ * Contact form backed by the authenticated support-ticket API,
  * plus office locations and live channels.
  */
 import { useState } from "react";
@@ -12,19 +12,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { apiPath } from "@/lib/api-url";
+import { useAuth } from "@/lib/auth";
 
 export function PublicContact() {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      toast({ title: "Sign in required", description: "Sign in to submit a support ticket, or use live chat for general questions.", variant: "destructive" });
+      return;
+    }
+
+    const form = e.currentTarget;
+    const values = new FormData(form);
     setSubmitting(true);
-    window.setTimeout(() => {
+    try {
+      const response = await fetch(apiPath("/api/support/tickets"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: String(values.get("subject") ?? "").trim(),
+          message: String(values.get("message") ?? "").trim(),
+          priority: "medium",
+        }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "We could not submit your support ticket.");
+      form.reset();
+      toast({ title: "Message received", description: "Your support ticket was created and is available in Support." });
+    } catch (error) {
+      toast({ title: "Message not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
       setSubmitting(false);
-      (e.currentTarget as HTMLFormElement).reset();
-      toast({ title: "Message received", description: "Our support team will reply within 24 hours." });
-    }, 600);
+    }
   };
 
   return (
@@ -82,20 +107,20 @@ export function PublicContact() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" required data-testid="input-contact-name" />
+                <Input id="name" name="name" required data-testid="input-contact-name" />
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required data-testid="input-contact-email" />
+                <Input id="email" name="email" type="email" required data-testid="input-contact-email" />
               </div>
             </div>
             <div>
               <Label htmlFor="subject">Subject</Label>
-              <Input id="subject" required data-testid="input-contact-subject" />
+              <Input id="subject" name="subject" required data-testid="input-contact-subject" />
             </div>
             <div>
               <Label htmlFor="message">Message</Label>
-              <Textarea id="message" rows={5} required data-testid="input-contact-message" />
+              <Textarea id="message" name="message" rows={5} required data-testid="input-contact-message" />
             </div>
             <Button type="submit" className="w-full" disabled={submitting} data-testid="button-contact-submit">
               {submitting ? "Sending…" : "Send message"}

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/session';
 import { assetCatalog, demoConfig, getUserData, newUuid, NOW } from '../lib/store';
-import { deletePersistedDemoTrades, persistDemoTrade, persistTransaction, persistWalletBalance } from '../lib/db-persist';
+import { deletePersistedDemoTrades, ensurePersistedDemoAccount, persistDemoTrade, persistTransaction, persistWalletBalance } from '../lib/db-persist';
 import sim, { calculateMargin, getCurrentPrice } from '../lib/simulation-engine';
 
 const router = Router();
@@ -39,6 +39,26 @@ router.get('/demo/account', requireAuth, (req, res) => {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
   return res.json(getDemoAccountSnapshot(req.userId!));
+});
+
+router.post('/demo/start', requireAuth, async (req, res) => {
+  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
+    return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
+  }
+
+  const persisted = await ensurePersistedDemoAccount(req.userId!, demoConfig.defaultBalance);
+  if (!persisted) {
+    return res.status(503).json({
+      error: 'Demo trading is temporarily unavailable because the demo account could not be persisted.',
+      code: 'demo_persistence_unavailable',
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    mode: 'demo',
+    account: getDemoAccountSnapshot(req.userId!),
+  });
 });
 
 router.get('/demo/instruments', requireAuth, (_req, res) => {
