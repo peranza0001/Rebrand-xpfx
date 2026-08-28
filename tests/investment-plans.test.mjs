@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DEFAULT_ACCOUNT_CHECKLIST, generatePlanProjection, evaluateAccountChecklist, INVESTMENT_PLANS } from '../artifacts/api-server/src/lib/investment-plans.ts';
+import { adminApproveTopUp, markTopUpPaid, processDailyTick } from '../artifacts/api-server/src/lib/investment-engine.ts';
 
 test('standard trader plan creates a realistic automated projection', () => {
   const projection = generatePlanProjection('standard-trader', 2500);
@@ -33,4 +34,36 @@ test('plan catalog includes distinct long and short trading structures', () => {
   assert.equal(longPlan.tradingDuration, 'long');
   assert.equal(shortPlan.tradingDuration, 'short');
   assert.ok(longPlan.recommendedHoldDays > shortPlan.recommendedHoldDays);
+});
+
+test('daily engine keeps profits precise and renews weekly top-ups', () => {
+  const investment = {
+    id: 'inv-1',
+    userId: 'user-1',
+    planId: 'starter_spark',
+    principal: 1000,
+    lockedProfit: 0,
+    startDate: '2026-01-01T00:00:00.000Z',
+    endDate: '2026-01-11T00:00:00.000Z',
+    currentDay: 7,
+    status: 'active',
+    weeklyTopUpDue: false,
+    weeklyTopUpAmount: 0,
+    weeklyTopUpApprovedByAdmin: false,
+    topUpPenaltyActive: false,
+    pendingMarginalFee: 0,
+    marginalFeeApprovedByAdmin: false,
+    dailyHistory: [],
+  };
+
+  processDailyTick(investment, '2026-01-08T00:00:00.000Z');
+  assert.equal(investment.weeklyTopUpDue, true);
+  markTopUpPaid(investment, '2026-01-08T00:00:00.000Z');
+  adminApproveTopUp(investment);
+  investment.currentDay = 14;
+  processDailyTick(investment, '2026-01-15T00:00:00.000Z');
+
+  assert.equal(investment.weeklyTopUpDue, true);
+  assert.equal(investment.weeklyTopUpAmount, 40);
+  assert.equal(investment.dailyHistory.every((entry) => Number.isFinite(entry.profit)), true);
 });

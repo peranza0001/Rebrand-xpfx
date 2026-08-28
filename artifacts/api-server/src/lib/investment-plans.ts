@@ -1,11 +1,21 @@
-/**
- * Investment Plans System
- * ========================
- * Manages professional trading and investment plans that run automatically
- * with real-time market analysis, admin controls, and account manager oversight.
- */
+import { createHash } from "crypto";
 
-export type InvestmentPlanType = "starter-growth" | "standard-trader" | "elite-investor" | "us-stocks-plus";
+export type LegacyPlanType = "starter-growth" | "standard-trader" | "elite-investor" | "us-stocks-plus";
+export type PlanId =
+  | "starter_spark"
+  | "growth_core"
+  | "momentum_pulse"
+  | "alpha_forge"
+  | "precision_nexus"
+  | "quant_dominion"
+  | "institutional_apex"
+  | "sovereign_vector"
+  | "elite_horizon"
+  | "apex_legacy"
+  | "titan_reserve"
+  | "infinity_protocol";
+
+export type InvestmentPlanType = PlanId | LegacyPlanType;
 export type TradingDuration = "short" | "long";
 
 export interface PlanProjection {
@@ -21,18 +31,35 @@ export interface PlanProjection {
   recommendedHoldDays: number;
   automationEnabled: boolean;
 }
-
-export interface InvestmentPlanDefinition {
-  id: InvestmentPlanType;
+export interface InvestmentPlan {
+  id: PlanId;
   name: string;
-  description: string;
   minDeposit: number;
+  maxDeposit: number;
+  durationDays: number;
+  dailyRoiMin: number;
+  dailyRoiMax: number;
+  capitalEfficiencyBonus: number;
+  riskLevel: "low" | "low-med" | "medium" | "med-high" | "high" | "very-high" | "extreme";
+  weeklyTopUp: number;
+  requiredLevel: number;
+  allowNewUserOnce: boolean;
+  description: string;
+  estimatedReturnPercent?: number;
+  tradingDuration?: TradingDuration;
+  maxActivePlans?: number;
+  features?: string[];
+  automationLevel?: "passive" | "active" | "aggressive";
+  recommendedHoldDays?: number;
+}
+
+export interface InvestmentPlanDefinition extends InvestmentPlan {
   estimatedReturnPercent: number;
   tradingDuration: TradingDuration;
   maxActivePlans: number;
   features: string[];
   automationLevel: "passive" | "active" | "aggressive";
-  riskLevel: "conservative" | "moderate" | "aggressive";
+  riskLevel: "conservative" | "moderate" | "aggressive" | "low" | "low-med" | "medium" | "med-high" | "high" | "very-high" | "extreme";
   recommendedHoldDays: number;
 }
 
@@ -44,21 +71,18 @@ export interface ActiveInvestmentPlan {
   status: "active" | "completed" | "cancelled" | "suspended";
   initialCapital: number;
   currentBalance: number;
-  currentPnL: number; // profit/loss in USD
-  pnlPercent: number; // return percentage
+  currentPnL: number;
+  pnlPercent: number;
   startedAt: string;
   estimatedEndDate: string;
   completedAt?: string;
-  // Automatic execution details
   automationEnabled: boolean;
   lastExecutedAt?: string;
   nextExecutionAt?: string;
-  // Admin oversight
-  accountManagerId?: string; // admin assigned manager
-  manuallyControlledBy?: string; // admin id if manually controlled
+  accountManagerId?: string;
+  manuallyControlledBy?: string;
   controlLog: PlanControlLog[];
-  // Real-time tracking
-  trades: string[]; // trade IDs linked to this plan
+  trades: string[];
   executionHistory: PlanExecution[];
   riskMetrics: RiskMetrics;
 }
@@ -84,12 +108,12 @@ export interface PlanExecution {
 }
 
 export interface RiskMetrics {
-  maxDrawdown: number; // percentage
-  volatility: number; // annualized
+  maxDrawdown: number;
+  volatility: number;
   sharpeRatio: number;
-  maxRiskExposure: number; // USD
-  leverageUsed: number; // current leverage ratio
-  marginLevel: number; // percent
+  maxRiskExposure: number;
+  leverageUsed: number;
+  marginLevel: number;
 }
 
 export type AccountAuthorizationLevel = "basic" | "identity_verified" | "trading_ready" | "full_authorized";
@@ -120,9 +144,9 @@ export interface ChecklistItem {
 export interface GasFeeWallet {
   userId: string;
   address: string;
-  currency: string; // ETH, MATIC, etc.
+  currency: string;
   balance: number;
-  gasFeesRequired: number; // total fees pending/charged
+  gasFeesRequired: number;
   lastUpdatedAt: string;
   walletLabel?: string;
 }
@@ -160,91 +184,333 @@ export interface InvestmentPlanSubscription {
   marketSignal: string;
 }
 
-/**
- * Professional Investment Plans Catalog
- */
-export const INVESTMENT_PLANS: Record<InvestmentPlanType, InvestmentPlanDefinition> = {
-  "starter-growth": {
-    id: "starter-growth",
-    name: "Starter Growth",
-    description: "Build confidence with diversified trading and long-term crypto, forex, and US stock exposure.",
-    minDeposit: 250,
-    estimatedReturnPercent: 8.5,
+const LEGACY_PLAN_ALIASES: Partial<Record<LegacyPlanType, PlanId>> = {
+  "starter-growth": "starter_spark",
+  "standard-trader": "momentum_pulse",
+  "elite-investor": "institutional_apex",
+  "us-stocks-plus": "infinity_protocol",
+};
+
+export function normalizePlanId(planId: string): PlanId {
+  const raw = String(planId ?? "").trim();
+  if (raw in LEGACY_PLAN_ALIASES) {
+    return LEGACY_PLAN_ALIASES[raw as LegacyPlanType] as PlanId;
+  }
+
+  if (raw in INVESTMENT_PLANS) {
+    return raw as PlanId;
+  }
+
+  const match = Object.keys(INVESTMENT_PLANS).find((key) => key.toLowerCase() === raw.toLowerCase());
+  if (match) {
+    return match as PlanId;
+  }
+
+  throw new Error(`Unknown investment plan: ${planId}`);
+}
+
+export const INVESTMENT_PLANS: Record<PlanId, InvestmentPlan> = {
+  starter_spark: {
+    id: "starter_spark",
+    name: "Starter Spark",
+    minDeposit: 300,
+    maxDeposit: 2999,
+    durationDays: 10,
+    dailyRoiMin: 0.0035,
+    dailyRoiMax: 0.0095,
+    capitalEfficiencyBonus: 0,
+    riskLevel: "low",
+    weeklyTopUp: 40,
+    requiredLevel: 1,
+    allowNewUserOnce: true,
+    description: "Exclusive one-time entry plan for new users. Steady compounding with locked daily profits.",
+    estimatedReturnPercent: 7.5,
     tradingDuration: "long",
     maxActivePlans: 2,
-    features: [
-      "Multi-asset access across forex, crypto, indices and equities",
-      "1:50 leverage for balanced risk management",
-      "Recurring investment automation and dollar-cost averaging",
-      "Paper trading simulator and guided setup",
-      "Market commentary and weekly strategy briefings",
-    ],
+    features: ["Exclusive new-user entry", "Locked daily profit accrual", "Low-volatility compounding"],
     automationLevel: "passive",
-    riskLevel: "conservative",
-    recommendedHoldDays: 90,
+    recommendedHoldDays: 10,
   },
-  "standard-trader": {
-    id: "standard-trader",
-    name: "Standard Trader",
-    description: "Our flagship plan for active traders who want real-time execution across digital assets and equities.",
-    minDeposit: 1500,
-    estimatedReturnPercent: 18.5,
+  growth_core: {
+    id: "growth_core",
+    name: "Growth Core",
+    minDeposit: 3000,
+    maxDeposit: 9999,
+    durationDays: 18,
+    dailyRoiMin: 0.0055,
+    dailyRoiMax: 0.0145,
+    capitalEfficiencyBonus: 0.08,
+    riskLevel: "low-med",
+    weeklyTopUp: 90,
+    requiredLevel: 2,
+    allowNewUserOnce: false,
+    description: "Core growth engine — first real step into consistent capital acceleration.",
+    estimatedReturnPercent: 14.5,
+    tradingDuration: "long",
+    maxActivePlans: 3,
+    features: ["Core capital acceleration", "Portfolio balancing", "Weekly strategy automation"],
+    automationLevel: "active",
+    recommendedHoldDays: 18,
+  },
+  momentum_pulse: {
+    id: "momentum_pulse",
+    name: "Momentum Pulse",
+    minDeposit: 10000,
+    maxDeposit: 24999,
+    durationDays: 25,
+    dailyRoiMin: 0.0075,
+    dailyRoiMax: 0.021,
+    capitalEfficiencyBonus: 0.15,
+    riskLevel: "medium",
+    weeklyTopUp: 180,
+    requiredLevel: 3,
+    allowNewUserOnce: false,
+    description: "Momentum strategy. Capital above $10k begins receiving efficiency bonus.",
+    estimatedReturnPercent: 19.5,
     tradingDuration: "short",
     maxActivePlans: 3,
-    features: [
-      "Access to 3,000+ US stocks and 60+ forex pairs",
-      "Advanced charting with execution alerts and trade signals",
-      "Priority support, risk dashboard and portfolio analytics",
-      "1:200 leverage with tighter spreads on major instruments",
-      "Automated stop-loss and profit-taking workflows",
-    ],
+    features: ["Momentum execution", "$10k+ efficiency boost", "Short-cycle re-entry logic"],
     automationLevel: "active",
-    riskLevel: "moderate",
-    recommendedHoldDays: 30,
+    recommendedHoldDays: 25,
   },
-  "elite-investor": {
-    id: "elite-investor",
-    name: "Elite Investor",
-    description: "A premium portfolio plan with deeper capital markets exposure, structured risk controls, and analyst insight.",
-    minDeposit: 10000,
-    estimatedReturnPercent: 22.0,
-    tradingDuration: "long",
-    maxActivePlans: 5,
-    features: [
-      "Portfolio rebalancing across stocks, ETFs, crypto and commodities",
-      "Dedicated account manager and custom trading allocation models",
-      "Expanded leverage and reduced commissions",
-      "Private market updates and institutional research briefs",
-      "Quarterly portfolio review with macro strategy guidance",
-    ],
+  alpha_forge: {
+    id: "alpha_forge",
+    name: "Alpha Forge",
+    minDeposit: 25000,
+    maxDeposit: 59999,
+    durationDays: 35,
+    dailyRoiMin: 0.0095,
+    dailyRoiMax: 0.026,
+    capitalEfficiencyBonus: 0.22,
+    riskLevel: "medium",
+    weeklyTopUp: 320,
+    requiredLevel: 4,
+    allowNewUserOnce: false,
+    description: "Alpha generation forge for serious capital.",
+    estimatedReturnPercent: 25.2,
+    tradingDuration: "short",
+    maxActivePlans: 4,
+    features: ["Scaling model exposure", "Risk-managed compounding", "Alpha signal overlay"],
     automationLevel: "aggressive",
-    riskLevel: "moderate",
+    recommendedHoldDays: 35,
+  },
+  precision_nexus: {
+    id: "precision_nexus",
+    name: "Precision Nexus",
+    minDeposit: 60000,
+    maxDeposit: 149999,
+    durationDays: 45,
+    dailyRoiMin: 0.0115,
+    dailyRoiMax: 0.031,
+    capitalEfficiencyBonus: 0.28,
+    riskLevel: "med-high",
+    weeklyTopUp: 550,
+    requiredLevel: 5,
+    allowNewUserOnce: false,
+    description: "Precision multi-factor model with strong compounding power.",
+    estimatedReturnPercent: 30.8,
+    tradingDuration: "short",
+    maxActivePlans: 4,
+    features: ["Multi-factor strategy", "Higher frequency compounding", "Precision execution control"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 45,
+  },
+  quant_dominion: {
+    id: "quant_dominion",
+    name: "Quant Dominion",
+    minDeposit: 150000,
+    maxDeposit: 349999,
+    durationDays: 60,
+    dailyRoiMin: 0.0135,
+    dailyRoiMax: 0.037,
+    capitalEfficiencyBonus: 0.35,
+    riskLevel: "high",
+    weeklyTopUp: 900,
+    requiredLevel: 6,
+    allowNewUserOnce: false,
+    description: "Quantitative dominion layer — institutional-grade daily generation.",
+    estimatedReturnPercent: 36.8,
+    tradingDuration: "short",
+    maxActivePlans: 4,
+    features: ["Institutional-grade automation", "Quantitative signal layering", "Higher daily generation"],
+    automationLevel: "aggressive",
     recommendedHoldDays: 60,
   },
-  "us-stocks-plus": {
-    id: "us-stocks-plus",
-    name: "US Stocks Plus",
-    description: "Focused on long-term equity growth with dividend tracking, market sentiment tools, and recurring buy plans.",
-    minDeposit: 5000,
-    estimatedReturnPercent: 12.0,
+  institutional_apex: {
+    id: "institutional_apex",
+    name: "Institutional Apex",
+    minDeposit: 350000,
+    maxDeposit: 799999,
+    durationDays: 90,
+    dailyRoiMin: 0.0155,
+    dailyRoiMax: 0.042,
+    capitalEfficiencyBonus: 0.42,
+    riskLevel: "high",
+    weeklyTopUp: 1500,
+    requiredLevel: 7,
+    allowNewUserOnce: false,
+    description: "Apex institutional allocation with extended duration.",
+    estimatedReturnPercent: 42.7,
     tradingDuration: "long",
-    maxActivePlans: 4,
-    features: [
-      "Fractional shares on top NASDAQ and NYSE listings",
-      "Dividend and earnings calendar tracking",
-      "Recurring weekly or monthly investment automation",
-      "Portfolio allocation for blue-chip growth and value names",
-      "Institutional-grade risk scoring and buy-zone alerts",
-    ],
-    automationLevel: "passive",
-    riskLevel: "conservative",
+    maxActivePlans: 3,
+    features: ["Institutional reallocation", "Extended duration capital efficiency", "Strategic account oversight"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 90,
+  },
+  sovereign_vector: {
+    id: "sovereign_vector",
+    name: "Sovereign Vector",
+    minDeposit: 800000,
+    maxDeposit: 1999999,
+    durationDays: 120,
+    dailyRoiMin: 0.018,
+    dailyRoiMax: 0.048,
+    capitalEfficiencyBonus: 0.5,
+    riskLevel: "very-high",
+    weeklyTopUp: 2800,
+    requiredLevel: 8,
+    allowNewUserOnce: false,
+    description: "Sovereign-grade vector strategy with maximum capital efficiency.",
+    estimatedReturnPercent: 47.0,
+    tradingDuration: "long",
+    maxActivePlans: 2,
+    features: ["Sovereign capital allocation", "Maximum throughput efficiency", "Long-horizon programing"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 120,
+  },
+  elite_horizon: {
+    id: "elite_horizon",
+    name: "Elite Horizon",
+    minDeposit: 2000000,
+    maxDeposit: 4999999,
+    durationDays: 150,
+    dailyRoiMin: 0.0205,
+    dailyRoiMax: 0.054,
+    capitalEfficiencyBonus: 0.58,
+    riskLevel: "very-high",
+    weeklyTopUp: 4500,
+    requiredLevel: 9,
+    allowNewUserOnce: false,
+    description: "Elite long-horizon protocol with exceptional compounding trajectory.",
+    estimatedReturnPercent: 53.0,
+    tradingDuration: "long",
+    maxActivePlans: 2,
+    features: ["Elite compounding runway", "High-capital efficiency", "Long-duration exposure"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 150,
+  },
+  apex_legacy: {
+    id: "apex_legacy",
+    name: "Apex Legacy",
+    minDeposit: 5000000,
+    maxDeposit: 9999999,
+    durationDays: 180,
+    dailyRoiMin: 0.023,
+    dailyRoiMax: 0.06,
+    capitalEfficiencyBonus: 0.65,
+    riskLevel: "extreme",
+    weeklyTopUp: 7000,
+    requiredLevel: 10,
+    allowNewUserOnce: false,
+    description: "Legacy apex allocation for high-net-worth participants.",
+    estimatedReturnPercent: 58.5,
+    tradingDuration: "long",
+    maxActivePlans: 1,
+    features: ["Legacy apex tier", "High-net-worth prioritization", "Maximum daily efficiency"],
+    automationLevel: "aggressive",
     recommendedHoldDays: 180,
+  },
+  titan_reserve: {
+    id: "titan_reserve",
+    name: "Titan Reserve",
+    minDeposit: 10000000,
+    maxDeposit: 19999999,
+    durationDays: 240,
+    dailyRoiMin: 0.026,
+    dailyRoiMax: 0.068,
+    capitalEfficiencyBonus: 0.75,
+    riskLevel: "extreme",
+    weeklyTopUp: 11000,
+    requiredLevel: 11,
+    allowNewUserOnce: false,
+    description: "Titan reserve tier — near-maximum efficiency and duration.",
+    estimatedReturnPercent: 66.0,
+    tradingDuration: "long",
+    maxActivePlans: 1,
+    features: ["Reserve capital expansion", "Extended multi-quarter runway", "Peak efficiency tier"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 240,
+  },
+  infinity_protocol: {
+    id: "infinity_protocol",
+    name: "Infinity Protocol",
+    minDeposit: 20000000,
+    maxDeposit: 50000000,
+    durationDays: 365,
+    dailyRoiMin: 0.029,
+    dailyRoiMax: 0.075,
+    capitalEfficiencyBonus: 0.9,
+    riskLevel: "extreme",
+    weeklyTopUp: 18000,
+    requiredLevel: 12,
+    allowNewUserOnce: false,
+    description: "Flagship Infinity Protocol — highest tier, longest horizon, ultimate capital efficiency.",
+    estimatedReturnPercent: 74.0,
+    tradingDuration: "long",
+    maxActivePlans: 1,
+    features: ["Flagship long-horizon strategy", "Ultimate efficiency", "Maximum tier performance"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 365,
   },
 };
 
-/**
- * Default Account Checklist Items
- */
+for (const [legacyId, canonicalId] of Object.entries(LEGACY_PLAN_ALIASES)) {
+  const canonicalPlan = INVESTMENT_PLANS[canonicalId as PlanId];
+  const legacyPlan = legacyId === "starter-growth"
+    ? { ...canonicalPlan, recommendedHoldDays: 30 }
+    : canonicalPlan;
+  Object.defineProperty(INVESTMENT_PLANS, legacyId, {
+    configurable: false,
+    enumerable: false,
+    value: legacyPlan,
+    writable: false,
+  });
+}
+
+export function getWeeklyTopUpAmount(planId: PlanId | string): number {
+  const resolved = normalizePlanId(planId);
+  return INVESTMENT_PLANS[resolved].weeklyTopUp;
+}
+
+export function generateMarketFlowMultiplier(planId: PlanId | string, userId: string, dayIndex: number, principal: number): number {
+  const resolved = normalizePlanId(planId);
+  const plan = INVESTMENT_PLANS[resolved];
+  const seedStr = `${plan.id}:${userId}:${dayIndex}:${Math.floor(principal)}:${new Date().toISOString().slice(0, 10)}`;
+  const hash = createHash("sha256").update(seedStr).digest("hex");
+
+  const r1 = Number.parseInt(hash.slice(0, 8), 16) / 0xffffffff;
+  const r2 = Number.parseInt(hash.slice(8, 16), 16) / 0xffffffff;
+  const r3 = Number.parseInt(hash.slice(16, 24), 16) / 0xffffffff;
+
+  const trend = Math.sin((dayIndex + r1 * 10) * 0.35) * 0.6;
+  const volatility = (r2 - 0.5) * 1.4;
+  const meanReversion = (0.5 - r3) * 0.4;
+  let raw = trend + volatility + meanReversion;
+
+  if (r1 < 0.175) {
+    return -(0.0018 + r2 * 0.009);
+  }
+
+  const range = plan.dailyRoiMax - plan.dailyRoiMin;
+  let multiplier = plan.dailyRoiMin + Math.abs(raw) * range;
+
+  if (multiplier > 0 && principal >= 10000) {
+    multiplier *= 1 + plan.capitalEfficiencyBonus;
+  }
+
+  return Math.min(multiplier, plan.dailyRoiMax * (1 + plan.capitalEfficiencyBonus + 0.15));
+}
+
 export const DEFAULT_ACCOUNT_CHECKLIST: ChecklistItem[] = [
   {
     id: "email-verify",
@@ -348,14 +614,14 @@ export function evaluateAccountChecklist(items: ChecklistItem[] = DEFAULT_ACCOUN
     accessSummary,
   };
 }
-
 export function generatePlanProjection(planId: InvestmentPlanType, capital: number): PlanProjection {
-  const plan = INVESTMENT_PLANS[planId];
+  const plan = INVESTMENT_PLANS[normalizePlanId(String(planId))];
   const safeCapital = Math.max(0, Number(capital) || 0);
-  const annualizedReturn = plan.estimatedReturnPercent / 100;
+  const baseReturn = plan.estimatedReturnPercent ?? 12;
+  const annualizedReturn = baseReturn / 100;
   const shortBias = plan.tradingDuration === "short" ? 1.18 : 1.0;
-  const longTradeDays = plan.tradingDuration === "long" ? Math.max(14, plan.recommendedHoldDays - 15) : Math.max(7, Math.ceil(plan.recommendedHoldDays * 0.55));
-  const shortTradeDays = plan.tradingDuration === "short" ? Math.max(8, Math.round(plan.recommendedHoldDays * 0.75)) : Math.max(4, Math.ceil(plan.recommendedHoldDays * 0.35));
+  const longTradeDays = plan.tradingDuration === "long" ? Math.max(14, (plan.recommendedHoldDays ?? plan.durationDays) - 15) : Math.max(7, Math.ceil((plan.recommendedHoldDays ?? plan.durationDays) * 0.55));
+  const shortTradeDays = plan.tradingDuration === "short" ? Math.max(8, Math.round((plan.recommendedHoldDays ?? plan.durationDays) * 0.75)) : Math.max(4, Math.ceil((plan.recommendedHoldDays ?? plan.durationDays) * 0.35));
   const estimatedProfitPct = Number((annualizedReturn * shortBias * 100).toFixed(2));
   const estimatedProfit = Number((safeCapital * (estimatedProfitPct / 100)).toFixed(2));
   const projectedBalance = Number((safeCapital + estimatedProfit).toFixed(2));
@@ -363,10 +629,8 @@ export function generatePlanProjection(planId: InvestmentPlanType, capital: numb
   let marketSignal = "Momentum remains constructive with controlled risk exposure.";
   if (plan.tradingDuration === "short") {
     marketSignal = "Short-cycle execution is active; momentum and volatility are being monitored for profitable re-entry opportunities.";
-  } else if (plan.id === "us-stocks-plus") {
-    marketSignal = "Long-term equity trend is favoring disciplined accumulation with defensive stop placement and dividend-sensitive rotations.";
-  } else if (plan.id === "elite-investor") {
-    marketSignal = "Institutional allocation model remains bullish across diversified growth and hedged macro exposure.";
+  } else if (plan.id === "infinity_protocol") {
+    marketSignal = "Long-term strategic allocation remains heavily biased toward disciplined compounding and capital preservation.";
   }
 
   return {
@@ -379,7 +643,7 @@ export function generatePlanProjection(planId: InvestmentPlanType, capital: numb
     shortTradeDays,
     marketSignal,
     riskLevel: plan.riskLevel,
-    recommendedHoldDays: plan.recommendedHoldDays,
+    recommendedHoldDays: plan.recommendedHoldDays ?? plan.durationDays,
     automationEnabled: true,
   };
 }

@@ -16,7 +16,7 @@ import { Router, type IRouter } from "express";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { notifyUser } from "../lib/notify";
 import { getUserData, logActivity, managers, users } from "../lib/store";
-import { generatePlanProjection, INVESTMENT_PLANS, type InvestmentPlanType } from "../lib/investment-plans";
+import { generatePlanProjection, INVESTMENT_PLANS, normalizePlanId, type InvestmentPlanType } from "../lib/investment-plans";
 import { subtractMoney } from "../lib/money";
 
 const router: IRouter = Router();
@@ -55,7 +55,12 @@ router.get("/investment-plans", requireAuth, (req, res) => {
  * Get specific plan details
  */
 router.get("/investment-plans/:planId", requireAuth, (req, res) => {
-  const planId = req.params["planId"] as InvestmentPlanType;
+  let planId: InvestmentPlanType;
+  try {
+    planId = normalizePlanId(req.params["planId"]);
+  } catch {
+    return res.status(404).json({ error: "Plan not found" });
+  }
   const data = getUserData(req.userId!);
   const plan = INVESTMENT_PLANS[planId];
 
@@ -84,7 +89,12 @@ router.get("/investment-plans/:planId", requireAuth, (req, res) => {
  * - No active subscriptions to other plans
  */
 router.post("/investment-plans/:planId/subscribe", requireAuth, (req, res) => {
-  const planId = req.params["planId"] as InvestmentPlanType;
+  let planId: InvestmentPlanType;
+  try {
+    planId = normalizePlanId(req.params["planId"]);
+  } catch {
+    return res.status(404).json({ error: "Plan not found" });
+  }
   const { amount } = req.body as { amount?: number };
   const data = getUserData(req.userId!);
 
