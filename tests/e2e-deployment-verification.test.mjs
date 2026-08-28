@@ -70,9 +70,9 @@ await test('Session endpoint returns guest session by default', async () => {
 await test('Frontend JavaScript assets load', async () => {
   const res = await fetch(`${baseUrl}/`);
   const html = await res.text();
-  const scriptMatch = html.match(/src="\/assets\/index-([A-Za-z0-9]+)\.js"/);
+  const scriptMatch = html.match(/src="\/assets\/index-([A-Za-z0-9_-]+)\.js"/);
   assert(scriptMatch, 'Could not find index script src in HTML');
-  const assetUrl = `/assets/${scriptMatch[0].match(/index-[A-Za-z0-9]+\.js/)[0]}`;
+  const assetUrl = `/assets/${scriptMatch[0].match(/index-[A-Za-z0-9_-]+\.js/)[0]}`;
   const assetRes = await fetch(`${baseUrl}${assetUrl}`);
   assert(assetRes.ok, `Asset ${assetUrl} returned ${assetRes.status}`);
 });
@@ -81,9 +81,9 @@ await test('Frontend JavaScript assets load', async () => {
 await test('Frontend CSS assets load', async () => {
   const res = await fetch(`${baseUrl}/`);
   const html = await res.text();
-  const cssMatch = html.match(/href="\/assets\/index-([A-Za-z0-9]+)\.css"/);
+  const cssMatch = html.match(/href="\/assets\/index-([A-Za-z0-9_-]+)\.css"/);
   assert(cssMatch, 'Could not find CSS href in HTML');
-  const assetUrl = `/assets/${cssMatch[0].match(/index-[A-Za-z0-9]+\.css/)[0]}`;
+  const assetUrl = `/assets/${cssMatch[0].match(/index-[A-Za-z0-9_-]+\.css/)[0]}`;
   const assetRes = await fetch(`${baseUrl}${assetUrl}`);
   assert(assetRes.ok, `CSS ${assetUrl} returned ${assetRes.status}`);
 });
