@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 import { env, isProduction } from "./env";
-import { isAlchemyConfigured } from "./integration-config";
+import { getAlchemyRpcUrl, isAlchemyConfigured } from "./integration-config";
 import { logger } from "./logger";
 
 export interface TokenSpec {
@@ -30,7 +30,10 @@ export interface ProviderInfo {
 export function getProvider(): ProviderInfo {
   const alchemy = env.ALCHEMY_API_KEY;
   const infura = env.INFURA_API_KEY;
-  const providerInfo: ProviderInfo = isAlchemyConfigured(alchemy)
+  const alchemyRpcUrl = getAlchemyRpcUrl(alchemy);
+  const providerInfo: ProviderInfo = alchemyRpcUrl
+    ? { provider: new ethers.JsonRpcProvider(alchemyRpcUrl), source: "alchemy" }
+    : isAlchemyConfigured(alchemy)
     ? { provider: new ethers.AlchemyProvider("mainnet", alchemy), source: "alchemy" }
     : infura
     ? { provider: new ethers.InfuraProvider("mainnet", infura), source: "infura" }

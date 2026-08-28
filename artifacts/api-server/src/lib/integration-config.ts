@@ -23,6 +23,21 @@ export function isAlchemyConfigured(value?: string): boolean {
   return trimmed.length >= 16;
 }
 
+export function getAlchemyRpcUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  const candidate = value
+    .split(',')
+    .map((item) => item.trim())
+    .find((item) => /ethereum-mainnet|eth-mainnet|alchemy\.com\/v2\//i.test(item));
+  if (!candidate || !/^https:\/\//i.test(candidate)) return undefined;
+  try {
+    const url = new URL(candidate);
+    return url.protocol === 'https:' && url.hostname.endsWith('alchemy.com') ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function isSmtpConfigured(): boolean {
   return Boolean(env.SMTP_HOST?.trim() && env.SMTP_USER?.trim() && env.SMTP_PASS?.trim());
 }
@@ -46,4 +61,4 @@ export function getIntegrationStatus() {
   };
 }
 
-export default { isSendGridConfigured, isSmtpConfigured, isAlchemyConfigured, isBrokerExecutionConfigured, getIntegrationStatus };
+export default { isSendGridConfigured, isSmtpConfigured, isAlchemyConfigured, getAlchemyRpcUrl, isBrokerExecutionConfigured, getIntegrationStatus };
