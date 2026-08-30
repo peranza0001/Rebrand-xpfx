@@ -56,6 +56,35 @@ model User {
   @@map("users")
 }
 
+model InvestmentRecord {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                   String   @map("user_id") @db.Uuid
+  planId                   String   @map("plan_id")
+  planName                 String   @map("plan_name")
+  status                   String   @default("active")
+  principal                Decimal  @db.Decimal(20, 2)
+  lockedProfit             Decimal  @default(0) @map("locked_profit") @db.Decimal(20, 2)
+  currentDay               Int      @default(0) @map("current_day")
+  startDate                DateTime @map("start_date") @db.Timestamp(6)
+  endDate                  DateTime  @map("end_date") @db.Timestamp(6)
+  weeklyTopUpDue           Boolean  @default(false) @map("weekly_top_up_due")
+  weeklyTopUpAmount        Decimal  @default(0) @map("weekly_top_up_amount") @db.Decimal(20, 2)
+  weeklyTopUpDueSince      DateTime? @map("weekly_top_up_due_since") @db.Timestamp(6)
+  weeklyTopUpPaidAt        DateTime? @map("weekly_top_up_paid_at") @db.Timestamp(6)
+  weeklyTopUpApproved      Boolean  @default(false) @map("weekly_top_up_approved")
+  topUpPenaltyActive       Boolean  @default(false) @map("top_up_penalty_active")
+  pendingMarginalFee       Decimal  @default(0) @map("pending_marginal_fee") @db.Decimal(20, 2)
+  marginalFeeDueSince      DateTime? @map("marginal_fee_due_since") @db.Timestamp(6)
+  marginalFeePaidAt        DateTime? @map("marginal_fee_paid_at") @db.Timestamp(6)
+  marginalFeeApproved      Boolean  @default(false) @map("marginal_fee_approved")
+  dailyHistory             Json     @default("[]") @map("daily_history")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([userId, status])
+  @@map("investment_records")
+}
+
 model CopyLeader {
   id              String             @id @default(uuid())
   displayName     String             @map("display_name")

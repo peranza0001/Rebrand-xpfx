@@ -13,11 +13,13 @@
  */
 
 import { Router, type IRouter } from "express";
+import { randomUUID } from "node:crypto";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { notifyUser } from "../lib/notify";
 import { getUserData, logActivity, managers, users } from "../lib/store";
 import { generatePlanProjection, INVESTMENT_PLANS, normalizePlanId, type InvestmentPlanType } from "../lib/investment-plans";
 import { subtractMoney } from "../lib/money";
+import { persistInvestmentRecord, persistWallet } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -88,7 +90,7 @@ router.get("/investment-plans/:planId", requireAuth, (req, res) => {
  * - Account checklist completion
  * - No active subscriptions to other plans
  */
-router.post("/investment-plans/:planId/subscribe", requireAuth, (req, res) => {
+router.post("/investment-plans/:planId/subscribe", requireAuth, async (req, res) => {
   let planId: InvestmentPlanType;
   try {
     planId = normalizePlanId(req.params["planId"]);
@@ -142,7 +144,7 @@ router.post("/investment-plans/:planId/subscribe", requireAuth, (req, res) => {
   const manager = req.storedUser!.user.selectedManagerId ? managers.find((m) => m.id === req.storedUser!.user.selectedManagerId) ?? managers[0] ?? null : managers[0] ?? null;
 
   data.activePlanSubscription = {
-    subscriptionId: `sub_${Date.now()}`,
+    subscriptionId: randomUUID(),
     userId: req.userId!,
     planId,
     planName: plan.name,
@@ -162,6 +164,36 @@ router.post("/investment-plans/:planId/subscribe", requireAuth, (req, res) => {
     shortTradeDays: projection.shortTradeDays,
     marketSignal: projection.marketSignal,
   };
+
+  const durable = await persistInvestmentRecord({
+    id: data.activePlanSubscription.subscriptionId,
+    userId: req.userId!,
+    planId: plan.id,
+    planName: plan.name,
+    status: data.activePlanSubscription.status,
+    principal: subscriptionAmount,
+    lockedProfit: projection.estimatedProfit,
+    currentDay: 0,
+    startDate: data.activePlanSubscription.subscriptionStarted,
+    endDate: new Date(Date.now() + plan.durationDays * 86400000).toISOString(),
+    weeklyTopUpDue: false,
+    weeklyTopUpAmount: plan.weeklyTopUp,
+    weeklyTopUpApproved: false,
+    topUpPenaltyActive: false,
+    pendingMarginalFee: 0,
+    marginalFeeApproved: false,
+    dailyHistory: [],
+  });
+  if (!durable) {
+    mainWallet.balance = subscriptionAmount + mainWallet.balance;
+    data.activePlanSubscription = null;
+    return res.status(503).json({ error: "Investment persistence is unavailable", message: "The plan was not activated because durable database persistence could not be confirmed." });
+  }
+  const walletDurable = await persistWallet(mainWallet.id, req.userId!, { walletType: mainWallet.type, balance: mainWallet.balance, pendingBalance: mainWallet.pendingBalance, currency: mainWallet.currency, label: mainWallet.label, address: mainWallet.address });
+  if (!walletDurable) {
+    data.activePlanSubscription = null;
+    return res.status(503).json({ error: "Wallet persistence is unavailable", message: "The plan was not activated because the wallet debit could not be durably confirmed." });
+  }
 
   logActivity({
     actorId: req.userId!,

@@ -262,6 +262,68 @@ export function getPrismaModelDelegate(modelName: string): any | null {
   return null;
 }
 
+export type PersistedInvestmentRecord = {
+  id: string;
+  userId: string;
+  planId: string;
+  planName: string;
+  status: string;
+  principal: number;
+  lockedProfit: number;
+  currentDay: number;
+  startDate: string;
+  endDate: string;
+  weeklyTopUpDue: boolean;
+  weeklyTopUpAmount: number;
+  weeklyTopUpDueSince?: string;
+  weeklyTopUpPaidAt?: string;
+  weeklyTopUpApproved: boolean;
+  topUpPenaltyActive: boolean;
+  pendingMarginalFee: number;
+  marginalFeeDueSince?: string;
+  marginalFeePaidAt?: string;
+  marginalFeeApproved: boolean;
+  dailyHistory: unknown[];
+};
+
+function persistedInvestmentData(record: PersistedInvestmentRecord): Record<string, unknown> {
+  return {
+    userId: record.userId,
+    planId: record.planId,
+    planName: record.planName,
+    status: record.status,
+    principal: record.principal,
+    lockedProfit: record.lockedProfit,
+    currentDay: record.currentDay,
+    startDate: new Date(record.startDate),
+    endDate: new Date(record.endDate),
+    weeklyTopUpDue: record.weeklyTopUpDue,
+    weeklyTopUpAmount: record.weeklyTopUpAmount,
+    weeklyTopUpDueSince: record.weeklyTopUpDueSince ? new Date(record.weeklyTopUpDueSince) : null,
+    weeklyTopUpPaidAt: record.weeklyTopUpPaidAt ? new Date(record.weeklyTopUpPaidAt) : null,
+    weeklyTopUpApproved: record.weeklyTopUpApproved,
+    topUpPenaltyActive: record.topUpPenaltyActive,
+    pendingMarginalFee: record.pendingMarginalFee,
+    marginalFeeDueSince: record.marginalFeeDueSince ? new Date(record.marginalFeeDueSince) : null,
+    marginalFeePaidAt: record.marginalFeePaidAt ? new Date(record.marginalFeePaidAt) : null,
+    marginalFeeApproved: record.marginalFeeApproved,
+    dailyHistory: record.dailyHistory,
+  };
+}
+
+export async function persistInvestmentRecord(record: PersistedInvestmentRecord): Promise<boolean> {
+  if (!isUuid(record.userId) || !isUuid(record.id)) return false;
+  const delegate = getPrismaModelDelegate("InvestmentRecord");
+  if (!delegate?.upsert) return false;
+  try {
+    await delegate.upsert({ where: { id: record.id }, create: { id: record.id, ...persistedInvestmentData(record) }, update: persistedInvestmentData(record) });
+    return true;
+  } catch (err) {
+    logger.error({ err, investmentId: record.id, userId: record.userId }, "[db-persist] investment record persistence failed");
+    return false;
+  }
+}
+
 function getPrismaUserDelegate(): any | null {
   return getPrismaModelDelegate("User");
 }
@@ -695,8 +757,8 @@ export async function persistWallet(walletId: string, userId: string, walletData
   currency: string;
   label: string;
   address: string;
-}): Promise<void> {
-  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return;
+}): Promise<boolean> {
+  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return false;
   try {
     await prismaClient.wallets.upsert({
       where: { id: walletId },
@@ -718,8 +780,10 @@ export async function persistWallet(walletId: string, userId: string, walletData
         address: walletData.address,
       },
     });
-  } catch {
-    // Silent fail
+    return true;
+  } catch (err) {
+    logger.warn({ err, walletId, userId }, "[db-persist] persistWallet failed");
+    return false;
   }
 }
 
