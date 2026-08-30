@@ -32,25 +32,25 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   }, [location]);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
+    <div className="min-h-[100dvh] flex flex-col bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_30%),linear-gradient(180deg,#07120d_0%,#0b1220_35%,#0f172a_100%)] text-foreground">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg" data-testid="link-home-brand">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Link href="/" className="flex items-center gap-2 font-bold text-lg text-white" data-testid="link-home-brand">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30">
               <TrendingUp className="h-4 w-4" />
             </span>
-            <span>XpressPro <span className="text-primary">FX</span></span>
+            <span>XpressPro <span className="text-emerald-400">FX</span></span>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1">
             {NAV.map((n) => {
               const active = location === n.href;
               return (
                 <Link
                   key={n.href}
                   href={n.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+                  className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                    active ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30" : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
                   data-testid={`link-nav-${n.label.toLowerCase()}`}
                 >
@@ -62,15 +62,15 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
           <div className="hidden md:flex items-center gap-2">
             {isAuthenticated ? (
-              <Button asChild data-testid="button-dashboard">
+              <Button asChild className="rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20" data-testid="button-dashboard">
                 <Link href="/dashboard">Open dashboard</Link>
               </Button>
             ) : (
               <>
-                <Button asChild variant="ghost" data-testid="button-login">
+                <Button asChild variant="ghost" className="text-slate-300 hover:text-white hover:bg-white/5" data-testid="button-login">
                   <Link href="/login">Log in</Link>
                 </Button>
-                <Button asChild data-testid="button-signup">
+                <Button asChild className="rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20" data-testid="button-signup">
                   <Link href="/signup">Get started</Link>
                 </Button>
               </>
@@ -79,32 +79,32 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden" data-testid="button-menu">
+              <Button variant="ghost" size="icon" className="lg:hidden text-white hover:bg-white/5" data-testid="button-menu">
                 {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[85vw] max-w-sm">
+            <SheetContent side="right" className="w-[85vw] max-w-sm bg-slate-950 text-white border-l border-white/10">
               <div className="flex flex-col gap-1 mt-8">
                 {NAV.map((n) => (
                   <Link
                     key={n.href}
                     href={n.href}
-                    className="px-3 py-3 rounded-md text-base font-medium hover:bg-accent"
+                    className="px-3 py-3 rounded-md text-base font-medium text-slate-200 hover:bg-white/5 hover:text-white"
                   >
                     {n.label}
                   </Link>
                 ))}
-                <div className="border-t border-border mt-3 pt-3 flex flex-col gap-2">
+                <div className="border-t border-white/10 mt-3 pt-3 flex flex-col gap-2">
                   {isAuthenticated ? (
-                    <Button asChild className="w-full">
+                    <Button asChild className="w-full rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400">
                       <Link href="/dashboard">Open dashboard</Link>
                     </Button>
                   ) : (
                     <>
-                      <Button asChild variant="outline" className="w-full">
+                      <Button asChild variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-white/5">
                         <Link href="/login">Log in</Link>
                       </Button>
-                      <Button asChild className="w-full">
+                      <Button asChild className="w-full rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400">
                         <Link href="/signup">Get started</Link>
                       </Button>
                     </>
@@ -118,11 +118,11 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-border bg-card/40 mt-16">
+      <footer className="border-t border-white/10 bg-slate-950/80 mt-16">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 grid gap-8 grid-cols-2 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
-            <div className="font-bold text-lg mb-3">XpressPro FX</div>
-            <p className="text-sm text-muted-foreground">
+            <div className="font-bold text-lg mb-3 text-white">XpressPro FX</div>
+            <p className="text-sm text-slate-300">
               Multi-asset broker offering forex, crypto, indices, commodities, and stocks for retail and professional clients.
             </p>
           </div>
@@ -146,10 +146,10 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             { href: "/legal?tab=aml", label: "AML policy" },
           ]} />
         </div>
-        <div className="border-t border-border">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 text-xs text-muted-foreground space-y-2">
+        <div className="border-t border-white/10">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 text-xs text-slate-300 space-y-2">
             <p>
-              <strong className="text-foreground">Risk warning:</strong> Trading leveraged products such as CFDs, forex, and cryptocurrencies carries a high level of risk and may not be suitable for all investors. You may lose more than your initial deposit. Please ensure you fully understand the risks involved.
+              <strong className="text-white">Risk warning:</strong> Trading leveraged products such as CFDs, forex, and cryptocurrencies carries a high level of risk and may not be suitable for all investors. You may lose more than your initial deposit. Please ensure you fully understand the risks involved.
             </p>
             <p>© {new Date().getFullYear()} XpressPro FX. All rights reserved.</p>
           </div>
