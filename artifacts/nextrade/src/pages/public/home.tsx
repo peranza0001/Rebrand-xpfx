@@ -41,12 +41,12 @@ export function PublicHome() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 grid lg:grid-cols-2 gap-10 items-center">
           <div>
-            <Badge variant="outline" className="mb-4">Regulated multi-asset broker</Badge>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
+            <Badge variant="outline" className="mb-4 border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Regulated multi-asset broker</Badge>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight text-white">
               Trade the world's<br />
               markets, the smart way.
             </h1>
-            <p className="mt-5 text-lg text-muted-foreground max-w-xl">
+            <p className="mt-5 text-lg text-slate-300 max-w-xl">
               Forex, crypto, stocks, indices and commodities — all on one account, with deep liquidity, ultra-tight spreads from 0.0 pips and lightning-fast execution.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -65,11 +65,11 @@ export function PublicHome() {
           </div>
 
           <div className="relative">
-            <Card className="border-primary/20 shadow-2xl">
+            <Card className="border-white/10 bg-slate-950/60 shadow-2xl shadow-emerald-950/10">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Live markets</CardTitle>
-                  <Badge variant="secondary" className="font-mono">LIVE</Badge>
+                  <CardTitle className="text-base text-white">Live markets</CardTitle>
+                  <Badge variant="secondary" className="font-mono border-emerald-400/30 bg-emerald-500/10 text-emerald-300">LIVE</Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -162,24 +162,24 @@ export function PublicHome() {
       <Section title="Professional investment plans" subtitle="A unified structure for forex trading, US stock investing, crypto exposure, and digital portfolio growth.">
         <div className="grid gap-4 lg:grid-cols-4">
           {INVESTMENT_PLANS.map((plan) => (
-            <Card key={plan.name} className={plan.featured ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/8 to-background" : "border-border/70"}>
+            <Card key={plan.name} className={plan.featured ? "border-emerald-400/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,22,0.98))] shadow-xl shadow-emerald-950/15" : "border-white/10 bg-slate-950/40 shadow-lg shadow-slate-950/10"}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <plan.icon className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-lg">{plan.name}</CardTitle>
+                    <plan.icon className="h-4 w-4 text-emerald-300" />
+                    <CardTitle className="text-lg text-white">{plan.name}</CardTitle>
                   </div>
-                  {plan.featured && <Badge>Featured</Badge>}
+                  {plan.featured && <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Featured</Badge>}
                 </div>
-                <div className="mt-3 text-3xl font-bold">${plan.minDeposit}</div>
-                <div className="text-xs text-muted-foreground">starting deposit</div>
+                <div className="mt-3 text-3xl font-bold text-white">${plan.minDeposit}</div>
+                <div className="text-xs text-slate-400">starting deposit</div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
-                <ul className="space-y-2 text-sm">
+                <p className="text-sm text-slate-300">{plan.description}</p>
+                <ul className="space-y-2 text-sm text-slate-200">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                      <Check className="mt-0.5 h-4 w-4 text-emerald-300 shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -298,14 +298,14 @@ export function PublicHome() {
 
       {/* CTA */}
       <section className="px-4 md:px-6 my-16">
-        <div className="max-w-7xl mx-auto rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-8 md:p-14 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Ready to start trading?</h2>
-          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+        <div className="max-w-7xl mx-auto rounded-[28px] border border-emerald-400/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_30%),linear-gradient(135deg,rgba(5,12,16,0.98),rgba(15,23,42,0.92))] p-8 md:p-14 text-center shadow-2xl shadow-emerald-950/10">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Ready to start trading?</h2>
+          <p className="mt-3 text-slate-300 max-w-xl mx-auto">
             Open a free account in under 3 minutes. No commitment, no hidden fees.
           </p>
           <div className="mt-6 flex flex-wrap gap-3 justify-center">
-            <Button asChild size="lg"><Link href="/signup">Create live account</Link></Button>
-            <Button asChild size="lg" variant="outline"><Link href="/login">Try demo</Link></Button>
+            <Button asChild size="lg" className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"><Link href="/signup">Create live account</Link></Button>
+            <Button asChild size="lg" variant="outline" className="border-white/15 text-white hover:bg-white/5"><Link href="/login">Try demo</Link></Button>
           </div>
         </div>
       </section>
@@ -325,8 +325,8 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
     <section className="px-4 md:px-6 py-12 md:py-16">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h2>
-          {subtitle && <p className="mt-2 text-muted-foreground">{subtitle}</p>}
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{title}</h2>
+          {subtitle && <p className="mt-2 text-slate-300">{subtitle}</p>}
         </div>
         {children}
       </div>
