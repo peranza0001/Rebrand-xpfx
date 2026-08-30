@@ -151,9 +151,9 @@ export function Dashboard() {
       <DemoExperienceBanner />
 
       {/* Modern market watchlist */}
-      <Card className="border-border/50">
+      <Card className="border-white/10 bg-slate-950/40 shadow-lg shadow-emerald-950/10">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Professional Market Watch</CardTitle>
+          <CardTitle className="text-base text-white">Professional Market Watch</CardTitle>
         </CardHeader>
         <CardContent>
           <ModernMarketWatchlist
@@ -205,19 +205,19 @@ export function Dashboard() {
         </div>
       )}
 
-      <Card className="border-primary/20 bg-linear-to-r from-primary/8 via-background to-background">
+      <Card className="border-emerald-500/20 bg-[radial-gradient(circle_at_left,_rgba(16,185,129,0.12),_transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(9,14,22,0.96))] shadow-xl shadow-emerald-950/10">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 text-white">
                 <Zap className="h-4 w-4 text-yellow-500" />
                 Live execution desk
               </CardTitle>
-              <CardDescription className="text-xs mt-1">
+              <CardDescription className="text-xs mt-1 text-slate-300">
                 Real-time trade signals, account momentum, and risk decisions across your active positions.
               </CardDescription>
             </div>
-            <Badge variant="outline" className="border-emerald-500/40 text-emerald-500 bg-emerald-500/5">
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 bg-emerald-500/5">
               <Activity className="h-2 w-2 mr-1 rounded-full bg-emerald-500 animate-pulse" /> 
               {liveTradeSnapshots.length > 0 ? `${liveTradeSnapshots.length} LIVE` : "AWAITING TRADES"}
             </Badge>
@@ -312,11 +312,11 @@ export function Dashboard() {
         </div>
 
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+          <Card className="border-white/10 bg-slate-950/40 hover:border-emerald-400/40 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-semibold">TOTAL BALANCE</span>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-slate-400 font-semibold">TOTAL BALANCE</span>
+                <Wallet className="h-4 w-4 text-slate-300" />
               </div>
               {isLoadingWallets ? (
                 <Skeleton className="h-7 w-24" />
@@ -329,55 +329,55 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+          <Card className="border-white/10 bg-slate-950/40 hover:border-emerald-400/40 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-semibold">ACCOUNT EQUITY</span>
-                <Activity className="h-4 w-4 text-primary" />
+                <span className="text-xs text-slate-400 font-semibold">ACCOUNT EQUITY</span>
+                <Activity className="h-4 w-4 text-emerald-300" />
               </div>
-              <div className="text-xl md:text-2xl font-bold font-mono text-primary">{fmtMoney(equity)}</div>
-              <div className="text-xs text-muted-foreground mt-1">Real-time valuation</div>
+              <div className="text-xl md:text-2xl font-bold font-mono text-emerald-300">{fmtMoney(equity)}</div>
+              <div className="text-xs text-slate-400 mt-1">Real-time valuation</div>
             </CardContent>
           </Card>
 
-          <Card className={`border-border/50 hover:border-${openPnL >= 0 ? 'primary' : 'destructive'}/50 transition-colors`}>
+          <Card className={openPnL >= 0 ? "border-emerald-400/20 bg-slate-950/40 hover:border-emerald-400/40 transition-colors" : "border-rose-400/20 bg-slate-950/40 hover:border-rose-400/40 transition-colors"}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-semibold">OPEN P&L</span>
-                {openPnL >= 0 ? <TrendingUp className="h-4 w-4 text-primary" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+                <span className="text-xs text-slate-400 font-semibold">OPEN P&L</span>
+                {openPnL >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-300" /> : <TrendingDown className="h-4 w-4 text-rose-300" />}
               </div>
-              <div className={`text-xl md:text-2xl font-bold font-mono ${openPnL >= 0 ? "text-primary" : "text-destructive"}`}>
+              <div className={`text-xl md:text-2xl font-bold font-mono ${openPnL >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                 {fmtSignedMoney(openPnL)}
               </div>
-              <div className={`text-xs font-semibold mt-1 ${openPnL >= 0 ? "text-primary" : "text-destructive"}`}>
+              <div className={`text-xs font-semibold mt-1 ${openPnL >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                 {openPnL >= 0 ? "+" : ""}{((openPnL / (totalBalance || 1)) * 100).toFixed(2)}%
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+          <Card className="border-white/10 bg-slate-950/40 hover:border-emerald-400/40 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-semibold">FREE MARGIN</span>
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-slate-400 font-semibold">FREE MARGIN</span>
+                <Briefcase className="h-4 w-4 text-slate-300" />
               </div>
-              <div className="text-xl md:text-2xl font-bold font-mono">{fmtMoney(freeMargin)}</div>
-              <div className="text-xs text-muted-foreground mt-1">Available for trading</div>
+              <div className="text-xl md:text-2xl font-bold font-mono text-white">{fmtMoney(freeMargin)}</div>
+              <div className="text-xs text-slate-400 mt-1">Available for trading</div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 hover:border-primary/50 transition-colors">
+          <Card className="border-white/10 bg-slate-950/40 hover:border-emerald-400/40 transition-colors">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground font-semibold">SOCIAL PROFITS</span>
-                <Users className="h-4 w-4 text-primary" />
+                <span className="text-xs text-slate-400 font-semibold">SOCIAL PROFITS</span>
+                <Users className="h-4 w-4 text-emerald-300" />
               </div>
-              <div className={`text-xl md:text-2xl font-bold font-mono ${(socialWallet?.totalProfits ?? 0) > 0 ? "text-primary" : ""}`}>
+              <div className={`text-xl md:text-2xl font-bold font-mono ${(socialWallet?.totalProfits ?? 0) > 0 ? "text-emerald-300" : "text-white"}`}>
                 {balancesMasked
                   ? "——"
                   : `+$${(socialWallet?.totalProfits ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">{socialWallet?.activeTrades ?? 0} active</div>
+              <div className="text-xs text-slate-400 mt-1">{socialWallet?.activeTrades ?? 0} active</div>
             </CardContent>
           </Card>
         </div>
