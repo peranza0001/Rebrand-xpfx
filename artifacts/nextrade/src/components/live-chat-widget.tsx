@@ -414,7 +414,7 @@ export function LiveChatWidget() {
               className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button
-              onClick={handleSend}
+              onClick={() => { void handleSend(); }}
               disabled={!message.trim() || isSending}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >

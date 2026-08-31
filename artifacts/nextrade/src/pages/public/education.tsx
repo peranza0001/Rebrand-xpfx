@@ -14,7 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 export function PublicEducation() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-12">
-      <header className="overflow-hidden rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8">
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8 shadow-sm">
         <div className="max-w-3xl">
           <Badge variant="outline" className="mb-3">Academy</Badge>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Learn to trade with confidence</h1>
