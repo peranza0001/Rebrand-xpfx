@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://web-production-94f970.up.railway.app/api/:path*"
+      "destination": "https://rebrand-xpfx-production-1988.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",

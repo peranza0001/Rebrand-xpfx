@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 export function PublicAbout() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-14">
-      <header className="overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8">
         <div className="max-w-3xl">
           <Badge variant="outline" className="mb-3">About us</Badge>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Building a better trading experience</h1>

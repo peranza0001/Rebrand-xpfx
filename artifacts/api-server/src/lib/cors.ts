@@ -65,7 +65,6 @@ export function getAllowedOrigins(): string[] {
   const fallbackOrigins = [
     'https://*.vercel.app',
     'https://*.railway.app',
-    'https://web-production-94f970.up.railway.app',
     'https://rebrand-xpfx-production-1988.up.railway.app',
     'https://web-production-45a7e.up.railway.app',
     'https://xpressprofx.com',

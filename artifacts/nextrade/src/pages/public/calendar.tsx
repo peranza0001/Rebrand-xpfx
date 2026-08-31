@@ -85,7 +85,7 @@ export function PublicCalendar() {
 
       <Card className="overflow-hidden border-border/80">
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
+          <table className="w-full text-sm min-w-180">
             <thead className="border-b border-border text-xs text-muted-foreground bg-muted/30">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Date</th>

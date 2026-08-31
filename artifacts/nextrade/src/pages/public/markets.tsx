@@ -36,7 +36,7 @@ export function PublicMarkets() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-8">
-      <header className="overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8 shadow-sm">
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <Badge variant="outline" className="mb-3">
@@ -48,7 +48,7 @@ export function PublicMarkets() {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 min-w-[260px]">
+          <div className="grid grid-cols-3 gap-3 min-w-65">
             <MetricCard icon={TrendingUp} label="Avg spread" value="0.1 pips" />
             <MetricCard icon={BarChart3} label="Liquidity" value="25+ venues" />
             <MetricCard icon={Sparkles} label="Execution" value="<14 ms" />
@@ -101,7 +101,7 @@ function MarketTable({ category, query }: { category: MarketCategory; query: str
   return (
     <Card className="overflow-hidden border-border/80">
       <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="w-full text-sm min-w-160">
           <thead className="border-b border-border text-xs text-muted-foreground bg-muted/30">
             <tr>
               <th className="text-left px-4 py-3 font-medium">Symbol</th>

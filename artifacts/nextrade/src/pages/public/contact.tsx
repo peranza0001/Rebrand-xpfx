@@ -55,7 +55,7 @@ export function PublicContact() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
       <div>
-        <header className="rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+        <header className="rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Talk to us</h1>
           <p className="mt-2 text-muted-foreground text-lg">
             Questions about your account, the platform, or partnerships? Pick the channel that works for you.
