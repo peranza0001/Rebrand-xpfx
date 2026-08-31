@@ -205,7 +205,7 @@ export function Dashboard() {
         </div>
       )}
 
-      <Card className="border-emerald-500/20 bg-[radial-gradient(circle_at_left,_rgba(16,185,129,0.12),_transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(9,14,22,0.96))] shadow-xl shadow-emerald-950/10">
+      <Card className="border-emerald-500/20 bg-[radial-gradient(circle_at_left,rgba(16,185,129,0.12),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(9,14,22,0.96))] shadow-xl shadow-emerald-950/10">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>

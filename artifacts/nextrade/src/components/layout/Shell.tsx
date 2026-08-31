@@ -253,7 +253,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.20),_transparent_18%),linear-gradient(180deg,#07120d_0%,#0b1220_28%,#0f172a_100%)] text-white">
+    <div className="flex h-dvh w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_18%),linear-gradient(180deg,#07120d_0%,#0b1220_28%,#0f172a_100%)] text-white">
       {/* Desktop sidebar (hidden below md) */}
       <aside className="hidden md:flex w-72 border-r border-white/10 bg-slate-950/70 backdrop-blur-xl flex-col">
         <div className="h-16 flex items-center px-6 border-b border-white/10">

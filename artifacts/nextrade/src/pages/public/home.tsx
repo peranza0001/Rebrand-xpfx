@@ -38,7 +38,7 @@ export function PublicHome() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 grid lg:grid-cols-2 gap-10 items-center">
           <div>
             <Badge variant="outline" className="mb-4 border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Regulated multi-asset broker</Badge>
@@ -162,7 +162,7 @@ export function PublicHome() {
       <Section title="Professional investment plans" subtitle="A unified structure for forex trading, US stock investing, crypto exposure, and digital portfolio growth.">
         <div className="grid gap-4 lg:grid-cols-4">
           {INVESTMENT_PLANS.map((plan) => (
-            <Card key={plan.name} className={plan.featured ? "border-emerald-400/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,22,0.98))] shadow-xl shadow-emerald-950/15" : "border-white/10 bg-slate-950/40 shadow-lg shadow-slate-950/10"}>
+            <Card key={plan.name} className={plan.featured ? "border-emerald-400/30 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,22,0.98))] shadow-xl shadow-emerald-950/15" : "border-white/10 bg-slate-950/40 shadow-lg shadow-slate-950/10"}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -298,7 +298,7 @@ export function PublicHome() {
 
       {/* CTA */}
       <section className="px-4 md:px-6 my-16">
-        <div className="max-w-7xl mx-auto rounded-[28px] border border-emerald-400/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_30%),linear-gradient(135deg,rgba(5,12,16,0.98),rgba(15,23,42,0.92))] p-8 md:p-14 text-center shadow-2xl shadow-emerald-950/10">
+        <div className="max-w-7xl mx-auto rounded-[28px] border border-emerald-400/30 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_30%),linear-gradient(135deg,rgba(5,12,16,0.98),rgba(15,23,42,0.92))] p-8 md:p-14 text-center shadow-2xl shadow-emerald-950/10">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Ready to start trading?</h2>
           <p className="mt-3 text-slate-300 max-w-xl mx-auto">
             Open a free account in under 3 minutes. No commitment, no hidden fees.

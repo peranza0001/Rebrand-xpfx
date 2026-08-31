@@ -32,7 +32,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   }, [location]);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_30%),linear-gradient(180deg,#07120d_0%,#0b1220_35%,#0f172a_100%)] text-foreground">
+    <div className="min-h-dvh flex flex-col bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_30%),linear-gradient(180deg,#07120d_0%,#0b1220_35%,#0f172a_100%)] text-foreground">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg text-white" data-testid="link-home-brand">
