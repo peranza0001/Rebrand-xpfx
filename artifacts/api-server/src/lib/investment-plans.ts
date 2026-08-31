@@ -2,6 +2,9 @@ import { createHash } from "crypto";
 
 export type LegacyPlanType = "starter-growth" | "standard-trader" | "elite-investor" | "us-stocks-plus";
 export type PlanId =
+  | "standard"
+  | "pro"
+  | "vip"
   | "starter_spark"
   | "growth_core"
   | "momentum_pulse"
@@ -209,6 +212,69 @@ export function normalizePlanId(planId: string): PlanId {
 }
 
 export const INVESTMENT_PLANS: Record<PlanId, InvestmentPlan> = {
+  standard: {
+    id: "standard",
+    name: "Standard",
+    minDeposit: 500,
+    maxDeposit: 4999,
+    durationDays: 14,
+    dailyRoiMin: 0.004,
+    dailyRoiMax: 0.0155,
+    capitalEfficiencyBonus: 0.05,
+    riskLevel: "low-med",
+    weeklyTopUp: 60,
+    requiredLevel: 1,
+    allowNewUserOnce: true,
+    description: "Accessible core tier for first-time investors with structured growth pacing and transparent execution.",
+    estimatedReturnPercent: 12.4,
+    tradingDuration: "long",
+    maxActivePlans: 2,
+    features: ["Core market exposure", "Transparent fee structure", "Weekly automation and review"],
+    automationLevel: "passive",
+    recommendedHoldDays: 14,
+  },
+  pro: {
+    id: "pro",
+    name: "Pro",
+    minDeposit: 5000,
+    maxDeposit: 24999,
+    durationDays: 21,
+    dailyRoiMin: 0.0065,
+    dailyRoiMax: 0.024,
+    capitalEfficiencyBonus: 0.12,
+    riskLevel: "medium",
+    weeklyTopUp: 180,
+    requiredLevel: 3,
+    allowNewUserOnce: false,
+    description: "Higher-conviction strategy tier designed for active portfolio builders seeking stronger compounding.",
+    estimatedReturnPercent: 18.8,
+    tradingDuration: "short",
+    maxActivePlans: 3,
+    features: ["Active allocation strategy", "$10k+ efficiency boost", "Priority account review"],
+    automationLevel: "active",
+    recommendedHoldDays: 21,
+  },
+  vip: {
+    id: "vip",
+    name: "VIP",
+    minDeposit: 25000,
+    maxDeposit: 99999,
+    durationDays: 45,
+    dailyRoiMin: 0.0095,
+    dailyRoiMax: 0.033,
+    capitalEfficiencyBonus: 0.24,
+    riskLevel: "high",
+    weeklyTopUp: 420,
+    requiredLevel: 5,
+    allowNewUserOnce: false,
+    description: "VIP tier for larger balances with greater capital efficiency, higher throughput, and direct oversight.",
+    estimatedReturnPercent: 27.6,
+    tradingDuration: "short",
+    maxActivePlans: 4,
+    features: ["VIP capital efficiency", "Direct oversight", "Accelerated top-up management"],
+    automationLevel: "aggressive",
+    recommendedHoldDays: 45,
+  },
   starter_spark: {
     id: "starter_spark",
     name: "Starter Spark",

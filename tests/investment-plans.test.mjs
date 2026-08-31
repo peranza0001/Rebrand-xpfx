@@ -36,6 +36,20 @@ test('plan catalog includes distinct long and short trading structures', () => {
   assert.ok(longPlan.recommendedHoldDays > shortPlan.recommendedHoldDays);
 });
 
+test('catalog includes the required 12 plans plus Standard, Pro and VIP tiers', () => {
+  const ids = Object.keys(INVESTMENT_PLANS);
+  const mandatory = ['starter_spark', 'growth_core', 'momentum_pulse', 'alpha_forge', 'precision_nexus', 'quant_dominion', 'institutional_apex', 'sovereign_vector', 'elite_horizon', 'apex_legacy', 'titan_reserve', 'infinity_protocol', 'standard', 'pro', 'vip'];
+
+  for (const id of mandatory) {
+    assert.ok(ids.includes(id), `Missing catalog entry for ${id}`);
+  }
+
+  assert.equal(ids.length, 15);
+  assert.equal(INVESTMENT_PLANS.standard.requiredLevel, 1);
+  assert.equal(INVESTMENT_PLANS.pro.requiredLevel, 3);
+  assert.equal(INVESTMENT_PLANS.vip.requiredLevel, 5);
+});
+
 test('daily engine keeps profits precise and renews weekly top-ups', () => {
   const investment = {
     id: 'inv-1',
