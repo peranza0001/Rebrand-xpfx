@@ -50,7 +50,7 @@ export function PublicCalendar() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-8">
-      <header className="overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-linear-to-br from-primary/10 via-card to-card p-6 md:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <Badge variant="outline" className="mb-3"><CalIcon className="mr-1 h-3 w-3" /> Live calendar</Badge>
@@ -60,7 +60,7 @@ export function PublicCalendar() {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 min-w-[260px]">
+          <div className="grid grid-cols-3 gap-3 min-w-65">
             <MiniStat label="High" value={`${EVENTS.filter((e) => e.impact === "high").length}`} icon={TrendingUp} />
             <MiniStat label="Medium" value={`${EVENTS.filter((e) => e.impact === "medium").length}`} icon={Clock3} />
             <MiniStat label="Low" value={`${EVENTS.filter((e) => e.impact === "low").length}`} icon={CalIcon} />
