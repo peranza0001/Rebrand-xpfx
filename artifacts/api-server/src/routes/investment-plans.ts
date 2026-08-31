@@ -23,26 +23,35 @@ import { persistInvestmentRecord, persistWallet } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
+export function mapInvestmentPlanCatalog(input: Record<string, InvestmentPlanType | any> = INVESTMENT_PLANS) {
+  return Object.values(input).map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    description: plan.description,
+    minDeposit: plan.minDeposit,
+    maxDeposit: plan.maxDeposit,
+    estimatedReturn: plan.estimatedReturnPercent,
+    tradingDuration: plan.tradingDuration,
+    recommendedHoldDays: plan.recommendedHoldDays,
+    durationDays: plan.durationDays,
+    leverage: plan.automationLevel === "aggressive" ? 5 : plan.automationLevel === "active" ? 3 : 1,
+    riskLevel: plan.riskLevel,
+    requiredLevel: plan.requiredLevel,
+    allowNewUserOnce: plan.allowNewUserOnce,
+    maxActivePlans: plan.maxActivePlans,
+    assets: plan.features ?? [],
+    automationEnabled: plan.automationLevel !== undefined,
+    active: true,
+  }));
+}
+
 /**
  * GET /investment-plans
  * List all available investment plans
  */
 router.get("/investment-plans", requireAuth, (req, res) => {
   const data = getUserData(req.userId!);
-  const plans = Object.values(INVESTMENT_PLANS).map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    description: plan.description,
-    minDeposit: plan.minDeposit,
-    estimatedReturn: plan.estimatedReturnPercent,
-    tradingDuration: plan.tradingDuration,
-    recommendedHoldDays: plan.recommendedHoldDays,
-    leverage: plan.automationLevel === "aggressive" ? 5 : plan.automationLevel === "active" ? 3 : 1,
-    riskLevel: plan.riskLevel,
-    assets: plan.features,
-    automationEnabled: true,
-    active: true,
-  }));
+  const plans = mapInvestmentPlanCatalog();
 
   res.json({
     plans,

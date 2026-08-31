@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DEFAULT_ACCOUNT_CHECKLIST, generatePlanProjection, evaluateAccountChecklist, INVESTMENT_PLANS } from '../artifacts/api-server/src/lib/investment-plans.ts';
+import { mapInvestmentPlanCatalog } from '../artifacts/api-server/src/routes/investment-plans.ts';
 import { adminApproveTopUp, markTopUpPaid, processDailyTick } from '../artifacts/api-server/src/lib/investment-engine.ts';
 
 test('standard trader plan creates a realistic automated projection', () => {
@@ -48,6 +49,24 @@ test('catalog includes the required 12 plans plus Standard, Pro and VIP tiers', 
   assert.equal(INVESTMENT_PLANS.standard.requiredLevel, 1);
   assert.equal(INVESTMENT_PLANS.pro.requiredLevel, 3);
   assert.equal(INVESTMENT_PLANS.vip.requiredLevel, 5);
+});
+
+test('public catalog response includes every plan and required gating metadata', () => {
+  const plans = mapInvestmentPlanCatalog(INVESTMENT_PLANS);
+  const ids = plans.map((plan) => plan.id).sort();
+  const expected = Object.keys(INVESTMENT_PLANS).sort();
+
+  assert.deepEqual(ids, expected);
+  assert.equal(plans.length, 15);
+
+  const standard = plans.find((plan) => plan.id === 'standard');
+  const vip = plans.find((plan) => plan.id === 'vip');
+
+  assert.equal(standard.requiredLevel, 1);
+  assert.equal(standard.allowNewUserOnce, true);
+  assert.equal(standard.maxActivePlans, 2);
+  assert.equal(vip.requiredLevel, 5);
+  assert.equal(vip.maxActivePlans, 4);
 });
 
 test('daily engine keeps profits precise and renews weekly top-ups', () => {
