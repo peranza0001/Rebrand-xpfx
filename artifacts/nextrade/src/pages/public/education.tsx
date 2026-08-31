@@ -5,7 +5,7 @@
  * accordion. All content is curated marketing copy — no backend required.
  */
 import { Link } from "wouter";
-import { GraduationCap, BookOpen, PlayCircle, TrendingUp, Clock } from "lucide-react";
+import { BookOpen, Clock, GraduationCap, PlayCircle, Sparkles, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,32 +14,49 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 export function PublicEducation() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-12">
-      <header className="max-w-2xl">
-        <Badge variant="outline" className="mb-3">Academy</Badge>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Learn to trade with confidence</h1>
-        <p className="mt-2 text-muted-foreground">
-          Free courses, weekly market insights and a complete glossary — built by professional traders for traders at every level.
-        </p>
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+        <div className="max-w-3xl">
+          <Badge variant="outline" className="mb-3">Academy</Badge>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Learn to trade with confidence</h1>
+          <p className="mt-3 text-muted-foreground text-lg">
+            Free courses, weekly market insights and a complete glossary — built by professional traders for traders at every level.
+          </p>
+        </div>
       </header>
 
+      <section className="grid gap-4 md:grid-cols-3">
+        {[
+          { label: "Courses", value: "24+" },
+          { label: "Market briefs", value: "Weekly" },
+          { label: "Mentor support", value: "Live" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border-border/80 bg-card/80">
+            <CardContent className="p-5">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{stat.label}</div>
+              <div className="mt-2 text-2xl font-bold">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
       <section>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Course tracks</h2>
-        <div className="grid md:grid-cols-3 gap-4">
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold"><GraduationCap className="h-5 w-5 text-primary" /> Course tracks</h2>
+        <div className="grid gap-4 md:grid-cols-3">
           {COURSES.map((c) => (
-            <Card key={c.title} className="hover-elevate">
+            <Card key={c.title} className="hover-elevate border-border/80 bg-card/80">
               <CardHeader>
-                <div className="flex items-center justify-between mb-1">
+                <div className="mb-2 flex items-center justify-between gap-2">
                   <Badge variant="secondary">{c.level}</Badge>
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" /> {c.duration}
                   </span>
                 </div>
                 <CardTitle className="text-lg">{c.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">{c.desc}</p>
+                <p className="mb-4 text-sm text-muted-foreground">{c.desc}</p>
                 <Button asChild variant="outline" className="w-full">
-                  <Link href="/signup"><PlayCircle className="h-4 w-4 mr-2" /> Start course</Link>
+                  <Link href="/signup"><PlayCircle className="mr-2 h-4 w-4" /> Start course</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -48,15 +65,15 @@ export function PublicEducation() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" /> Latest market insights</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold"><BookOpen className="h-5 w-5 text-primary" /> Latest market insights</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {ARTICLES.map((a) => (
-            <Card key={a.title} className="hover-elevate">
+            <Card key={a.title} className="hover-elevate border-border/80 bg-card/80">
               <CardContent className="p-5">
-                <div className="text-xs text-muted-foreground mb-2 inline-flex items-center gap-1">
+                <div className="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3" /> {a.category} · {a.date}
                 </div>
-                <div className="font-semibold mb-2">{a.title}</div>
+                <div className="mb-2 font-semibold">{a.title}</div>
                 <p className="text-sm text-muted-foreground">{a.excerpt}</p>
               </CardContent>
             </Card>
@@ -65,8 +82,11 @@ export function PublicEducation() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4">Glossary</h2>
-        <Card>
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">Glossary</h2>
+        </div>
+        <Card className="border-border/80 bg-card/80">
           <CardContent className="p-2">
             <Accordion type="single" collapsible>
               {GLOSSARY.map((g) => (

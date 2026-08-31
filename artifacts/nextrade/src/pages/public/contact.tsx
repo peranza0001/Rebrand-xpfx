@@ -5,7 +5,7 @@
  * plus office locations and live channels.
  */
 import { useState } from "react";
-import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Mail, MapPin, MessageCircle, Phone, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,12 +53,14 @@ export function PublicContact() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 grid lg:grid-cols-2 gap-10">
+    <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
       <div>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Talk to us</h1>
-        <p className="mt-2 text-muted-foreground">
-          Questions about your account, the platform, or partnerships? Pick the channel that works for you.
-        </p>
+        <header className="rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Talk to us</h1>
+          <p className="mt-2 text-muted-foreground text-lg">
+            Questions about your account, the platform, or partnerships? Pick the channel that works for you.
+          </p>
+        </header>
 
         <div className="mt-8 space-y-3">
           {[
@@ -66,9 +68,9 @@ export function PublicContact() {
             { icon: Phone, title: "Phone (24/7)", value: "+1 (800) 555-0199" },
             { icon: MessageCircle, title: "Live chat", value: "Available in your dashboard" },
           ].map(({ icon: Icon, title, value }) => (
-            <Card key={title}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <span className="h-9 w-9 rounded-md bg-primary/15 text-primary flex items-center justify-center">
+            <Card key={title} className="border-border/80 bg-card/80">
+              <CardContent className="flex items-center gap-3 p-4">
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/15 text-primary">
                   <Icon className="h-4 w-4" />
                 </span>
                 <div>
@@ -81,13 +83,13 @@ export function PublicContact() {
         </div>
 
         <div className="mt-8">
-          <h2 className="font-semibold mb-3">Our offices</h2>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <h2 className="mb-3 font-semibold">Our offices</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
             {OFFICES.map((o) => (
-              <Card key={o.city}>
+              <Card key={o.city} className="border-border/80 bg-card/80">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-primary mt-0.5" />
+                    <MapPin className="mt-0.5 h-4 w-4 text-primary" />
                     <div>
                       <div className="font-semibold">{o.city}</div>
                       <div className="text-xs text-muted-foreground">{o.address}</div>
@@ -100,11 +102,11 @@ export function PublicContact() {
         </div>
       </div>
 
-      <Card className="self-start">
+      <Card className="self-start border-border/80 bg-card/80 shadow-lg shadow-primary/5">
         <CardContent className="p-6">
-          <h2 className="font-semibold text-lg mb-4">Send us a message</h2>
+          <h2 className="mb-4 text-lg font-semibold">Send us a message</h2>
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" name="name" required data-testid="input-contact-name" />
@@ -123,7 +125,7 @@ export function PublicContact() {
               <Textarea id="message" name="message" rows={5} required data-testid="input-contact-message" />
             </div>
             <Button type="submit" className="w-full" disabled={submitting} data-testid="button-contact-submit">
-              {submitting ? "Sending…" : "Send message"}
+              {submitting ? "Sending…" : <><Send className="mr-2 h-4 w-4" /> Send message</>}
             </Button>
           </form>
         </CardContent>

@@ -5,7 +5,7 @@
  * are rendered in the visitor's local timezone.
  */
 import { useMemo, useState } from "react";
-import { Calendar as CalIcon } from "lucide-react";
+import { Calendar as CalIcon, Clock3, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,17 +49,27 @@ export function PublicCalendar() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6 py-10">
-      <header className="mb-6 max-w-2xl">
-        <Badge variant="outline" className="mb-3"><CalIcon className="h-3 w-3 mr-1" /> Live calendar</Badge>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Economic calendar</h1>
-        <p className="mt-2 text-muted-foreground">
-          High-impact macro releases that move the markets. Times shown are server time (UTC); always confirm in your platform.
-        </p>
+    <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-8">
+      <header className="overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <Badge variant="outline" className="mb-3"><CalIcon className="mr-1 h-3 w-3" /> Live calendar</Badge>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Economic calendar</h1>
+            <p className="mt-3 text-muted-foreground text-lg">
+              High-impact macro releases that move the markets. Times shown are server time (UTC); always confirm in your platform.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 min-w-[260px]">
+            <MiniStat label="High" value={`${EVENTS.filter((e) => e.impact === "high").length}`} icon={TrendingUp} />
+            <MiniStat label="Medium" value={`${EVENTS.filter((e) => e.impact === "medium").length}`} icon={Clock3} />
+            <MiniStat label="Low" value={`${EVENTS.filter((e) => e.impact === "low").length}`} icon={CalIcon} />
+          </div>
+        </div>
       </header>
 
-      <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">Filter by impact:</span>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/80 p-3">
+        <span className="text-sm text-muted-foreground">Filter by impact</span>
         <Select value={impact} onValueChange={(v) => setImpact(v as typeof impact)}>
           <SelectTrigger className="w-40" data-testid="select-impact">
             <SelectValue />
@@ -73,10 +83,10 @@ export function PublicCalendar() {
         </Select>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden border-border/80">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm min-w-[720px]">
-            <thead className="border-b border-border text-xs text-muted-foreground">
+            <thead className="border-b border-border text-xs text-muted-foreground bg-muted/30">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">Date</th>
                 <th className="text-left px-4 py-3 font-medium">Time</th>
@@ -105,6 +115,16 @@ export function PublicCalendar() {
           </table>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function MiniStat({ icon: Icon, label, value }: { icon: typeof CalIcon; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card/80 p-3 shadow-sm">
+      <Icon className="mb-2 h-4 w-4 text-primary" />
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-1 font-semibold">{value}</div>
     </div>
   );
 }
