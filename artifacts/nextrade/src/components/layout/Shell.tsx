@@ -42,6 +42,7 @@ import {
   Menu,
   Receipt,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -96,6 +97,7 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Trades", href: "/trades", icon: LineChart },
       { name: "Demo Trading", href: "/demo-trading", icon: BarChart3 },
+      { name: "Copy Trading", href: "/copy-trading", icon: TrendingUp },
       { name: "P2P Market", href: "/p2p", icon: ArrowLeftRight },
       { name: "Trade Manager", href: "/managers", icon: Users },
       { name: "Messages", href: "/messages", icon: MessageSquare },

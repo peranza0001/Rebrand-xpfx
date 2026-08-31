@@ -191,6 +191,22 @@ test('live chat widget contains open-close, unread, and durable-history behavior
   assert.match(widget, /localStorage\.setItem\("xpfx_live_chat_profile"/, 'visitor identity must survive reloads');
 });
 
+test('copy trading route, nav, and page are wired into the authenticated app', async () => {
+  const appSource = await fs.promises.readFile(new URL('../artifacts/nextrade/src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /path="\/copy-trading"/i, 'authenticated app should expose the copy trading route');
+
+  const shellSource = await fs.promises.readFile(new URL('../artifacts/nextrade/src/components/layout/Shell.tsx', import.meta.url), 'utf8');
+  assert.match(shellSource, /Copy Trading/i, 'sidebar should include the copy trading navigation item');
+
+  const copyPageExists = fs.existsSync(new URL('../artifacts/nextrade/src/pages/copy-trading.tsx', import.meta.url));
+  assert.ok(copyPageExists, 'copy trading page should exist');
+
+  if (copyPageExists) {
+    const copyPageSource = await fs.promises.readFile(new URL('../artifacts/nextrade/src/pages/copy-trading.tsx', import.meta.url), 'utf8');
+    assert.match(copyPageSource, /\/api\/copy-trading\/leaders|\/api\/copy-trading\/history/i, 'copy trading page should connect to the real backend API');
+  }
+});
+
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = baseUrl;

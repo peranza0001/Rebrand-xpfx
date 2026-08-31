@@ -274,7 +274,7 @@ export function LiveChatWidget() {
       {/* Floating button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[70] w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center hover:opacity-90 transition-all duration-200 hover:scale-105 pointer-events-auto"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-70 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center hover:opacity-90 transition-all duration-200 hover:scale-105 pointer-events-auto"
         aria-label="Open live chat"
       >
         {unreadCount > 0 && !open && (
@@ -291,7 +291,7 @@ export function LiveChatWidget() {
 
       {/* Chat window */}
       {open && (
-        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-[60] w-[min(22rem,calc(100vw-1.5rem))] h-[min(82vh,36rem)] max-h-[calc(100vh-5rem)] bg-card border border-card-border rounded-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto">
+        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-60 w-[min(22rem,calc(100vw-1.5rem))] h-[min(82vh,36rem)] max-h-[calc(100vh-5rem)] bg-card border border-card-border rounded-2xl shadow-2xl flex flex-col overflow-hidden pointer-events-auto">
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 bg-primary">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">

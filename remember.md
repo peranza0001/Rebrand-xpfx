@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-31 21:45:49 UTC
+- Last sync: 2026-08-31 22:17:26 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/nextrade/src/components/live-chat-widget.tsx | A  tests/live-chat-ui-layout.test.mjs
+- Current working tree: M  artifacts/nextrade/src/App.tsx | M  artifacts/nextrade/src/components/layout/Shell.tsx | M  artifacts/nextrade/src/components/live-chat-widget.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
