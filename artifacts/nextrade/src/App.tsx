@@ -84,9 +84,12 @@ function ProtectedShell() {
           <Route path="/smartvest" component={SmartVest} />
           <Route path="/statements" component={Statements} />
           <Route path="/trading" component={Trading} />
+          <Route path="/trade" component={Trading} />
           <Route path="/demo-trading" component={DemoTradingPage} />
           <Route path="/investment-plans" component={InvestmentPlans} />
           <Route path="/copy-trading" component={CopyTrading} />
+          <Route path="/dashboard/markets" component={Dashboard} />
+          <Route path="/dashboard/support" component={Support} />
           <Route path="/education/*" component={Education} />
           <Route path="/admin">
             <RequireAdmin>
@@ -135,6 +138,7 @@ function AppRoutes() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/register" component={Signup} />
       <Route path="/verify-otp" component={VerifyOtp} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
@@ -144,6 +148,13 @@ function AppRoutes() {
         </RequireAuth>
       </Route>
 
+      <Route path="/buy"><PublicPage><PublicMarkets /></PublicPage></Route>
+      <Route path="/sell"><PublicPage><PublicMarkets /></PublicPage></Route>
+      <Route path="/stocks"><PublicPage><PublicMarkets /></PublicPage></Route>
+      <Route path="/shares"><PublicPage><PublicMarkets /></PublicPage></Route>
+      <Route path="/commodities"><PublicPage><PublicMarkets /></PublicPage></Route>
+      <Route path="/signals"><PublicPage><PublicHome /></PublicPage></Route>
+      <Route path="/trade"><RequireAuth><Trading /></RequireAuth></Route>
       <Route path="/markets"><PublicPage><PublicMarkets /></PublicPage></Route>
       <Route path="/education"><PublicPage><PublicEducation /></PublicPage></Route>
       <Route path="/demo-trading" component={DemoTradingPage} />
@@ -151,6 +162,10 @@ function AppRoutes() {
       <Route path="/about"><PublicPage><PublicAbout /></PublicPage></Route>
       <Route path="/contact"><PublicPage><PublicContact /></PublicPage></Route>
       <Route path="/legal"><PublicPage><PublicLegal /></PublicPage></Route>
+      <Route path="/legal/privacy"><PublicPage><PublicLegal /></PublicPage></Route>
+      <Route path="/legal/terms"><PublicPage><PublicLegal /></PublicPage></Route>
+      <Route path="/dashboard/markets"><RequireAuth><Dashboard /></RequireAuth></Route>
+      <Route path="/dashboard/support"><RequireAuth><Support /></RequireAuth></Route>
 
       <Route path="/" component={RootRoute} />
       <Route component={ProtectedShell} />

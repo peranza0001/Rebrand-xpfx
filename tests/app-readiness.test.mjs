@@ -207,6 +207,14 @@ test('copy trading route, nav, and page are wired into the authenticated app', a
   }
 });
 
+test('live-domain public route aliases are merged into the app shell', async () => {
+  const appSource = await fs.promises.readFile(new URL('../artifacts/nextrade/src/App.tsx', import.meta.url), 'utf8');
+
+  for (const route of ['/buy', '/sell', '/stocks', '/shares', '/commodities', '/signals', '/trade', '/register', '/dashboard/markets', '/dashboard/support', '/legal/privacy', '/legal/terms']) {
+    assert.match(appSource, new RegExp(`path="${route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i'), `app should expose the live-domain route alias ${route}`);
+  }
+});
+
 test('GET /api/csrf-token returns a CSRF token and sets the csrf cookie', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = baseUrl;
