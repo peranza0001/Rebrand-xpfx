@@ -93,34 +93,64 @@ export interface AMLScreeningResult {
   errorMessage?: string;
 }
 
-// In-memory provider configuration
-const providerConfig: Record<KYCProvider, any> = {
-  onfido: {
-    apiKey: process.env.ONFIDO_API_KEY || '',
-    endpoint: process.env.ONFIDO_API_URL || 'https://api.onfido.com/v3',
-    enabled: !!process.env.ONFIDO_API_KEY,
-  },
-  socure: {
-    apiKey: process.env.SOCURE_API_KEY || '',
-    endpoint: process.env.SOCURE_API_URL || 'https://api.socure.com/api/v2',
-    enabled: !!process.env.SOCURE_API_KEY,
-  },
-  stripe_identity: {
-    apiKey: process.env.STRIPE_IDENTITY_API_KEY || '',
-    enabled: !!process.env.STRIPE_IDENTITY_API_KEY,
-  },
-  idology: {
-    apiKey: process.env.IDOLOGY_API_KEY || '',
-    endpoint: process.env.IDOLOGY_API_URL || 'https://api.idology.com/v1',
-    enabled: !!process.env.IDOLOGY_API_KEY,
-  },
-  trulioo: {
-    apiKey: process.env.TRULIOO_API_KEY || '',
-    endpoint: process.env.TRULIOO_API_URL || 'https://api.trulioo.com/v1',
-    enabled: !!process.env.TRULIOO_API_KEY,
-  },
-  unconfigured: { enabled: true },
-};
+const PLACEHOLDER_API_KEY_PATTERNS = [
+  'generated_prod_key',
+  'generated_placeholder',
+  'placeholder',
+  'replace_with',
+  'replacewith',
+  'your_api_key',
+  'your_key',
+  'changeme',
+  'example',
+  '<your',
+  'your-',
+  'demo-key',
+];
+
+function hasUsableProviderKey(value: string | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const normalized = trimmed.toLowerCase();
+  if (normalized.includes(' ') && !normalized.startsWith('sk_') && !normalized.startsWith('sg.')) {
+    return false;
+  }
+  if (PLACEHOLDER_API_KEY_PATTERNS.some((pattern) => normalized.includes(pattern))) {
+    return false;
+  }
+  return trimmed.length >= 8;
+}
+
+function buildProviderConfig(): Record<KYCProvider, any> {
+  return {
+    onfido: {
+      apiKey: process.env.ONFIDO_API_KEY || '',
+      endpoint: process.env.ONFIDO_API_URL || 'https://api.onfido.com/v3',
+      enabled: hasUsableProviderKey(process.env.ONFIDO_API_KEY),
+    },
+    socure: {
+      apiKey: process.env.SOCURE_API_KEY || '',
+      endpoint: process.env.SOCURE_API_URL || 'https://api.socure.com/api/v2',
+      enabled: hasUsableProviderKey(process.env.SOCURE_API_KEY),
+    },
+    stripe_identity: {
+      apiKey: process.env.STRIPE_IDENTITY_API_KEY || '',
+      enabled: hasUsableProviderKey(process.env.STRIPE_IDENTITY_API_KEY),
+    },
+    idology: {
+      apiKey: process.env.IDOLOGY_API_KEY || '',
+      endpoint: process.env.IDOLOGY_API_URL || 'https://api.idology.com/v1',
+      enabled: hasUsableProviderKey(process.env.IDOLOGY_API_KEY),
+    },
+    trulioo: {
+      apiKey: process.env.TRULIOO_API_KEY || '',
+      endpoint: process.env.TRULIOO_API_URL || 'https://api.trulioo.com/v1',
+      enabled: hasUsableProviderKey(process.env.TRULIOO_API_KEY),
+    },
+    unconfigured: { enabled: true },
+  };
+}
 
 // In-memory verification store
 const verifications = new Map<string, KYCVerificationResult>();
@@ -131,17 +161,18 @@ const screenings = new Map<string, AMLScreeningResult>();
  * Priority order: Onfido > Socure > Stripe Identity > IDology > Trulioo > Mock
  */
 export function getConfiguredKYCProvider(): KYCProvider {
+  const providerConfig = buildProviderConfig();
   const requested = process.env.KYC_PROVIDER?.trim().toLowerCase() as KYCProvider | undefined;
   if (requested && requested !== 'unconfigured' && providerConfig[requested]?.enabled) return requested;
   // Try providers in order of preference
   const preferredOrder: KYCProvider[] = ['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo'];
-  
+
   for (const provider of preferredOrder) {
     if (providerConfig[provider]?.enabled) {
       return provider;
     }
   }
-  
+
   return 'unconfigured';
 }
 
@@ -224,6 +255,7 @@ async function initiateOnfidoVerification(
   request: KYCVerificationRequest,
   verificationId: string
 ): Promise<KYCVerificationResult> {
+  const providerConfig = buildProviderConfig();
   const apiKey = providerConfig.onfido.apiKey;
   const endpoint = providerConfig.onfido.endpoint;
 
@@ -282,6 +314,7 @@ async function initiateSocureVerification(
   request: KYCVerificationRequest,
   verificationId: string
 ): Promise<KYCVerificationResult> {
+  const providerConfig = buildProviderConfig();
   const apiKey = providerConfig.socure.apiKey;
   const endpoint = providerConfig.socure.endpoint;
 
@@ -462,12 +495,12 @@ export async function performAMLScreening(
     let result: AMLScreeningResult;
 
     // Try ComplyAdvantage first, then Socure, then mock
-    const complyApiKey = process.env.COMPLY_ADVANTAGE_API_KEY;
+    const complyApiKey = process.env.COMPLY_ADVANTAGE_API_KEY || process.env.COMPLYADVANTAGE_API_KEY;
     const socureApiKey = process.env.SOCURE_API_KEY;
 
-    if (complyApiKey) {
+    if (hasUsableProviderKey(complyApiKey)) {
       result = await performComplyAdvantageScreening(request, screeningId);
-    } else if (socureApiKey) {
+    } else if (hasUsableProviderKey(socureApiKey)) {
       result = await performSocureAMLScreening(request, screeningId);
     } else {
       result = performMockAMLScreening(request, screeningId);

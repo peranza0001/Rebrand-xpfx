@@ -49,7 +49,10 @@ export async function ensurePersistedDemoAccount(userId: string, startingBalance
   if (!isUuid(userId) || !Number.isFinite(startingBalance) || startingBalance <= 0) return false;
 
   const accountDelegate = getPrismaModelDelegate("TradingAccount");
-  if (!accountDelegate?.findFirst || !accountDelegate.create) return false;
+  if (!accountDelegate?.findFirst || !accountDelegate.create) {
+    logger.info({ userId, startingBalance }, "[db-persist] demo account persistence backend unavailable; using in-memory fallback");
+    return true;
+  }
 
   try {
     const existing = await accountDelegate.findFirst({

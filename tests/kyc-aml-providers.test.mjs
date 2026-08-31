@@ -127,6 +127,52 @@ describe('KYC/AML Providers Integration', () => {
     });
   });
 
+  describe('Provider safety checks', () => {
+    it('should ignore placeholder provider credentials and fall back to unconfigured mode', async () => {
+      if (!kyc.getConfiguredKYCProvider || !kyc.performAMLScreening) {
+        this.skip();
+      }
+
+      const previous = {
+        ONFIDO_API_KEY: process.env.ONFIDO_API_KEY,
+        SOCURE_API_KEY: process.env.SOCURE_API_KEY,
+        COMPLY_ADVANTAGE_API_KEY: process.env.COMPLY_ADVANTAGE_API_KEY,
+        COMPLYADVANTAGE_API_KEY: process.env.COMPLYADVANTAGE_API_KEY,
+        KYC_PROVIDER: process.env.KYC_PROVIDER,
+      };
+
+      process.env.ONFIDO_API_KEY = 'generated_prod_key';
+      process.env.SOCURE_API_KEY = 'socure_generated_prod_key';
+      process.env.COMPLY_ADVANTAGE_API_KEY = 'generated_placeholder';
+      process.env.COMPLYADVANTAGE_API_KEY = 'generated_placeholder';
+      delete process.env.KYC_PROVIDER;
+
+      try {
+        const provider = kyc.getConfiguredKYCProvider();
+        assert.strictEqual(provider, 'unconfigured');
+
+        const screening = await kyc.performAMLScreening({
+          userId: 'user_safe_placeholder_check',
+          firstName: 'Safe',
+          lastName: 'User',
+          dateOfBirth: '1990-05-20',
+          countryCode: 'US',
+        });
+
+        assert.strictEqual(screening.provider, 'mock');
+        assert.strictEqual(screening.status, 'clear');
+      } finally {
+        for (const [key, value] of Object.entries(previous)) {
+          if (value === undefined) {
+            delete process.env[key];
+          } else {
+            process.env[key] = value;
+          }
+        }
+      }
+    });
+  });
+
   describe('Mock AML Provider', () => {
     it('should clear demo user from AML screening', async () => {
       if (!kyc.performAMLScreening) {
@@ -236,6 +282,19 @@ describe('KYC/AML Providers Integration', () => {
       ) {
         const provider = kyc.getConfiguredKYCProvider();
         assert.strictEqual(provider, 'unconfigured');
+      }
+    });
+
+    it('should detect provider configuration from the current runtime environment values', async () => {
+      const mod = await import(new URL(`../artifacts/api-server/src/lib/kyc-provider.ts?ts=${Date.now()}`, import.meta.url).href);
+      const previous = process.env.ONFIDO_API_KEY;
+      process.env.ONFIDO_API_KEY = 'onfido_live_key_123456';
+      process.env.SOCURE_API_KEY = '';
+      try {
+        assert.strictEqual(mod.getConfiguredKYCProvider(), 'onfido');
+      } finally {
+        if (previous === undefined) delete process.env.ONFIDO_API_KEY;
+        else process.env.ONFIDO_API_KEY = previous;
       }
     });
   });
