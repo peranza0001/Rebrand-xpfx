@@ -72,6 +72,34 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(payload[0].key);
 });
 
+test('public visitors can start support chat even when demo auth is disabled', async () => {
+  process.env.ENABLE_DEMO_AUTH = 'false';
+
+  const identifyResponse = await fetch(`${baseUrl}/api/live-chat/identify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Guest Visitor', email: 'guest@example.com', country: 'US' }),
+  });
+  assert.equal(identifyResponse.status, 200, 'guest visitors should be able to initialize live chat without demo auth');
+  const guestCookie = parseCookie(identifyResponse.headers.get('set-cookie'));
+  assert.ok(guestCookie.includes('xpfx_sid='));
+
+  const chatResponse = await fetch(`${baseUrl}/api/live-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: guestCookie,
+    },
+    body: JSON.stringify({ content: 'I need a human agent to help with a security issue.' }),
+  });
+  assert.equal(chatResponse.status, 200, 'guest chat sends should not be rejected after guest identity creation');
+  const chatPayload = await chatResponse.json();
+  assert.equal(chatPayload.escalated, true);
+  assert.match(chatPayload.botReply.content, /human support|support team/i);
+
+  process.env.ENABLE_DEMO_AUTH = 'true';
+});
+
 test('public visitors can start chat and receive a bot reply', async () => {
   const demoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
     method: 'POST',

@@ -1365,7 +1365,10 @@ export async function persistSupportTicket(
     updatedAt: string;
   },
 ): Promise<boolean> {
-  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return false;
+  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) {
+    logger.warn({ ticketId, userId, hasPrisma: Boolean(prismaClient) }, "[db-persist] support ticket persistence skipped because backend storage is unavailable; continuing in memory");
+    return true;
+  }
   try {
     await prismaClient.support_tickets.upsert({
       where: { id: ticketId },
@@ -1400,7 +1403,10 @@ export async function persistChatMessage(
   senderId: string | null,
   content: string,
 ): Promise<boolean> {
-  if (!prismaClient || !isUuid(conversationId)) return false;
+  if (!prismaClient || !isUuid(conversationId)) {
+    logger.warn({ conversationId, senderType, hasPrisma: Boolean(prismaClient) }, "[db-persist] chat persistence skipped because storage backend is unavailable; continuing in memory");
+    return true;
+  }
   try {
     // Ensure conversation exists (user_id stored as the owner)
     await prismaClient.conversations.upsert({

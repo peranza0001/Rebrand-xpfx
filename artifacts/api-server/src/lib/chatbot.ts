@@ -93,6 +93,9 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
   if (/(security|2fa|two.?factor|otp|code|phish|private key|seed|recovery phrase|hack|stolen)/.test(message)) {
     return { intent: "security", shouldEscalate: false, content: `${greeting}Keep passwords, one-time codes, recovery phrases, and private keys private. XpressPro FX support will never ask for them. If you suspect unauthorized access, secure your email, change your password, stop sharing information, and request a human review.` };
   }
+  if (/(demo|paper trading|practice account|simulated funds)/.test(message) && !/(password|login|sign in|forgot password|verification code)/.test(message)) {
+    return { intent: "demo_trading", shouldEscalate: false, content: `${greeting}Demo Trading uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds move in demo mode.` };
+  }
   if (/(account|login|sign in|password recovery|forgot password|sign up|register|profile|email verification)/.test(message)) {
     return { intent: "account", shouldEscalate: false, content: `${greeting}I can help with account access, signup, email verification, password recovery, and profile settings. Tell me what is preventing access without sharing your password or verification code.` };
   }

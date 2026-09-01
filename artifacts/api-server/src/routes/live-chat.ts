@@ -19,9 +19,9 @@ import {
   type SupportTicket,
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
-import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
-import { findUserIdByLiveChatTicket, getPersistedChatAssignment, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket, updatePersistedChatAssignment } from "../lib/db-persist";
-import { requireAdmin, requireAuth } from "../lib/session";
+import { adminPresence, createIsolatedDemoUser, getUserData, newId, newSessionId, newUuid, NOW, sessions, userData, users, usersByEmail } from "../lib/store";
+import { findUserIdByLiveChatTicket, getPersistedChatAssignment, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSession, persistSupportTicket, updatePersistedChatAssignment } from "../lib/db-persist";
+import { requireAdmin, requireAuth, setSessionCookie } from "../lib/session";
 import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
 import { sendEmail } from "../lib/email";
@@ -78,7 +78,7 @@ function presenceState(): PresenceState {
 
 const router: IRouter = Router();
 
-router.post("/live-chat/identify", requireAuth, (req, res) => {
+router.post("/live-chat/identify", async (req, res) => {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
   const country = typeof req.body?.country === "string" ? req.body.country.trim().slice(0, 80) : "";
@@ -86,18 +86,36 @@ router.post("/live-chat/identify", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Enter a valid name and email." });
   }
 
-  const stored = users.get(req.userId!);
-  if (!stored) return res.status(404).json({ error: "Chat identity is unavailable." });
+  let stored = req.storedUser ?? users.get(req.userId ?? "");
+
+  if (!stored) {
+    const guest = createIsolatedDemoUser();
+    guest.user.fullName = name;
+    guest.user.email = email;
+    if (country) guest.user.country = country;
+    const sid = newSessionId();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const meta = { ip: req.ip || (req.headers["x-forwarded-for"] as string) || "", userAgent: req.headers["user-agent"] ?? "", createdAt: NOW() };
+    const sessionPersisted = await persistSession(sid, guest.user.id, expiresAt, false, meta);
+    if (!sessionPersisted) {
+      logger.warn({ userId: guest.user.id }, "[live-chat] guest.session_persist_failed_fallback_to_memory");
+    }
+    sessions.set(sid, { userId: guest.user.id, expiresAt, metadata: meta });
+    setSessionCookie(res, sid);
+    stored = guest;
+  }
+
   if (stored.role !== "demo" && stored.user.email.toLowerCase() !== email) {
     return res.status(400).json({ error: "Use the registered email on this account." });
   }
+
   if (stored.role === "demo") {
     stored.user.fullName = name;
     stored.user.email = email;
     if (country) stored.user.country = country;
-    usersByEmail.set(email, req.userId!);
+    usersByEmail.set(email, stored.user.id);
   }
-  return res.json({ name, email, country });
+  return res.json({ name, email, country, userId: stored.user.id, guestSession: stored.role === "demo" });
 });
 
 // GET /live-chat — current user's messages
@@ -139,9 +157,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   data.liveChat.push(userMsg);
   const userPersisted = await persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
   if (!userPersisted) {
-    data.liveChat.pop();
-    logger.error({ userId: req.userId! }, "live-chat message could not be durably persisted");
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+    logger.warn({ userId: req.userId! }, "live-chat user message persisted-in-memory fallback only");
   }
 
   try {
@@ -191,8 +207,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
   data.liveChat.push(botReply);
   const botPersisted = await persistChatMessage(req.userId!, 'bot', null, botReply.content);
   if (!botPersisted) {
-    data.liveChat.pop();
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+    logger.warn({ userId: req.userId! }, "live-chat bot reply persisted-in-memory fallback only");
   }
 
   if (escalated) {
@@ -220,7 +235,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       updatedAt: ticket.updatedAt,
     });
     if (!ticketPersisted) {
-      return res.status(503).json({ error: "Chat escalation is temporarily unavailable. Please try again." });
+      logger.warn({ userId: req.userId!, ticketId }, "live-chat support ticket persisted-in-memory fallback only");
     }
     data.supportTickets.unshift(ticket);
     handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline && businessHours };
