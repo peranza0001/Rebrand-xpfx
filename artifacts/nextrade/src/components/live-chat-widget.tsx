@@ -17,7 +17,12 @@ interface LiveChatMessage {
 }
 
 interface SessionResponse {
-  user: { id: string } | null;
+  user: {
+    id: string;
+    fullName?: string | null;
+    email?: string | null;
+    country?: string | null;
+  } | null;
 }
 
 interface HandoffResponse {
@@ -66,38 +71,46 @@ export function LiveChatWidget() {
   useEffect(() => {
     if (!open) return;
 
-    try {
-      const storedProfile = window.localStorage.getItem("xpfx_live_chat_profile");
-      if (storedProfile) setVisitorProfile(JSON.parse(storedProfile) as VisitorProfile);
-    } catch {
-      // Continue with the identification form if browser storage is unavailable.
-    }
-
     const fetchSession = async () => {
       setIsLoading(true);
       try {
         await loadCsrfToken();
-  let sessionRes = await fetch(apiPath("/api/auth/session"), { credentials: 'include' });
+        let sessionRes = await fetch(apiPath("/api/auth/session"), { credentials: 'include' });
         if (!sessionRes.ok) return;
         let sessionData: SessionResponse = await sessionRes.json();
 
-        // Public visitors use the isolated demo identity so chat works before signup.
-        if (!sessionData.user?.id) {
-          const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': csrfTokenRef.current ?? '',
-            },
-          });
-          if (!demoRes.ok) return;
-          sessionRes = demoRes;
-          sessionData = await sessionRes.json();
+        if (sessionData.user?.id) {
+          const profile = {
+            name: sessionData.user.fullName?.trim() || "",
+            email: sessionData.user.email?.trim() || "",
+            country: sessionData.user.country?.trim() || "",
+          };
+          setUserId(sessionData.user.id);
+          setVisitorProfile(profile.name || profile.email ? profile : null);
+          setProfileDraft(profile);
+          window.localStorage.removeItem("xpfx_live_chat_profile");
+
+          const res = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
+          if (!res.ok) return;
+          const chatData = await res.json();
+          setMessages(Array.isArray(chatData) ? chatData : []);
+          return;
         }
 
-        if (!sessionData.user?.id) return;
-        setUserId(sessionData.user.id);
+        // Public visitors use the isolated demo identity so chat works before signup,
+        // but they still must complete the support profile form before starting.
+        const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfTokenRef.current ?? '',
+          },
+        });
+        if (!demoRes.ok) return;
+        const demoData: SessionResponse = await demoRes.json();
+        if (!demoData.user?.id) return;
+        setUserId(demoData.user.id);
 
         const res = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
         if (!res.ok) return;
