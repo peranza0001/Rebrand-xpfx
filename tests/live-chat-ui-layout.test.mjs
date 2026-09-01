@@ -15,3 +15,13 @@ test('live chat widget skips the guest profile form for authenticated users', ()
   assert.match(widgetSource, /setVisitorProfile\(profile\.name \|\| profile\.email \? profile : null\)/i, 'Signed-in users should populate visitorProfile directly from their session.');
   assert.match(widgetSource, /removeItem\("xpfx_live_chat_profile"\)/i, 'Any stale guest profile must be cleared when a user is already signed in.');
 });
+
+test('live chat widget does not force guest visitors through the demo-auth route before support identification', () => {
+  assert.doesNotMatch(widgetSource, /api\/auth\/demo/i, 'Visitors must not be blocked by a disabled demo-auth endpoint when starting support chat.');
+  assert.match(widgetSource, /api\/live-chat\/identify/i, 'Guest visitors must be identified through the live-chat guest-create endpoint instead of the demo auth route.');
+});
+
+test('guest support flow loads chat history after successful identification', () => {
+  assert.match(widgetSource, /setUserId\(response\.userId\)|setUserId\(.*userId/i, 'The guest chat session should capture the userId returned by /api/live-chat/identify.');
+  assert.match(widgetSource, /fetch\(apiPath\("\/api\/live-chat"\)|fetch\(apiPath\('\/api\/live-chat'\)/i, 'Support chat should fetch the conversation after a successful guest identity creation.');
+});

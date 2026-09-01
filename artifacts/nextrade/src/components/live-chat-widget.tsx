@@ -97,25 +97,12 @@ export function LiveChatWidget() {
           return;
         }
 
-        // Public visitors use the isolated demo identity so chat works before signup,
-        // but they still must complete the support profile form before starting.
-        const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfTokenRef.current ?? '',
-          },
-        });
-        if (!demoRes.ok) return;
-        const demoData: SessionResponse = await demoRes.json();
-        if (!demoData.user?.id) return;
-        setUserId(demoData.user.id);
-
-        const res = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
-        if (!res.ok) return;
-        const chatData = await res.json();
-        setMessages(Array.isArray(chatData) ? chatData : []);
+        // Visitors are allowed to start support chat without a demo account.
+        // The identity form below creates a temporary signed-in guest session on demand.
+        setUserId(null);
+        setVisitorProfile(null);
+        setProfileDraft((current) => ({ ...current, name: current.name || "", email: current.email || "", country: current.country || "" }));
+        return;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Live chat is temporarily unavailable');
       } finally {
@@ -184,6 +171,10 @@ export function LiveChatWidget() {
   const handleSend = async (requestedMessage?: string, retryMessageId?: string) => {
     const text = (requestedMessage ?? message).trim();
     if (!text || isSending) return;
+    if (!userId) {
+      setError("Please complete your support details before sending a message.");
+      return;
+    }
     setMessage("");
     setError(null);
     setIsSending(true);
@@ -273,10 +264,18 @@ export function LiveChatWidget() {
         },
         body: JSON.stringify(profile),
       });
-      if (!response.ok) throw new Error("We could not save your support details.");
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "We could not save your support details.");
+      if (payload?.userId) setUserId(payload.userId);
       setVisitorProfile(profile);
       window.localStorage.setItem("xpfx_live_chat_profile", JSON.stringify(profile));
       setError(null);
+
+      const chatRes = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
+      if (chatRes.ok) {
+        const chatData = await chatRes.json();
+        setMessages(Array.isArray(chatData) ? chatData : []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "We could not save your support details.");
     }
