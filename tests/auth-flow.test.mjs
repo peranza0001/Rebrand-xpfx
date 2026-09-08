@@ -17,6 +17,7 @@ const otpModule = await import('../artifacts/api-server/src/lib/otp.ts');
 const storeModule = await import('../artifacts/api-server/src/lib/store.ts');
 const dbPersistModule = await import('../artifacts/api-server/src/lib/db-persist.ts');
 const corsModule = await import('../artifacts/api-server/src/lib/cors.ts');
+const { getPostLoginDestination } = await import('../artifacts/nextrade/src/lib/auth-routing.ts');
 
 const app = appModule.default?.default ?? appModule.default ?? appModule;
 const otp = otpModule.default?.default ?? otpModule.default ?? otpModule;
@@ -60,6 +61,13 @@ async function jsonRequest(baseUrl, path, { method = 'GET', body, cookie } = {})
   const data = await response.json();
   return { response, data };
 }
+
+test('post-login routing respects role and keeps admin access on /xpadmin', () => {
+  assert.equal(getPostLoginDestination('user'), '/');
+  assert.equal(getPostLoginDestination('demo'), '/');
+  assert.equal(getPostLoginDestination('admin'), '/xpadmin');
+  assert.equal(getPostLoginDestination('guest'), '/');
+});
 
 test('seeded demo users can sign in directly without first starting demo auth', async () => {
   await withTestServer(async (baseUrl) => {
