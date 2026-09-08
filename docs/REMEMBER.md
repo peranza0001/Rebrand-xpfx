@@ -21,7 +21,7 @@
 
 ### 1. Install & Setup
 ```bash
-git clone https://github.com/alfredgrace904-ops/Rebranded-xpfx.git
+git clone https://github.com/trevionjamielynn800/Rebrand-xpfx.git
 cd Rebranded-xpfx
 npm install
 cp .env.example .env
