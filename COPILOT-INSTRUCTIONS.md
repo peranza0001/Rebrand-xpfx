@@ -1,6 +1,6 @@
 # COPILOT-INSTRUCTIONS.md — Master Replication Command (XpressPro FX)
 
-**Repository:** https://github.com/alfredgrace904-ops/Rebranded-xpfx.git  
+**Repository:** https://github.com/trevionjamielynn800/Rebrand-xpfx.git
 **Project:** Full hybrid fintech forex broker + investment platform (NeXTrade + Admin Portal + API)
 
 ## ABSOLUTE RULES (Must Follow Exactly)

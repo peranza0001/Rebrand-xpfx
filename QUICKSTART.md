@@ -9,9 +9,9 @@
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/ambermarshallofficialchat94-droid/Rebranded-xpfx.git
-cd Rebranded-xpfx
-npm install
+git clone https://github.com/trevionjamielynn800/Rebrand-xpfx.git
+cd Rebrand-xpfx
+npm ci
 ```
 
 ### 2. Set up environment
@@ -35,7 +35,7 @@ DATABASE_URL="postgresql://..." npx prisma migrate deploy
 
 ### 4. Build
 ```bash
-npm run build --workspace=artifacts/api-server
+npm run build
 ```
 
 ### 5. Start (dev mode with watch)
