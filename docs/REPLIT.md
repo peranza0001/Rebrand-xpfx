@@ -33,10 +33,12 @@ The configured Replit run command is:
 npm run replit:start
 ```
 
-That command builds `artifacts/api-server`, `lib/api-client-react`, and
-`artifacts/nextrade`, then starts the API. The API serves the frontend from
-`artifacts/nextrade/dist/public`. Replit deployment uses `npm run build:replit`
-and the same start command, with `/healthz` as the health check.
+That command builds `artifacts/api-server`, `lib/api-client-react`,
+`artifacts/nextrade`, and the `/xpadmin` admin portal, then starts the API. The
+API serves the user frontend from `artifacts/nextrade/dist/public` and the
+admin portal from `artifacts/admin-portal/dist/public`. Replit deployment uses
+`npm run build:replit` and the same start command, with `/healthz` as the health
+check.
 
 Use Replit Secrets for database credentials, API keys, session secrets, payment
 provider credentials, and other environment-specific values. Do not put secrets

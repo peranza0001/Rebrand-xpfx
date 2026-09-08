@@ -52,9 +52,10 @@ npm run build:replit
 npm run replit:start
 ```
 
-`replit:start` builds the API, shared client, and Nextrade website, then starts
-the single API process. Production deployments must provide `DATABASE_URL` and
-other credentials through platform secrets or environment variables.
+`replit:start` builds the API, shared client, Nextrade website, and `/xpadmin`
+admin portal, then starts the single API process. Production deployments must
+provide `DATABASE_URL` and other credentials through platform secrets or
+environment variables.
 
 ## Development
 
@@ -116,7 +117,7 @@ npm run build:replit
 curl http://127.0.0.1:$PORT/healthz
 ```
 
-A successful deployment should return HTTP 200 from `/healthz` and serve the
-website at `/`.
+A successful deployment should return HTTP 200 from `/healthz`, serve the
+website at `/`, and serve the admin portal at `/xpadmin/`.
 
 Additional Replit details are in [docs/REPLIT.md](docs/REPLIT.md).

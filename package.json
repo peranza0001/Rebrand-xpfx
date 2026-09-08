@@ -32,7 +32,7 @@
     "remember:update": "node scripts/update-remember.mjs",
     "remember:sync": "node scripts/update-remember.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
-    "build:replit": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade",
+    "build:replit": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal",
     "build:all": "npm run build",
     "build:api": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-zod",
     "build:lib": "npm run build --workspace=lib/api-client-react",
