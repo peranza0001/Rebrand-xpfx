@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   setCacheValue,
@@ -39,4 +40,14 @@ test('compliance checks escalate review when a check is rejected', () => {
 
   assert.ok(updated);
   assert.equal(needsComplianceReview(userId), true);
+});
+
+test('API shutdown handles termination signals with a bounded fallback', async () => {
+  const source = await readFile(new URL('../artifacts/api-server/src/index.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /async function gracefulShutdown\(signal: NodeJS\.Signals\)/);
+  assert.match(source, /setTimeout\(\(\) => \{[\s\S]*?process\.exit\(1\);[\s\S]*?\}, 15_000\)/);
+  assert.match(source, /process\.on\('SIGTERM', \(\) => void gracefulShutdown\('SIGTERM'\)\)\)/);
+  assert.match(source, /process\.on\('SIGINT', \(\) => void gracefulShutdown\('SIGINT'\)\)\)/);
+  assert.match(source, /if \(shuttingDown\) return/);
 });

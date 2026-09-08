@@ -79,6 +79,7 @@
     "minimatch": "7.4.9",
     "esbuild": "0.28.1",
     "prisma": "5.14.0",
+    "qs": "6.16.0",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.28.1"
     }
