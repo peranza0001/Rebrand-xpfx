@@ -32,6 +32,7 @@
     "remember:update": "node scripts/update-remember.mjs",
     "remember:sync": "node scripts/update-remember.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
+    "build:replit": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal",
     "build:all": "npm run build",
     "build:api": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-zod",
     "build:lib": "npm run build --workspace=lib/api-client-react",
@@ -41,6 +42,7 @@
     "test:enterprise": "npm run build:all && node --import tsx tests/auth-flow.test.mjs && node --import tsx tests/sessions.test.mjs && node --import tsx tests/auth-throttle.test.mjs",
     "healthcheck": "node scripts/healthcheck.mjs",
     "start": "npm run build && node artifacts/api-server/dist/index.mjs",
+    "replit:start": "npm run build:replit && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "start:prod": "NODE_ENV=production node scripts/ensure-db-ready.mjs && NODE_ENV=production npm run build && NODE_ENV=production node artifacts/api-server/dist/index.mjs",
     "dev": "npm run dev --workspaces --if-present",
     "preview": "npm run preview --workspaces --if-present",
@@ -77,6 +79,7 @@
     "minimatch": "7.4.9",
     "esbuild": "0.28.1",
     "prisma": "5.14.0",
+    "qs": "6.16.0",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.28.1"
     }

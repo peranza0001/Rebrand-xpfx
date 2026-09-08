@@ -242,6 +242,54 @@ export const INVESTMENT_PLANS: Record<InvestmentPlanType, InvestmentPlanDefiniti
   },
 };
 
+export type PlanId = InvestmentPlanType;
+
+export function normalizePlanId(planId: string | null | undefined): InvestmentPlanType {
+  if (!planId) return "starter-growth";
+
+  const normalized = planId.trim().toLowerCase();
+  const aliases: Record<string, InvestmentPlanType> = {
+    starter: "starter-growth",
+    "starter-growth": "starter-growth",
+    standard: "standard-trader",
+    "standard-trader": "standard-trader",
+    elite: "elite-investor",
+    "elite-investor": "elite-investor",
+    stocks: "us-stocks-plus",
+    "us-stocks-plus": "us-stocks-plus",
+  };
+
+  return aliases[normalized] ?? "starter-growth";
+}
+
+export function getWeeklyTopUpAmount(planId: InvestmentPlanType): number {
+  const plan = INVESTMENT_PLANS[planId];
+  return Number((plan.minDeposit * 0.08).toFixed(2));
+}
+
+export function generateMarketFlowMultiplier(
+  planId: InvestmentPlanType,
+  userId: string,
+  dayIndex: number,
+  principal: number,
+): number {
+  const plan = INVESTMENT_PLANS[planId];
+  const seedValue = Array.from(userId || "anonymous").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const planBiasMap: Record<InvestmentPlanType, number> = {
+    "starter-growth": 0.0115,
+    "standard-trader": 0.016,
+    "elite-investor": 0.0185,
+    "us-stocks-plus": 0.013,
+  };
+
+  const principalScale = Math.max(0, principal || 0) / 1000;
+  const wave = Math.sin((dayIndex + seedValue) / 6) * 0.0026;
+  const userNoise = ((seedValue % 13) + 1) / 5000;
+  const planBias = planBiasMap[plan.id];
+
+  return Number(Math.max(0.004, planBias + wave + userNoise + principalScale * 0.00045).toFixed(6));
+}
+
 /**
  * Default Account Checklist Items
  */

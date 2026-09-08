@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /wallets
+Disallow: /trades
+Disallow: /p2p
+Disallow: /messages
+Disallow: /settings
+Disallow: /kyc
+Disallow: /deposits
+Disallow: /withdrawals
+Disallow: /admin
+Disallow: /xpadmin
+
+Sitemap: https://xpressprofx.com/sitemap.xml
