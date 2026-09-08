@@ -42,7 +42,6 @@ import {
   Menu,
   Receipt,
   BarChart3,
-  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -97,7 +96,6 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Trades", href: "/trades", icon: LineChart },
       { name: "Demo Trading", href: "/demo-trading", icon: BarChart3 },
-      { name: "Copy Trading", href: "/copy-trading", icon: TrendingUp },
       { name: "P2P Market", href: "/p2p", icon: ArrowLeftRight },
       { name: "Trade Manager", href: "/managers", icon: Users },
       { name: "Messages", href: "/messages", icon: MessageSquare },
@@ -255,25 +253,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_18%),linear-gradient(180deg,#07120d_0%,#0b1220_28%,#0f172a_100%)] text-white">
+    <div className="flex h-[100dvh] w-full bg-background overflow-hidden dark">
       {/* Desktop sidebar (hidden below md) */}
-      <aside className="hidden md:flex w-72 border-r border-white/10 bg-slate-950/70 backdrop-blur-xl flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30">
-              <BarChart3 className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-lg font-bold tracking-tight text-white">XpressPro</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">FX</div>
-            </div>
-          </div>
+      <aside className="hidden md:flex w-64 border-r border-border bg-card flex-col">
+        <div className="h-16 flex items-center px-6 border-b border-border">
+          <span className="text-xl font-bold text-primary tracking-tight">
+            XpressPro FX
+          </span>
         </div>
         {sidebarContent()}
       </aside>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-slate-950/20">
-        <header className="h-16 border-b border-white/10 bg-slate-950/40 backdrop-blur-xl flex items-center justify-between px-4 md:px-6 gap-3">
+      <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        <header className="h-16 border-b border-border bg-card/50 backdrop-blur flex items-center justify-between px-4 md:px-6 gap-3">
           {/* Mobile menu button + brand */}
           <div className="flex items-center gap-3 md:hidden min-w-0">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -282,22 +274,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   variant="ghost"
                   size="icon"
                   aria-label="Open navigation"
-                  className="text-white hover:bg-white/5"
                   data-testid="button-mobile-menu"
                 >
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0 flex flex-col bg-slate-950 text-white border-r border-white/10">
-                <SheetHeader className="h-16 border-b border-white/10 px-6 flex items-center justify-start">
-                  <SheetTitle className="text-white text-lg font-bold tracking-tight text-left">
+              <SheetContent side="left" className="w-72 p-0 flex flex-col">
+                <SheetHeader className="h-16 border-b border-border px-6 flex items-center justify-start">
+                  <SheetTitle className="text-primary text-lg font-bold tracking-tight text-left">
                     XpressPro FX
                   </SheetTitle>
                 </SheetHeader>
                 {sidebarContent(() => setMobileOpen(false))}
               </SheetContent>
             </Sheet>
-            <span className="text-base font-bold text-white tracking-tight truncate">
+            <span className="text-base font-bold text-primary tracking-tight truncate">
               XpressPro FX
             </span>
           </div>
@@ -307,21 +298,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {isDemo && (
               <Badge
                 variant="secondary"
-                className="uppercase tracking-wider hidden sm:inline-flex border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                className="uppercase tracking-wider hidden sm:inline-flex"
               >
                 Demo mode
               </Badge>
             )}
             {user && (
-              <div className="flex items-center gap-2 min-w-0 rounded-full border border-white/10 bg-white/5 px-2 py-1.5">
-                <div className="h-8 w-8 shrink-0 rounded-full bg-emerald-500/15 ring-1 ring-emerald-400/30 flex items-center justify-center text-emerald-300 font-bold text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-8 w-8 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
                   {initials}
                 </div>
                 <div className="hidden md:flex flex-col leading-tight min-w-0">
-                  <span className="text-sm font-medium truncate text-white">
+                  <span className="text-sm font-medium truncate">
                     {user.fullName}
                   </span>
-                  <span className="text-[11px] text-slate-300 truncate">
+                  <span className="text-[11px] text-muted-foreground truncate">
                     {user.email}
                   </span>
                 </div>
@@ -332,7 +323,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
               size="sm"
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
-              className="text-slate-200 hover:bg-white/5 hover:text-white"
               data-testid="button-logout"
             >
               <LogOut className="h-4 w-4 md:mr-2" />
@@ -340,7 +330,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto bg-transparent">{children}</div>
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </main>
     </div>
   );

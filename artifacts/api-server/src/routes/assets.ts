@@ -1,9 +1,8 @@
 import { Router, type IRouter } from "express";
 import { PurchaseAssetBody } from "@workspace/api-zod";
 import { assetCatalog, claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
-import { requireAuth, requireVerifiedIdentity } from "../lib/session";
+import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
-import { multiplyMoney, subtractMoney } from "../lib/money";
 import {
   getPlatformReceivingAddress,
   verifyOnChainPayment,
@@ -19,7 +18,7 @@ router.get("/assets/catalog", requireAuth, (_req, res) => {
   res.json(assetCatalog);
 });
 
-router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req, res) => {
+router.post("/assets/purchase", requireAuth, async (req, res) => {
   const parsed = PurchaseAssetBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
@@ -54,7 +53,7 @@ router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req
   }
   const data = getUserData(req.userId!);
   if (!enforceGasFee(req, res, "asset_purchase")) return;
-  const totalCost = multiplyMoney(asset.price, parsed.data.amount);
+  const totalCost = Math.round(asset.price * parsed.data.amount * 100) / 100;
   const main = data.wallets.find((w) => w.type === "main");
   if (parsed.data.paymentMethod === "main_wallet") {
     if (!main || main.balance < totalCost) {
@@ -67,7 +66,7 @@ router.post("/assets/purchase", requireAuth, requireVerifiedIdentity, async (req
         message: "Insufficient balance in main wallet.",
       });
     }
-    main.balance = subtractMoney(main.balance, totalCost);
+    main.balance = Math.round((main.balance - totalCost) * 100) / 100;
   }
   if (parsed.data.paymentMethod === "external_wallet") {
     if (!parsed.data.externalWalletId || !parsed.data.txHash) {

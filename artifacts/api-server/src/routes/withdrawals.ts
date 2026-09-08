@@ -4,7 +4,6 @@ import { getGasFeePolicy, getUserData, logActivity, newId, newUuid, NOW } from "
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { persistTransaction, persistWallet } from "../lib/db-persist";
-import { addMoney, moneyToNumber, subtractMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -32,7 +31,7 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
 
   const amount = parsed.data.sourceWalletId
     ? parsed.data.amount
-    : moneyToNumber(parsed.data.amount);
+    : Math.round(parsed.data.amount * 100) / 100;
   if (amount < 0.01) {
     return res.status(400).json({
       success: false,
@@ -103,8 +102,8 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
   const walletCurrency = main.currency ?? "USD";
 
   // Hold funds: subtract from balance, add to pendingBalance until decision.
-  main.balance = subtractMoney(main.balance, amount);
-  main.pendingBalance = addMoney(main.pendingBalance, amount);
+  main.balance = Math.round((main.balance - amount) * 100) / 100;
+  main.pendingBalance = Math.round((main.pendingBalance + amount) * 100) / 100;
 
   void persistWallet(main.id, req.userId!, {
     walletType: main.type,

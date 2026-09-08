@@ -38,15 +38,15 @@ export function PublicHome() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 grid lg:grid-cols-2 gap-10 items-center">
           <div>
-            <Badge variant="outline" className="mb-4 border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Regulated multi-asset broker</Badge>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight text-white">
+            <Badge variant="outline" className="mb-4">Regulated multi-asset broker</Badge>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
               Trade the world's<br />
               markets, the smart way.
             </h1>
-            <p className="mt-5 text-lg text-slate-300 max-w-xl">
+            <p className="mt-5 text-lg text-muted-foreground max-w-xl">
               Forex, crypto, stocks, indices and commodities — all on one account, with deep liquidity, ultra-tight spreads from 0.0 pips and lightning-fast execution.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -65,11 +65,11 @@ export function PublicHome() {
           </div>
 
           <div className="relative">
-            <Card className="border-white/10 bg-slate-950/60 shadow-2xl shadow-emerald-950/10">
+            <Card className="border-primary/20 shadow-2xl">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-white">Live markets</CardTitle>
-                  <Badge variant="secondary" className="font-mono border-emerald-400/30 bg-emerald-500/10 text-emerald-300">LIVE</Badge>
+                  <CardTitle className="text-base">Live markets</CardTitle>
+                  <Badge variant="secondary" className="font-mono">LIVE</Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -162,24 +162,24 @@ export function PublicHome() {
       <Section title="Professional investment plans" subtitle="A unified structure for forex trading, US stock investing, crypto exposure, and digital portfolio growth.">
         <div className="grid gap-4 lg:grid-cols-4">
           {INVESTMENT_PLANS.map((plan) => (
-            <Card key={plan.name} className={plan.featured ? "border-emerald-400/30 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,22,0.98))] shadow-xl shadow-emerald-950/15" : "border-white/10 bg-slate-950/40 shadow-lg shadow-slate-950/10"}>
+            <Card key={plan.name} className={plan.featured ? "border-primary shadow-xl shadow-primary/10 bg-gradient-to-b from-primary/8 to-background" : "border-border/70"}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <plan.icon className="h-4 w-4 text-emerald-300" />
-                    <CardTitle className="text-lg text-white">{plan.name}</CardTitle>
+                    <plan.icon className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-lg">{plan.name}</CardTitle>
                   </div>
-                  {plan.featured && <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Featured</Badge>}
+                  {plan.featured && <Badge>Featured</Badge>}
                 </div>
-                <div className="mt-3 text-3xl font-bold text-white">${plan.minDeposit}</div>
-                <div className="text-xs text-slate-400">starting deposit</div>
+                <div className="mt-3 text-3xl font-bold">${plan.minDeposit}</div>
+                <div className="text-xs text-muted-foreground">starting deposit</div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-slate-300">{plan.description}</p>
-                <ul className="space-y-2 text-sm text-slate-200">
+                <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <ul className="space-y-2 text-sm">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 text-emerald-300 shrink-0" />
+                      <Check className="mt-0.5 h-4 w-4 text-primary shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -298,14 +298,14 @@ export function PublicHome() {
 
       {/* CTA */}
       <section className="px-4 md:px-6 my-16">
-        <div className="max-w-7xl mx-auto rounded-[28px] border border-emerald-400/30 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_30%),linear-gradient(135deg,rgba(5,12,16,0.98),rgba(15,23,42,0.92))] p-8 md:p-14 text-center shadow-2xl shadow-emerald-950/10">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Ready to start trading?</h2>
-          <p className="mt-3 text-slate-300 max-w-xl mx-auto">
+        <div className="max-w-7xl mx-auto rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-transparent p-8 md:p-14 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Ready to start trading?</h2>
+          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
             Open a free account in under 3 minutes. No commitment, no hidden fees.
           </p>
           <div className="mt-6 flex flex-wrap gap-3 justify-center">
-            <Button asChild size="lg" className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"><Link href="/signup">Create live account</Link></Button>
-            <Button asChild size="lg" variant="outline" className="border-white/15 text-white hover:bg-white/5"><Link href="/login">Try demo</Link></Button>
+            <Button asChild size="lg"><Link href="/signup">Create live account</Link></Button>
+            <Button asChild size="lg" variant="outline"><Link href="/login">Try demo</Link></Button>
           </div>
         </div>
       </section>
@@ -325,8 +325,8 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
     <section className="px-4 md:px-6 py-12 md:py-16">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{title}</h2>
-          {subtitle && <p className="mt-2 text-slate-300">{subtitle}</p>}
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h2>
+          {subtitle && <p className="mt-2 text-muted-foreground">{subtitle}</p>}
         </div>
         {children}
       </div>
@@ -345,171 +345,59 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 const INVESTMENT_PLANS = [
   {
-    name: "Starter Spark",
-    minDeposit: 300,
+    name: "Starter Growth",
+    minDeposit: 250,
     featured: false,
-    description: "Low-volatility entry strategy for new investors seeking steady compounding and a clear onboarding path.",
+    description: "Build confidence with diversified trading and long-term crypto, forex, and US stock exposure.",
     icon: Rocket,
     features: [
-      "Exclusive new-user pricing",
-      "Locked daily profit accrual",
-      "Low-volatility compounding",
-      "Passive strategy automation",
-      "Beginner-friendly onboarding",
+      "Multi-asset access across forex, crypto, indices and equities",
+      "1:50 leverage for balanced risk management",
+      "Recurring investment automation and dollar-cost averaging",
+      "Paper trading simulator and guided setup",
+      "Market commentary and weekly strategy briefings",
     ],
   },
   {
-    name: "Growth Core",
-    minDeposit: 3000,
-    featured: false,
-    description: "A balanced growth engine built for consistent capital acceleration and portfolio diversification.",
+    name: "Standard Trader",
+    minDeposit: 1500,
+    featured: true,
+    description: "Our flagship plan for active traders who want real-time execution across digital assets and equities.",
     icon: Briefcase,
     features: [
-      "Core capital acceleration",
-      "Portfolio balancing",
-      "Weekly strategy automation",
-      "Low to medium risk profile",
-      "Multi-asset execution",
+      "Access to 3,000+ US stocks and 60+ forex pairs",
+      "Advanced charting with execution alerts and trade signals",
+      "Priority support, risk dashboard and portfolio analytics",
+      "1:200 leverage with tighter spreads on major instruments",
+      "Automated stop-loss and profit-taking workflows",
     ],
   },
   {
-    name: "Momentum Pulse",
+    name: "Elite Investor",
     minDeposit: 10000,
-    featured: true,
-    description: "Momentum-driven allocation strategy optimized for traders who want stronger acceleration with controlled exposure.",
-    icon: TrendingUp,
-    features: [
-      "Momentum trading execution",
-      "$10k+ efficiency boost",
-      "Short-cycle re-entry logic",
-      "Precision market timing",
-      "Active monitoring",
-    ],
-  },
-  {
-    name: "Alpha Forge",
-    minDeposit: 25000,
     featured: false,
-    description: "High-conviction signal model that scales with disciplined risk controls and active allocation management.",
-    icon: Zap,
-    features: [
-      "Scaling model exposure",
-      "Risk-managed compounding",
-      "Alpha signal overlay",
-      "Higher-frequency execution",
-      "Managed trader oversight",
-    ],
-  },
-  {
-    name: "Precision Nexus",
-    minDeposit: 60000,
-    featured: false,
-    description: "Multi-factor portfolio management designed for precision execution and stronger compounding power.",
-    icon: BarChart3,
-    features: [
-      "Multi-factor strategy",
-      "Higher frequency compounding",
-      "Precision execution control",
-      "Professional risk scoring",
-      "Targeted rebalance model",
-    ],
-  },
-  {
-    name: "Quant Dominion",
-    minDeposit: 150000,
-    featured: false,
-    description: "Institutional-grade automation focused on daily generation and scalable quantitative control.",
+    description: "A premium portfolio plan with deeper capital markets exposure, structured risk controls, and analyst insight.",
     icon: Landmark,
     features: [
-      "Institutional-grade automation",
-      "Quantitative signal layering",
-      "Higher daily generation",
-      "Advanced portfolio controls",
-      "Performance rebalancing",
+      "Portfolio rebalancing across stocks, ETFs, crypto and commodities",
+      "Dedicated account manager and custom trading allocation models",
+      "Expanded leverage and reduced commissions",
+      "Private market updates and institutional research briefs",
+      "Quarterly portfolio review with macro strategy guidance",
     ],
   },
   {
-    name: "Institutional Apex",
-    minDeposit: 350000,
+    name: "US Stocks Plus",
+    minDeposit: 5000,
     featured: false,
-    description: "Apex-level program for larger capital allocations with extended duration and strategic oversight.",
-    icon: ShieldCheck,
-    features: [
-      "Institutional reallocation",
-      "Extended duration capital efficiency",
-      "Strategic account oversight",
-      "Optimized execution mix",
-      "Significant capital deployment",
-    ],
-  },
-  {
-    name: "Sovereign Vector",
-    minDeposit: 800000,
-    featured: false,
-    description: "High-capacity capital strategy tuned for sovereign-level throughput and long-horizon efficiency.",
+    description: "Focused on long-term equity growth with dividend tracking, market sentiment tools, and recurring buy plans.",
     icon: Building2,
     features: [
-      "Sovereign capital allocation",
-      "Maximum throughput efficiency",
-      "Long-horizon programming",
-      "High-value portfolio strategy",
-      "Dedicated trading oversight",
-    ],
-  },
-  {
-    name: "Elite Horizon",
-    minDeposit: 2000000,
-    featured: false,
-    description: "Elite long-horizon strategy engineered for exceptional compounding across a larger runway.",
-    icon: Briefcase,
-    features: [
-      "Elite compounding runway",
-      "High-capital efficiency",
-      "Long-duration exposure",
-      "Senior strategy management",
-      "Enhanced capital deployment",
-    ],
-  },
-  {
-    name: "Apex Legacy",
-    minDeposit: 5000000,
-    featured: false,
-    description: "Legacy apex allocation for high-net-worth participants seeking extended capital efficiency and premium priority.",
-    icon: Landmark,
-    features: [
-      "Legacy apex tier",
-      "High-net-worth prioritization",
-      "Maximum daily efficiency",
-      "Priority account handling",
-      "Premium allocation review",
-    ],
-  },
-  {
-    name: "Titan Reserve",
-    minDeposit: 10000000,
-    featured: false,
-    description: "Reserve-tier strategy for large capital positions seeking long-duration return optimization.",
-    icon: Rocket,
-    features: [
-      "Reserve capital expansion",
-      "Extended multi-quarter runway",
-      "Peak efficiency tier",
-      "Capital preservation strategy",
-      "Long-term rebalancing",
-    ],
-  },
-  {
-    name: "Infinity Protocol",
-    minDeposit: 20000000,
-    featured: false,
-    description: "Flagship long-horizon strategy built for the ultimate tier of capital efficiency and strategic execution.",
-    icon: ShieldCheck,
-    features: [
-      "Flagship long-horizon strategy",
-      "Ultimate efficiency",
-      "Maximum tier performance",
-      "Institutional reserve flow",
-      "Executive-level oversight",
+      "Fractional shares on top NASDAQ and NYSE listings",
+      "Dividend and earnings calendar tracking",
+      "Recurring weekly or monthly investment automation",
+      "Portfolio allocation for blue-chip growth and value names",
+      "Institutional-grade risk scoring and buy-zone alerts",
     ],
   },
 ];

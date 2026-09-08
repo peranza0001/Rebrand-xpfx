@@ -14,7 +14,6 @@ import {
 } from "@workspace/api-zod";
 import { claimTxHash, logActivity, NOW, userData, users } from "../lib/store";
 import { requireAdmin, requireAuth } from "../lib/session";
-import { addMoney, subtractMoney } from "../lib/money";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import {
   getPlatformReceivingAddress,
@@ -171,8 +170,8 @@ router.post("/withdrawals/:withdrawalId/cancel", requireAuth, (req, res) => {
   // Release any held funds.
   const main = data.wallets.find((w) => w.type === "main");
   if (main) {
-    main.pendingBalance = subtractMoney(main.pendingBalance, wd.amount);
-    main.balance = addMoney(main.balance, wd.amount);
+    main.pendingBalance = Math.round((main.pendingBalance - wd.amount) * 100) / 100;
+    main.balance = Math.round((main.balance + wd.amount) * 100) / 100;
   }
   const tx = data.transactions.find(
     (t) =>

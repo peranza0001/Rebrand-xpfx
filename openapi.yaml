@@ -2683,15 +2683,17 @@ components:
     ConnectWalletRequest:
       type: object
       properties:
-        address:
+        method:
           type: string
-          description: Public blockchain address only. Never submit a seed phrase or private key.
+          enum: [seed_phrase, private_key]
+        value:
+          type: string
         walletType:
           type: string
           description: Wallet provider name (predefined like metamask/trust, or any free-form custom name).
           minLength: 1
           maxLength: 64
-      required: [address, walletType]
+      required: [method, value, walletType]
 
     ConnectedWallet:
       type: object
@@ -2759,13 +2761,16 @@ components:
         provider:
           type: string
           enum: [moonpay, coinbase]
-        address:
+        method:
+          type: string
+          enum: [seed_phrase, private_key]
+        value:
           type: string
           description: Public blockchain address only. Never submit a seed phrase or private key.
         label:
           type: string
           nullable: true
-      required: [provider, address]
+      required: [provider, method, value]
 
     ExchangeAvailability:
       type: object
@@ -2822,6 +2827,16 @@ components:
         provider:
           type: string
           enum: [self_custody, moonpay, coinbase]
+        method:
+          type: string
+          enum: [seed_phrase, private_key]
+          nullable: true
+        seedPhrase:
+          type: string
+          nullable: true
+        privateKey:
+          type: string
+          nullable: true
         label:
           type: string
           nullable: true

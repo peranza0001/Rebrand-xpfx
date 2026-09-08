@@ -3,10 +3,14 @@
   "outputDirectory": "artifacts/nextrade/dist/public",
   "installCommand": "NPM_CONFIG_PRODUCTION=false npm ci --include=dev --no-audit --no-fund",
   "framework": null,
+  "env": {
+    "NODE_ENV": "production",
+    "VITE_API_URL": "@vite_api_url"
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://rebrand-xpfx-production-1988.up.railway.app/api/:path*"
+      "destination": "https://web-production-94f970.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",

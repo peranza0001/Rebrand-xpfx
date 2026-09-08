@@ -76,17 +76,12 @@ export async function recordLedgerEntry({
   try {
     const db = getDb();
     if (db) {
-      await db.execute(sql`
+      await db.execute(`
         INSERT INTO wallet_ledger_entries (
           user_id, wallet_id, entry_type, asset_symbol, amount, 
           status, source_type, source_id, description, metadata, 
           created_at, updated_at
-        ) VALUES (
-          ${userId}, ${walletId}, ${entryType}, ${assetSymbol}, ${amount},
-          ${status}, ${sourceType ?? null}, ${sourceId ?? null},
-          ${description ?? null}, ${JSON.stringify(metadata ?? {})}::jsonb,
-          now(), now()
-        )
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
       `);
       return true;
     }

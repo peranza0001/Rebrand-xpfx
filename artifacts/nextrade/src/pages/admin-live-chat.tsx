@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { resolveApiBaseUrl } from '@/lib/api-url';
 
 type SessionSummary = {
   userId: string;
@@ -13,7 +12,7 @@ type SessionSummary = {
 };
 
 export default function AdminLiveChat() {
-  const apiUrl = resolveApiBaseUrl(import.meta.env.VITE_API_URL, window.location.origin);
+  const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [selected, setSelected] = useState<SessionSummary | null>(null);
   const [reply, setReply] = useState('');
@@ -49,11 +48,7 @@ export default function AdminLiveChat() {
     socket.on('connect', () => {
       socket.emit('join_admin_room');
       // touch admin presence via heartbeat endpoint — optional
-      void loadCsrfToken().then(() => fetch(`${apiUrl}/api/admin/presence/heartbeat`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-CSRF-Token': csrfTokenRef.current ?? '' },
-      })).catch(() => undefined);
+      fetch(`${apiUrl}/api/admin/presence/heartbeat`, { method: 'POST', credentials: 'include' }).catch(() => undefined);
     });
 
     socket.on('message', (msg: any) => {

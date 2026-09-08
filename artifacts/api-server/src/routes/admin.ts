@@ -39,7 +39,6 @@ import {
 } from "../lib/billing";
 import { requireAdmin } from "../lib/session";
 import { notifyUser } from "../lib/notify";
-import { adjustMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -152,8 +151,8 @@ router.post("/admin/withdrawals/:withdrawalId/decision", requireAdmin, (req, res
         wd.decidedAt = NOW();
         const mainW = data.wallets.find((w) => w.type === "main");
         if (mainW) {
-          mainW.pendingBalance = adjustMoney(mainW.pendingBalance, -wd.amount);
-          mainW.balance = adjustMoney(mainW.balance, wd.amount);
+          mainW.pendingBalance = Math.round((mainW.pendingBalance - wd.amount) * 100) / 100;
+          mainW.balance = Math.round((mainW.balance + wd.amount) * 100) / 100;
         }
         const expiredTx = data.transactions.find(
           (t) =>
@@ -193,7 +192,7 @@ router.post("/admin/withdrawals/:withdrawalId/decision", requireAdmin, (req, res
       wd.status = "approved";
       wd.decidedAt = NOW();
       if (main) {
-        main.pendingBalance = adjustMoney(main.pendingBalance, -wd.amount);
+        main.pendingBalance = Math.round((main.pendingBalance - wd.amount) * 100) / 100;
       }
       // Deduct the funded gas-fee from the user's connected ETH wallet.
       // Hard-checked above, so this branch is guaranteed to find a wallet
@@ -204,7 +203,8 @@ router.post("/admin/withdrawals/:withdrawalId/decision", requireAdmin, (req, res
             w.currency?.toUpperCase() === "ETH" ||
             w.walletType?.toUpperCase().includes("ETH"),
         )!;
-        ethWallet.balance = adjustMoney(ethWallet.balance, -wd.gasFeeAmount);
+        ethWallet.balance =
+          Math.round((ethWallet.balance - wd.gasFeeAmount) * 1_000_000) / 1_000_000;
         // PHASE 1 FIX: Persist balance change to survive server restarts
         void persistWalletBalance(ethWallet.id, ethWallet.balance, 0);
         wd.gasFeeDeductedAt = NOW();
@@ -219,8 +219,8 @@ router.post("/admin/withdrawals/:withdrawalId/decision", requireAdmin, (req, res
       wd.rejectionReason = parsed.data.reason ?? "Rejected by admin";
       wd.decidedAt = NOW();
       if (main) {
-        main.pendingBalance = adjustMoney(main.pendingBalance, -wd.amount);
-        main.balance = adjustMoney(main.balance, wd.amount);
+        main.pendingBalance = Math.round((main.pendingBalance - wd.amount) * 100) / 100;
+        main.balance = Math.round((main.balance + wd.amount) * 100) / 100;
       }
       const tx = data.transactions.find(
         (t) => t.type === "withdrawal" && t.status === "pending" && Math.abs(t.amount) === wd.amount,

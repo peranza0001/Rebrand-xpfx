@@ -3,16 +3,3 @@
 
 # Local files
 .local
-
-# Dependencies and generated output
-node_modules
-**/node_modules
-dist
-**/dist
-.vite
-**/.vite
-
-# Local configuration and secrets
-.env
-.env.*
-!.env.example

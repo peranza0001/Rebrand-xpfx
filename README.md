@@ -187,14 +187,6 @@ Private — All rights reserved. XpressPro FX © 2026
 
 That is the full file, composed from everything covered across our session. You can copy it entirely in one click. Let me know if you need the `deploy.yml` or `.env.example` reviewed and matched to this same production standard.
 
-## Replit Import
-
-Import this repository from GitHub, not from Vercel. Use npm only; do not mix
-pnpm or other package managers. Replit uses `.replit` to run the API, which
-serves the built Nextrade frontend, and uses `/healthz` for deployment checks.
-See [docs/REPLIT.md](docs/REPLIT.md) for the exact install, build, start, and
-Secrets setup commands.
-
 ## Local Preview (Dev)
 
 Use these commands from the repository root to run frontends locally and open them in a browser:

@@ -32,7 +32,7 @@ export const FAQ_COMMANDS = [
 ] as const;
 
 function keywordEscalation(content: string): boolean {
-  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed|withdrawal (?:status|dispute)|account funds?|kyc status|aml status|regulatory|regulator|guarante(?:e|ed|es|ing)|guaranteed returns?|personalized (?:trade|investment)|should I (?:buy|sell)|buy .*(?:now|today)|sell .*(?:now|today))\b/i.test(content);
+  return /\b(human|agent|real person|supervisor|manager|escalat(?:e|ion|ed)?|fraud|hack(?:ed)?|stolen|emergency|unauthori[sz]ed)\b/i.test(content);
 }
 
 function greetingFor(userName: string): string {
@@ -78,7 +78,7 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
     return {
       intent: "general",
       shouldEscalate: true,
-      content: `${greeting}I cannot provide guaranteed returns, personalized trade recommendations, or account-specific decisions. I am connecting you to human support so a representative can take over here. Trading involves risk of loss. Please do not share passwords, one-time codes, recovery phrases, or private keys.`,
+      content: `${greeting}I understand this needs human support. I have sent your conversation to our support team so an available representative can take over here. Please do not share passwords, one-time codes, recovery phrases, or private keys.`,
     };
   }
   if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/.test(message)) {
@@ -92,9 +92,6 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
   }
   if (/(security|2fa|two.?factor|otp|code|phish|private key|seed|recovery phrase|hack|stolen)/.test(message)) {
     return { intent: "security", shouldEscalate: false, content: `${greeting}Keep passwords, one-time codes, recovery phrases, and private keys private. XpressPro FX support will never ask for them. If you suspect unauthorized access, secure your email, change your password, stop sharing information, and request a human review.` };
-  }
-  if (/(demo|paper trading|practice account|simulated funds)/.test(message) && !/(password|login|sign in|forgot password|verification code)/.test(message)) {
-    return { intent: "demo_trading", shouldEscalate: false, content: `${greeting}Demo Trading uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds move in demo mode.` };
   }
   if (/(account|login|sign in|password recovery|forgot password|sign up|register|profile|email verification)/.test(message)) {
     return { intent: "account", shouldEscalate: false, content: `${greeting}I can help with account access, signup, email verification, password recovery, and profile settings. Tell me what is preventing access without sharing your password or verification code.` };

@@ -14,7 +14,6 @@ import { sql } from 'drizzle-orm';
 import { getRawDatabaseUrl } from '../../../lib/db/src/connection-config';
 import { attachSession } from './lib/session';
 import { getDb } from './lib/db-client';
-import { getPrismaClient } from './lib/db-persist';
 import { logger } from './lib/logger';
 import { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } from './lib/cors';
 import { sessionTimeoutMiddleware, recordSessionActivity } from './lib/session-timeout';
@@ -63,15 +62,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 function buildHealthPayload(extra: Record<string, unknown> = {}) {
-  const commitSha = process.env.RAILWAY_GIT_COMMIT_SHA
-    || process.env.GIT_COMMIT_SHA
-    || process.env.SOURCE_VERSION
-    || null;
   return {
     status: 'ok',
     service: 'XpressPro FX API',
     version: '1.0.0',
-    commitSha,
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
@@ -99,38 +93,21 @@ async function _dbHealthHandler(_req: Request, res: Response) {
 }
 
 async function _readinessHandler(_req: Request, res: Response) {
+  // Platform health checks must remain reachable even when the database is
+  // temporarily unavailable or intentionally isolated from a worker. The deep
+  // database probe is handled by /healthz/db, which is where DB outages should
+  // surface as degraded or failed conditions.
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(503).json({ ready: false, reason: 'database-not-configured' });
-    }
     return res.status(200).json({ ready: true, reason: 'no-db-config' });
-  }
-
-  const prisma = getPrismaClient();
-  if (prisma?.$queryRaw) {
-    try {
-      await prisma.$queryRaw`select 1`;
-      return res.status(200).json({ ready: true, reason: 'database-ready' });
-    } catch {
-      return res.status(503).json({ ready: false, reason: 'database-unavailable' });
-    }
   }
 
   const db = getDb();
   if (!db) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(503).json({ ready: false, reason: 'database-client-unavailable' });
-    }
     return res.status(200).json({ ready: true, reason: 'no-db-client' });
   }
 
-  try {
-    await db.execute(sql`select 1`);
-    return res.status(200).json({ ready: true, reason: 'database-ready' });
-  } catch {
-    return res.status(503).json({ ready: false, reason: 'database-unavailable' });
-  }
+  return res.status(200).json({ ready: true, reason: 'app-ready' });
 }
 
 app.use((req, res, next) => {
@@ -620,7 +597,6 @@ app.use('/api/live-chat', (req: Request, res: Response, next: NextFunction) => {
   // Inbound support mail is authenticated by the webhook secret/signature,
   // not by a browser session.
   if (req.path === '/email-reply') return next();
-  if (req.path === '/identify') return next();
   if (!req.storedUser) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

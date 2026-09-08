@@ -14,7 +14,6 @@ import type { BillingStatus } from "@workspace/api-zod";
 import { requireAuth } from "../lib/session";
 import { getUserData, logActivity, newId } from "../lib/store";
 import { persistWalletBalance } from "../lib/db-persist";
-import { subtractMoney } from "../lib/money";
 import {
   ensureCurrentCycle,
   getEffectiveRates,
@@ -68,7 +67,7 @@ router.post("/billing/pay", requireAuth, (req, res): unknown => {
       .json({ error: `Insufficient balance. Needed ${total}, available ${wallet.balance}.` });
   }
 
-  wallet.balance = subtractMoney(wallet.balance, total);
+  wallet.balance = Number((wallet.balance - total).toFixed(2));
   // PHASE 1 FIX: Persist balance change to survive server restarts
   void persistWalletBalance(wallet.id, wallet.balance, 0);
   const now = new Date().toISOString();
