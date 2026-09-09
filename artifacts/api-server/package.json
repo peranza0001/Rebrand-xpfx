@@ -19,9 +19,15 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/instrumentation": "0.220.0",
+    "@opentelemetry/sdk-trace-base": "2.10.0",
     "@prisma/client": "5.14.0",
     "@sentry/conventions": "^0.16.0",
+    "@sentry/core": "10.70.0",
     "@sentry/node": "^10.70.0",
+    "@sentry/node-core": "10.70.0",
+    "@sentry/opentelemetry": "10.70.0",
     "@sentry/server-utils": "10.70.0",
     "@workspace/api-zod": "^1.0.0",
     "@workspace/db": "^0.0.0",
@@ -39,6 +45,7 @@
     "express-rate-limit": "^7.3.1",
     "express-validator": "^7.1.0",
     "helmet": "^7.1.0",
+    "import-in-the-middle": "3.3.3",
     "jsonwebtoken": "^9.0.2",
     "module-details-from-path": "1.0.4",
     "morgan": "^1.10.0",

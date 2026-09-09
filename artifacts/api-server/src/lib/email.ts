@@ -19,7 +19,7 @@
  * admins can audit every notification from /admin/sent-emails regardless
  * of provider.
  *
- * The mailbox feature (separate from this) treats `no_reply@xpressprofx.com`
+ * The mailbox feature (separate from this) treats `noreply@xpressprofx.com`
  * as a one-way platform address — see lib/notify and routes/mailbox.
  */
 import { newId, NOW, sentEmails, type SentEmailData } from "./store";
@@ -39,7 +39,7 @@ export function normalizeSmtpHost(value?: string): string | undefined {
   }
 }
 
-const NO_REPLY = "no_reply@xpressprofx.com";
+const NO_REPLY = "noreply@xpressprofx.com";
 const MAX_LOG = 500;
 
 export interface SendEmailInput {
@@ -49,7 +49,7 @@ export interface SendEmailInput {
   text?: string;
   html?: string;
   kind: string;
-  /** Optional override; defaults to no_reply@xpressprofx.com. */
+  /** Optional override; defaults to noreply@xpressprofx.com. */
   from?: string;
 }
 
