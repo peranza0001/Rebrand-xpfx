@@ -57,6 +57,7 @@ router.post("/auth/siwe/verify", requireAuth, async (req, res) => {
   const nonce = String(req.body?.nonce ?? "");
   const message = String(req.body?.message ?? "");
   const signature = String(req.body?.signature ?? "");
+  const walletType = req.body?.walletType === "walletconnect" ? "walletconnect" : "metamask";
   const record = nonces.get(nonce);
   if (!record || Date.parse(record.expirationTime) <= Date.now()) {
     nonces.delete(nonce);
@@ -74,7 +75,7 @@ router.post("/auth/siwe/verify", requireAuth, async (req, res) => {
   }
   nonces.delete(nonce);
   const wallet = {
-    id: newUuid(), address: record.address, walletType: "metamask", balance: 0,
+    id: newUuid(), address: record.address, walletType, balance: 0,
     currency: "ETH", connectionStatus: "public_address", connectedAt: new Date().toISOString(),
     provider: "self_custody", label: null, email: null, syncedProfile: null,
   };
