@@ -4,8 +4,7 @@
   "installCommand": "NPM_CONFIG_PRODUCTION=false npm ci --include=dev --no-audit --no-fund",
   "framework": null,
   "env": {
-    "NODE_ENV": "production",
-    "VITE_API_URL": "@vite_api_url"
+    "NODE_ENV": "production"
   },
   "rewrites": [
     {
