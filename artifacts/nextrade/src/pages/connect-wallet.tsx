@@ -98,7 +98,7 @@ export function ConnectWallet() {
     (choice !== "other" || customName.trim().length > 0) &&
     !connect.isPending;
 
-  const completeSiwe = async (walletAddress: string, provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }) => {
+  const completeSiwe = async (walletAddress: string, provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }, walletType: "metamask" | "walletconnect") => {
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
     const nonceResponse = await fetch(`${apiUrl}/api/auth/siwe/nonce`, {
       method: "POST",
@@ -113,7 +113,7 @@ export function ConnectWallet() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nonce: challenge.nonce, message: challenge.message, signature }),
+      body: JSON.stringify({ nonce: challenge.nonce, message: challenge.message, signature, walletType }),
     });
     const verified = await verifyResponse.json();
     if (!verifyResponse.ok) throw new Error(verified.error || "Wallet signature verification failed.");
@@ -139,7 +139,7 @@ export function ConnectWallet() {
       if (String(chainId).toLowerCase() !== "0x1") throw new Error("Switch your wallet to Ethereum mainnet and try again.");
       const walletAddress = accounts?.[0];
       if (!walletAddress) throw new Error("No wallet account was returned.");
-      await completeSiwe(walletAddress, window.ethereum);
+      await completeSiwe(walletAddress, window.ethereum, "metamask");
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "Wallet connection was rejected or unavailable.");
     }
@@ -161,7 +161,7 @@ export function ConnectWallet() {
       await provider.connect();
       const walletAddress = provider.accounts?.[0];
       if (!walletAddress) throw new Error("WalletConnect did not return an account.");
-      await completeSiwe(walletAddress, provider);
+      await completeSiwe(walletAddress, provider, "walletconnect");
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "WalletConnect connection failed.");
     }
