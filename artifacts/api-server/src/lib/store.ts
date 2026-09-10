@@ -1396,6 +1396,9 @@ export function transferBetweenWallets(
   if (from.id === to.id) {
     throw new Error('A wallet cannot transfer funds to itself.');
   }
+  if (from.currency !== to.currency) {
+    throw new Error('Source and destination wallets must use the same currency.');
+  }
   if (from.balance < amount) {
     throw new Error(`Insufficient balance in ${from.label}.`);
   }
@@ -1403,7 +1406,7 @@ export function transferBetweenWallets(
   from.balance = Number((from.balance - amount).toFixed(2));
   to.balance = Number((to.balance + amount).toFixed(2));
 
-  const maybeCurrency = input.currency ?? from.currency ?? 'USD';
+  const maybeCurrency = from.currency ?? 'USD';
   const description = input.description ?? `Transfer from ${from.label} to ${to.label}`;
 
   const fromTransaction: Transaction = {

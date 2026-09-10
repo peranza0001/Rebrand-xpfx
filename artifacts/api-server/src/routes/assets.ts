@@ -3,6 +3,7 @@ import { PurchaseAssetBody } from "@workspace/api-zod";
 import { assetCatalog, claimTxHash, getUserData, logActivity, newId, NOW } from "../lib/store";
 import { requireAuth } from "../lib/session";
 import { enforceGasFee } from "../lib/gas-fee-gate";
+import { persistTransaction, persistWallet } from "../lib/db-persist";
 import {
   getPlatformReceivingAddress,
   verifyOnChainPayment,
@@ -147,12 +148,29 @@ router.post("/assets/purchase", requireAuth, async (req, res) => {
     id: txId,
     walletId: main?.id ?? "w_main",
     type: "p2p_buy",
-    amount: -totalCost,
+    amount: parsed.data.paymentMethod === "main_wallet" ? -totalCost : 0,
     currency: asset.currency,
     status: "completed",
     description: `Purchased ${parsed.data.amount} ${asset.symbol}${settlement}`,
     createdAt: NOW(),
   });
+  if (parsed.data.paymentMethod === "main_wallet" && main) {
+    void persistWallet(main.id, req.userId!, {
+      walletType: main.type,
+      balance: main.balance,
+      pendingBalance: main.pendingBalance,
+      currency: main.currency,
+      label: main.label,
+      address: main.address,
+    });
+    void persistTransaction(txId, main.id, req.userId!, {
+      type: "p2p_buy",
+      amount: -totalCost,
+      currency: asset.currency,
+      status: "completed",
+      description: `Purchased ${parsed.data.amount} ${asset.symbol}${settlement}`,
+    });
+  }
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,

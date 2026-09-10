@@ -214,14 +214,33 @@ export async function updateWalletSubBalance(
       return false;
     }
 
+    if (!Number.isFinite(delta) || delta === 0) {
+      return false;
+    }
+
     const updateData: Record<string, unknown> = {
       updated_at: new Date(),
     };
 
     if (delta > 0) {
       updateData.available_balance = { increment: delta };
+      updateData.total_balance = { increment: delta };
     } else if (delta < 0) {
-      updateData.locked_balance = { increment: Math.abs(delta) };
+      const model = walletType === "trading"
+        ? prisma.trading_wallet_balances
+        : walletType === "social"
+          ? prisma.social_trading_wallet_balances
+          : undefined;
+      if (!model) return false;
+      const result = await model.updateMany({
+        where: { user_id: userId, available_balance: { gte: Math.abs(delta) } },
+        data: {
+          available_balance: { decrement: Math.abs(delta) },
+          total_balance: { decrement: Math.abs(delta) },
+          updated_at: new Date(),
+        },
+      });
+      return result.count === 1;
     }
 
     if (walletType === "trading") {
@@ -313,6 +332,9 @@ export async function createWithdrawalRequest({
     if (!prisma?.withdrawal_requests) {
       return null;
     }
+    if (!Number.isFinite(amount) || amount <= 0 || !assetSymbol.trim() || !recipientAddress.trim()) {
+      return null;
+    }
 
     const result = await prisma.withdrawal_requests.create({
       data: {
@@ -360,14 +382,37 @@ export async function approveWithdrawal(
       return false;
     }
 
-    const withdrawal = await prisma.withdrawal_requests.update({
-      where: { id: withdrawalId },
+    const claimed = await prisma.withdrawal_requests.updateMany({
+      where: { id: withdrawalId, status: "pending" },
       data: {
-        status: "completed",
+        status: "processing",
         approved_by_admin: adminId,
         approval_timestamp: new Date(),
         transaction_hash: transactionHash,
       },
+    });
+    if (claimed.count !== 1) return false;
+
+    const withdrawal = await prisma.withdrawal_requests.findUnique({ where: { id: withdrawalId } });
+    if (!withdrawal) return false;
+
+    const debited = await updateWalletSubBalance(
+      withdrawal.user_id,
+      "trading",
+      -Number(withdrawal.amount),
+      withdrawal.asset_symbol,
+    );
+    if (!debited) {
+      await prisma.withdrawal_requests.updateMany({
+        where: { id: withdrawalId, status: "processing" },
+        data: { status: "pending", approved_by_admin: null, approval_timestamp: null, transaction_hash: null },
+      });
+      return false;
+    }
+
+    await prisma.withdrawal_requests.updateMany({
+      where: { id: withdrawalId, status: "processing" },
+      data: { status: "completed" },
     });
 
     // Record approval in ledger
@@ -404,14 +449,18 @@ export async function rejectWithdrawal(
       return false;
     }
 
-    const withdrawal = await prisma.withdrawal_requests.update({
-      where: { id: withdrawalId },
+    const claimed = await prisma.withdrawal_requests.updateMany({
+      where: { id: withdrawalId, status: "pending" },
       data: {
         status: "rejected",
         approved_by_admin: adminId,
         rejection_reason: reason,
       },
     });
+    if (claimed.count !== 1) return false;
+
+    const withdrawal = await prisma.withdrawal_requests.findUnique({ where: { id: withdrawalId } });
+    if (!withdrawal) return false;
 
     // Record rejection in ledger
     await recordLedgerEntry({
@@ -498,5 +547,89 @@ export async function checkWithinLimits(
   } catch (err) {
     logger.error({ err, userId }, "[wallet-ledger] Failed to check limits");
     return { allowed: false, reason: "System error checking limits" };
+  }
+}
+
+/** Atomically reserve capacity for a new deposit or withdrawal. */
+export async function reserveWithinLimits(
+  userId: string,
+  amount: number,
+  transactionType: "deposit" | "withdrawal",
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { allowed: false, reason: "Transaction amount must be positive" };
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    if (!prisma?.user_financial_limits) return { allowed: true };
+
+    const limits = await getUserFinancialLimits(userId);
+    if (!limits) return { allowed: true };
+
+    const dailyUsed = transactionType === "deposit"
+      ? Number(limits.daily_deposits_used)
+      : Number(limits.daily_withdrawals_used);
+    const monthlyUsed = transactionType === "deposit"
+      ? Number(limits.monthly_deposits_used)
+      : Number(limits.monthly_withdrawals_used);
+    const dailyLimit = transactionType === "deposit"
+      ? Number(limits.daily_deposit_limit)
+      : Number(limits.daily_withdrawal_limit);
+    const monthlyLimit = transactionType === "deposit"
+      ? Number(limits.monthly_deposit_limit)
+      : Number(limits.monthly_withdrawal_limit);
+
+    if (dailyUsed + amount > dailyLimit || monthlyUsed + amount > monthlyLimit) {
+      return checkWithinLimits(userId, amount, transactionType);
+    }
+
+    const usedFields = transactionType === "deposit"
+      ? { daily_deposits_used: { increment: amount }, monthly_deposits_used: { increment: amount } }
+      : { daily_withdrawals_used: { increment: amount }, monthly_withdrawals_used: { increment: amount } };
+    const result = await prisma.user_financial_limits.updateMany({
+      where: {
+        user_id: userId,
+        ...(transactionType === "deposit"
+          ? { daily_deposits_used: { lte: dailyLimit - amount }, monthly_deposits_used: { lte: monthlyLimit - amount } }
+          : { daily_withdrawals_used: { lte: dailyLimit - amount }, monthly_withdrawals_used: { lte: monthlyLimit - amount } }),
+      },
+      data: usedFields,
+    });
+    return result.count === 1
+      ? { allowed: true }
+      : { allowed: false, reason: `${transactionType} limit was reached; retry the request` };
+  } catch (err) {
+    logger.error({ err, userId }, "[wallet-ledger] Failed to reserve financial limit");
+    return { allowed: false, reason: "System error checking limits" };
+  }
+}
+
+/** Release capacity when a reserved transaction cannot be created. */
+export async function releaseWithinLimits(
+  userId: string,
+  amount: number,
+  transactionType: "deposit" | "withdrawal",
+): Promise<void> {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  try {
+    const prisma = getPrismaClient();
+    if (!prisma?.user_financial_limits) return;
+
+    const usedFields = transactionType === "deposit"
+      ? { daily_deposits_used: { decrement: amount }, monthly_deposits_used: { decrement: amount } }
+      : { daily_withdrawals_used: { decrement: amount }, monthly_withdrawals_used: { decrement: amount } };
+    await prisma.user_financial_limits.updateMany({
+      where: {
+        user_id: userId,
+        ...(transactionType === "deposit"
+          ? { daily_deposits_used: { gte: amount }, monthly_deposits_used: { gte: amount } }
+          : { daily_withdrawals_used: { gte: amount }, monthly_withdrawals_used: { gte: amount } }),
+      },
+      data: usedFields,
+    });
+  } catch (err) {
+    logger.error({ err, userId }, "[wallet-ledger] Failed to release financial limit");
   }
 }

@@ -4,6 +4,7 @@ import { getGasFeePolicy, getUserData, logActivity, newId, newUuid, NOW } from "
 import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { persistTransaction, persistWallet } from "../lib/db-persist";
+import { reserveWithinLimits } from "../lib/wallet-ledger";
 
 const router: IRouter = Router();
 
@@ -95,6 +96,11 @@ router.post("/withdrawals", requireAuth, async (req, res) => {
       success: false,
       message: "Insufficient balance in your main wallet.",
     });
+  }
+
+  const limit = await reserveWithinLimits(req.userId!, amount, "withdrawal");
+  if (!limit.allowed) {
+    return res.status(429).json({ success: false, message: limit.reason });
   }
 
   // Always use the server-determined currency from the main wallet so that
