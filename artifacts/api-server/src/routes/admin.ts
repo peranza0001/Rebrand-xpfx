@@ -101,9 +101,16 @@ router.get("/admin/withdrawals", requireAdmin, (req, res) => {
   const parsed = GetAdminWithdrawalsQueryParams.safeParse(req.query);
   const filterStatus = parsed.success ? parsed.data.status : undefined;
   const all = [];
-  for (const [, data] of userData) {
+  for (const [userId, data] of userData) {
+    const stored = users.get(userId);
     for (const w of data.withdrawals) {
-      if (!filterStatus || w.status === filterStatus) all.push(w);
+      if (!filterStatus || w.status === filterStatus) {
+        all.push({
+          ...w,
+          userName: stored?.user.fullName || stored?.user.email || userId,
+          userEmail: stored?.user.email,
+        });
+      }
     }
   }
   all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

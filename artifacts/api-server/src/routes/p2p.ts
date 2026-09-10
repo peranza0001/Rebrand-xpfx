@@ -140,6 +140,7 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
   const userIsBuyer = listing.type === "sell";
   const paymentSource = parsed.data.paymentSource
     ?? (parsed.data.externalWalletId ? "external_wallet" : "platform_wallet");
+  const orderId = newId("o");
   // Seller-side selection is payout-destination metadata only — never a
   // debit or on-chain verification. Validate ownership of the connected
   // wallet when one is supplied, but skip the buyer-only branches below.
@@ -191,6 +192,16 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
         error: `On-chain settlement could not be verified: ${verification.reason}`,
       });
     }
+    const claim = claimTxHash(parsed.data.txHash, {
+      userId: req.userId!,
+      purpose: "p2p_order",
+      recordId: orderId,
+    });
+    if (!claim.ok) {
+      return res.status(409).json({
+        error: `On-chain payment ${parsed.data.txHash} has already been used to settle ${claim.existing.purpose} ${claim.existing.recordId}.`,
+      });
+    }
   } else if (paymentSource === "platform_wallet") {
     if (userIsBuyer) {
       if (!main || main.balance < orderTotalUsd) {
@@ -215,23 +226,6 @@ router.post("/p2p/orders", requireAuth, async (req, res) => {
     // Seller side: no debit. Source is payout-destination metadata only.
   }
   // bank_transfer: no immediate debit on either side; settlement is offline.
-  const orderId = newId("o");
-  if (
-    userIsBuyer
-    && paymentSource === "external_wallet"
-    && parsed.data.txHash
-  ) {
-    const claim = claimTxHash(parsed.data.txHash, {
-      userId: req.userId!,
-      purpose: "p2p_order",
-      recordId: orderId,
-    });
-    if (!claim.ok) {
-      return res.status(409).json({
-        error: `On-chain payment ${parsed.data.txHash} has already been used to settle ${claim.existing.purpose} ${claim.existing.recordId}.`,
-      });
-    }
-  }
   const order: P2POrder = {
     id: orderId,
     listingId: listing.id,

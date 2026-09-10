@@ -100,9 +100,10 @@ router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: Auth
       return res.status(400).json({ error: "Deposit is not pending" });
     }
 
-    // Update deposit status
-    await prisma.deposit_requests.update({
-      where: { id: depositId },
+    // Claim the request atomically. Only one concurrent admin request may
+    // transition a pending deposit and receive permission to credit it.
+    const claimed = await prisma.deposit_requests.updateMany({
+      where: { id: depositId, status: "pending" },
       data: {
         status: "completed",
         approved_by_admin: req.user?.id || "unknown",
@@ -110,6 +111,9 @@ router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: Auth
         transaction_hash: transactionHash,
       },
     });
+    if (claimed.count !== 1) {
+      return res.status(409).json({ error: "Deposit is no longer pending" });
+    }
 
     // Record approval in ledger
     await walletLedger.recordLedgerEntry({
@@ -128,13 +132,17 @@ router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: Auth
     // Update user's wallet balance
     const store = require("../lib/store").getStore();
     const user = store.getUser(deposit.user_id);
-    if (user && user.mainWallet) {
-      await walletLedger.updateWalletSubBalance(
+    if (!user?.mainWallet) {
+      throw new Error("User wallet is unavailable for deposit credit");
+    }
+    const credited = await walletLedger.updateWalletSubBalance(
         deposit.user_id,
         "trading",
         Number(deposit.amount),
         deposit.asset_symbol
       );
+    if (!credited) {
+      throw new Error("Wallet balance update failed");
     }
 
     return res.status(200).json({
@@ -176,14 +184,17 @@ router.post("/admin/wallets/reject-deposit", requireAdminRole, async (req: Authe
       return res.status(404).json({ error: "Deposit not found" });
     }
 
-    await prisma.deposit_requests.update({
-      where: { id: depositId },
+    const rejected = await prisma.deposit_requests.updateMany({
+      where: { id: depositId, status: "pending" },
       data: {
         status: "rejected",
         approved_by_admin: req.user?.id || "unknown",
         rejection_reason: reason || "Rejected by admin",
       },
     });
+    if (rejected.count !== 1) {
+      return res.status(409).json({ error: "Deposit is no longer pending" });
+    }
 
     // Record rejection in ledger
     await walletLedger.recordLedgerEntry({

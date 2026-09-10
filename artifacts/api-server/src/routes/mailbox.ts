@@ -19,7 +19,7 @@ import { requireAdmin, requireAuth } from "../lib/session";
 import { notifyUser } from "../lib/notify";
 import type { MailboxThreadData, MailboxMsg } from "../lib/store";
 
-const NO_REPLY = "no_reply@xpressprofx.com";
+const NO_REPLY = "noreply@xpressprofx.com";
 
 const PLATFORM_ADDRESSES = [
   NO_REPLY,
