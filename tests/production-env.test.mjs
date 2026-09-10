@@ -3,9 +3,27 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
+import { validateStartupEnvironment } from '../artifacts/api-server/src/lib/startup-env.ts';
 import { resolveOpenAIApiKey, resolveOpenAIBaseURL, resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
 import { issueOtp } from '../artifacts/api-server/src/lib/otp.ts';
 import { initiateKYCVerification } from '../artifacts/api-server/src/lib/kyc-provider.ts';
+
+test('startup validation allows degraded production startup when DATABASE_URL is not attached yet', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
+  };
+
+  const result = validateStartupEnvironment(env);
+  assert.equal(result.ok, true);
+  assert.equal(result.missing.includes('DATABASE_URL'), false);
+});
 
 test('production validation allows missing optional email provider', () => {
   const env = {
