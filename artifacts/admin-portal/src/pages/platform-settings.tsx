@@ -145,7 +145,7 @@ export function PlatformSettingsPage() {
         disabled={updateMutation.isPending}
         className="flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
       >
-        {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+        {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 shrink-0" />}
         Save Settings
       </button>
 
@@ -156,7 +156,7 @@ export function PlatformSettingsPage() {
             Manage admin alert toggles, email destinations, and broadcasts.
           </p>
         </div>
-        <div className="-mx-4 sm:-mx-0">
+        <div className="-mx-4 sm:mx-0">
           <AdminNotificationsPage />
         </div>
       </div>
