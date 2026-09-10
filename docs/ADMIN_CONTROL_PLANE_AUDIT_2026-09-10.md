@@ -1,46 +1,44 @@
 # XpressPro FX Admin Control Plane Audit
 
 Date: 2026-09-10
-Repository: `peranza0001/Rebrand-xpfx`
-Branch: `fix/production-readiness-20260909`
-Live apex: `https://xpressprofx.com`
+Scope: repository implementation and documented live deployment endpoints
 
-This audit was completed before the next code change. It compares the repository implementation, deployment configuration, current admin routes, and observable live domains.
+## Audit result
 
-## Working
+The platform has a substantial admin portal and a broad Express route surface. The local API, customer frontend, and admin frontend production builds pass. The documented live endpoints could not be validated from this environment: the Railway admin hostname presents a TLS certificate mismatch, and `api.xpressprofx.com` does not resolve.
 
-- npm workspaces with one `package-lock.json`; no `pnpm-lock.yaml` exists.
-- Railway build command is simplified to `npm ci --include=dev`, predeploy, and build. A current `npm ci --include=dev --no-audit --no-fund --ignore-scripts` completed with 941 packages.
-- API typecheck, API build, frontend builds, lint, tests, and production audit have passed in the current branch history.
-- Admin routes cover user management, KYC, deposits, withdrawals, banks, cards, promotions, billing, platform settings, assets, P2P, notifications, live chat, wallets, and activity.
-- Admin withdrawal decisions enforce gas-fee, deadline, connected-wallet, and balance gates.
-- SIWE wallet verification validates nonce, domain, URI, chain, signature, and preserves MetaMask versus WalletConnect provider metadata.
-- Admin per-user crypto deposit addresses now use the existing `deposit_addresses` persistence model and create an audit activity entry.
-- Support ticket creation sends a receipt through the existing SendGrid/SMTP/audit email layer.
-- The apex live domain returned HTTP 200 during this audit.
+## Already present and working locally
 
-## Partial or Risky
+- Admin login/session guard and handler-level `requireAdmin` protection on the main admin routes.
+- Dashboard statistics, user list/detail, account status controls, KYC decisions, deposit and withdrawal review, P2P merchant controls, live chat, mailbox, notifications, billing, gas-fee workflows, assets, trades, and platform settings.
+- User account checklist and investment-plan activation data structures.
+- Connected-wallet data model and user/admin wallet routes.
+- Signed in-memory audit event chain and a persisted PostgreSQL audit-log schema.
+- KYC/AML provider abstraction with internal mock providers when external credentials are absent.
+- CSRF middleware, security headers, rate limiting, and session authentication.
 
-- `www.xpressprofx.com` does not resolve in DNS, so the second required live domain is not available.
-- Admin platform settings, catalog, demo configuration, and several investment controls remain primarily in-memory and are not proven across a process restart.
-- Investment subscriptions and catalog activation lack a complete PostgreSQL-backed restart test.
-- Email has SendGrid/SMTP support, but real provider delivery and domain authentication cannot be proven without production credentials/DNS.
-- Support receipt email is immediate; a durable delayed queue for a three-to-five-minute autoresponse is not implemented.
-- Crypto order and copy-trading paths intentionally return `stub`/`pending_stub` or `internal_simulation` when no regulated execution provider is configured. They correctly avoid pretending that simulated execution is live.
-- No complete live authenticated user-to-admin-to-database E2E exists for KYC, deposits, wallet connection, investment activation, and withdrawal.
+## Partial or risky wiring
 
-## Missing or Confirmed Defect
+- Platform settings, assets, trades, sessions, and most user operation state are process-memory backed; restart durability is incomplete.
+- The audit-log route reads the signed in-memory chain while the database audit schema is not the authoritative writer for all admin operations.
+- Several legacy admin mutations use `logActivity`; they do not consistently write the signed audit chain with structured before/after payloads.
+- External provider fallback exists for KYC/AML scaffolding, but provider fallback is not uniformly enforced across OTP, mail, payment rails, and settlement workflows.
+- Connected-wallet flows model an address and balance, but a production MetaMask-style connection requires browser wallet-provider integration and verified on-chain transaction handling; this was not verifiable against the unavailable live API.
+- The public provisioning-status endpoint is intentional for startup diagnostics and does not expose admin credentials, but it should remain limited to non-sensitive readiness data.
 
-- `/api/admin/provisioning-status` was registered without `requireAdmin`, exposing operational provisioning state to unauthenticated callers. This is a high-confidence authorization defect and is the first fix after this audit.
-- Full provider fallback semantics for KYC, payment rails, and broker execution are not implemented as real external-provider replacements. Admin review and approval exist for several workflows, but admin-as-provider behavior must remain explicit and auditable rather than silently fabricating provider verification.
+## Missing before a production-complete control plane
 
-## Live Evidence
+- Durable, transactional persistence for platform control settings, catalog state, copy-trading rules, trade-manager risk parameters, and admin actions.
+- Dedicated admin pages and APIs for lead-trader management, copy-trading rules/status, live/demo risk controls, feature flags, mailer configuration, announcements, and provider health/fallback policy.
+- Uniform provider fallback orchestration for KYC, AML, OTP, email, payment rails, and wallet/settlement operations.
+- Full end-to-end browser/provider tests for KYC, deposits, withdrawals, wallet connection, AI chat escalation, investment activation, and every on-behalf action.
+- Live deployment TLS/DNS correction and authenticated smoke tests against the production API.
 
-- `https://xpressprofx.com`: HTTP 200.
-- `https://www.xpressprofx.com`: DNS resolution failure during the audit.
-- Upstream PR `#13` was merged into `trevionjamielynn800/Rebrand-xpfx:main` before this audit fix was published.
-- Repository CI/deployment manifests: Railway, Vercel, Procfile, PM2 ecosystem configuration, and GitHub Actions are present.
+## Implemented in this continuation
 
-## Audit Decision
+- Extended the existing platform settings contract and OpenAPI schema with provider fallback flags, copy-trading policy, trade-manager risk controls, and the requested professional network/processing fee schedule: 65 / 55 / 95 / 135 / 75 / 35.
+- Added server-side Zod validation and signed audit-chain recording for platform settings updates.
+- Added grouped controls to the existing Admin Settings page and wired them through the existing authenticated API mutation.
+- Verified API, shared-contract, customer frontend, and admin frontend production builds.
 
-The repository is locally buildable and the Railway historical install failure is addressed, but the platform is not yet proven as fully live enterprise-ready. The next implementation priorities are authorization hardening, durable admin settings/investment state, authenticated end-to-end tests, and external DNS/provider configuration.
+This audit intentionally distinguishes implemented local wiring from production claims that require database, browser-wallet, provider, and live-deployment verification.

@@ -4516,7 +4516,42 @@ components:
           type: boolean
         maintenanceMessage:
           type: string
-      required: [tradingEnabled, registrationEnabled, demoModeEnabled, maintenanceMode, maintenanceMessage]
+        providerFallback:
+          type: object
+          properties:
+            kyc: { type: boolean }
+            aml: { type: boolean }
+            otp: { type: boolean }
+            email: { type: boolean }
+            payments: { type: boolean }
+          required: [kyc, aml, otp, email, payments]
+        copyTrading:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            feePercent: { type: number, minimum: 0, maximum: 100 }
+            maxFollowersPerLead: { type: integer, minimum: 1 }
+          required: [enabled, feePercent, maxFollowersPerLead]
+        tradeManager:
+          type: object
+          properties:
+            liveTradingEnabled: { type: boolean }
+            demoTradingEnabled: { type: boolean }
+            maxLeverage: { type: number, exclusiveMinimum: 0 }
+            stopOutPercent: { type: number, minimum: 0, maximum: 100 }
+            maxOpenTradesPerUser: { type: integer, minimum: 1 }
+          required: [liveTradingEnabled, demoTradingEnabled, maxLeverage, stopOutPercent, maxOpenTradesPerUser]
+        networkFees:
+          type: object
+          properties:
+            deposit: { type: number, minimum: 0 }
+            withdrawal: { type: number, minimum: 0 }
+            cryptoBuy: { type: number, minimum: 0 }
+            cryptoSell: { type: number, minimum: 0 }
+            p2p: { type: number, minimum: 0 }
+            tradeSettlement: { type: number, minimum: 0 }
+          required: [deposit, withdrawal, cryptoBuy, cryptoSell, p2p, tradeSettlement]
+      required: [tradingEnabled, registrationEnabled, demoModeEnabled, maintenanceMode, maintenanceMessage, providerFallback, copyTrading, tradeManager, networkFees]
 
     CreateAssetRequest:
       type: object

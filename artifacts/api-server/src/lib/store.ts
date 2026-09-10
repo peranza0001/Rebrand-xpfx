@@ -1046,6 +1046,33 @@ export interface PlatformSettingsData {
   maintenanceMode: boolean;
   /** Banner message shown to users (informational; gates only when maintenanceMode=true). */
   maintenanceMessage: string;
+  providerFallback: {
+    kyc: boolean;
+    aml: boolean;
+    otp: boolean;
+    email: boolean;
+    payments: boolean;
+  };
+  copyTrading: {
+    enabled: boolean;
+    feePercent: number;
+    maxFollowersPerLead: number;
+  };
+  tradeManager: {
+    liveTradingEnabled: boolean;
+    demoTradingEnabled: boolean;
+    maxLeverage: number;
+    stopOutPercent: number;
+    maxOpenTradesPerUser: number;
+  };
+  networkFees: {
+    deposit: number;
+    withdrawal: number;
+    cryptoBuy: number;
+    cryptoSell: number;
+    p2p: number;
+    tradeSettlement: number;
+  };
 }
 
 /** Platform-wide feature toggles (admin controlled). */
@@ -1055,6 +1082,10 @@ export const platformSettings: PlatformSettingsData = {
   demoModeEnabled: true,
   maintenanceMode: false,
   maintenanceMessage: "",
+  providerFallback: { kyc: true, aml: true, otp: true, email: true, payments: true },
+  copyTrading: { enabled: true, feePercent: 20, maxFollowersPerLead: 1000 },
+  tradeManager: { liveTradingEnabled: true, demoTradingEnabled: true, maxLeverage: 100, stopOutPercent: 50, maxOpenTradesPerUser: 50 },
+  networkFees: { deposit: 65, withdrawal: 55, cryptoBuy: 95, cryptoSell: 135, p2p: 75, tradeSettlement: 35 },
 };
 
 /** Demo platform configuration (admin editable) */

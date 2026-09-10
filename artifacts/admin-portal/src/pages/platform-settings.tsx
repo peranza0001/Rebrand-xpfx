@@ -15,6 +15,10 @@ export function PlatformSettingsPage() {
   const [demoModeEnabled, setDemoModeEnabled] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  const [providerFallback, setProviderFallback] = useState({ kyc: true, aml: true, otp: true, email: true, payments: true });
+  const [copyTrading, setCopyTrading] = useState({ enabled: true, feePercent: 20, maxFollowersPerLead: 1000 });
+  const [tradeManager, setTradeManager] = useState({ liveTradingEnabled: true, demoTradingEnabled: true, maxLeverage: 100, stopOutPercent: 50, maxOpenTradesPerUser: 50 });
+  const [networkFees, setNetworkFees] = useState({ deposit: 65, withdrawal: 55, cryptoBuy: 95, cryptoSell: 135, p2p: 75, tradeSettlement: 35 });
   const [savedMsg, setSavedMsg] = useState("");
 
   useEffect(() => {
@@ -24,6 +28,10 @@ export function PlatformSettingsPage() {
       setDemoModeEnabled(settings.demoModeEnabled);
       setMaintenanceMode(settings.maintenanceMode);
       setMaintenanceMessage(settings.maintenanceMessage ?? "");
+      setProviderFallback(settings.providerFallback);
+      setCopyTrading(settings.copyTrading);
+      setTradeManager(settings.tradeManager);
+      setNetworkFees(settings.networkFees);
     }
   }, [settings]);
 
@@ -35,6 +43,10 @@ export function PlatformSettingsPage() {
         demoModeEnabled,
         maintenanceMode,
         maintenanceMessage: maintenanceMessage.trim(),
+        providerFallback,
+        copyTrading,
+        tradeManager,
+        networkFees,
       },
     });
     setSavedMsg("Settings saved.");
@@ -87,6 +99,32 @@ export function PlatformSettingsPage() {
         />
       </div>
 
+      <SettingsSection title="Provider fallback" description="Keep core workflows available when an external provider is unavailable.">
+        {(["kyc", "aml", "otp", "email", "payments"] as const).map((key) => (
+          <Toggle key={key} label={`Admin fallback: ${key.toUpperCase()}`} description="Allow the internal control plane to complete this workflow." value={providerFallback[key]} onChange={(value) => setProviderFallback((current) => ({ ...current, [key]: value }))} />
+        ))}
+      </SettingsSection>
+
+      <SettingsSection title="Copy trading" description="Global participation rules applied to lead traders and followers.">
+        <Toggle label="Copy trading enabled" description="Allow users to follow approved lead traders." value={copyTrading.enabled} onChange={(value) => setCopyTrading((current) => ({ ...current, enabled: value }))} />
+        <NumberField label="Performance fee (%)" value={copyTrading.feePercent} min={0} max={100} onChange={(value) => setCopyTrading((current) => ({ ...current, feePercent: value }))} />
+        <NumberField label="Maximum followers per lead" value={copyTrading.maxFollowersPerLead} min={1} onChange={(value) => setCopyTrading((current) => ({ ...current, maxFollowersPerLead: value }))} />
+      </SettingsSection>
+
+      <SettingsSection title="Trade manager" description="Risk gates for live and demo execution.">
+        <Toggle label="Live trading enabled" description="Permit live order execution." value={tradeManager.liveTradingEnabled} onChange={(value) => setTradeManager((current) => ({ ...current, liveTradingEnabled: value }))} />
+        <Toggle label="Demo trading enabled" description="Permit simulated order execution." value={tradeManager.demoTradingEnabled} onChange={(value) => setTradeManager((current) => ({ ...current, demoTradingEnabled: value }))} />
+        <NumberField label="Maximum leverage" value={tradeManager.maxLeverage} min={1} onChange={(value) => setTradeManager((current) => ({ ...current, maxLeverage: value }))} />
+        <NumberField label="Stop-out threshold (%)" value={tradeManager.stopOutPercent} min={0} max={100} onChange={(value) => setTradeManager((current) => ({ ...current, stopOutPercent: value }))} />
+        <NumberField label="Maximum open trades per user" value={tradeManager.maxOpenTradesPerUser} min={1} onChange={(value) => setTradeManager((current) => ({ ...current, maxOpenTradesPerUser: value }))} />
+      </SettingsSection>
+
+      <SettingsSection title="Network and processing fees" description="Professional fee schedule used by fallback settlement workflows (USD).">
+        {(["deposit", "withdrawal", "cryptoBuy", "cryptoSell", "p2p", "tradeSettlement"] as const).map((key) => (
+          <NumberField key={key} label={key === "cryptoBuy" ? "Crypto buy" : key === "cryptoSell" ? "Crypto sell" : key === "tradeSettlement" ? "Trade settlement" : key[0].toUpperCase() + key.slice(1)} value={networkFees[key]} min={0} onChange={(value) => setNetworkFees((current) => ({ ...current, [key]: value }))} />
+        ))}
+      </SettingsSection>
+
       <div className="bg-card border border-card-border rounded-xl p-5 space-y-3">
         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Maintenance Banner Message
@@ -123,6 +161,24 @@ export function PlatformSettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SettingsSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <section className="bg-card border border-card-border rounded-xl overflow-hidden">
+      <div className="p-5 border-b border-border"><h2 className="text-sm font-semibold text-foreground">{title}</h2><p className="text-xs text-muted-foreground mt-1">{description}</p></div>
+      <div className="divide-y divide-border">{children}</div>
+    </section>
+  );
+}
+
+function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max?: number; onChange: (value: number) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-4 p-5 text-sm font-medium text-foreground">
+      <span>{label}</span>
+      <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-32 px-3 py-2 bg-input border border-border rounded-md text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+    </label>
   );
 }
 
