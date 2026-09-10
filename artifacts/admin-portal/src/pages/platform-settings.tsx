@@ -202,7 +202,7 @@ function Toggle({
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
           value ? "bg-primary" : "bg-muted"
         }`}
       >
