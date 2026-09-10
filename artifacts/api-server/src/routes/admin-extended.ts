@@ -22,7 +22,7 @@ import {
   users,
 } from "../lib/store";
 import { requireAdmin } from "../lib/session";
-import { persistWalletBalance } from "../lib/db-persist";
+import { getPersistedDepositAddresses, persistDepositAddresses, persistWalletBalance } from "../lib/db-persist";
 
 const router: IRouter = Router();
 
@@ -118,22 +118,31 @@ router.patch("/admin/users/:userId/vault", requireAdmin, (req, res) => {
 });
 
 // GET /admin/users/:userId/crypto-addresses
-router.get("/admin/users/:userId/crypto-addresses", requireAdmin, (req, res) => {
+router.get("/admin/users/:userId/crypto-addresses", requireAdmin, async (req, res) => {
   const p = GetAdminUserCryptoAddressesParams.safeParse(req.params);
   if (!p.success) return res.status(400).json({ error: "Invalid params" });
 
   const data = getUserData(p.data.userId);
+  const persisted = await getPersistedDepositAddresses(p.data.userId);
+  data.cryptoAddresses = { ...data.cryptoAddresses, ...persisted };
   return res.json(data.cryptoAddresses);
 });
 
 // PATCH /admin/users/:userId/crypto-addresses
-router.patch("/admin/users/:userId/crypto-addresses", requireAdmin, (req, res) => {
+router.patch("/admin/users/:userId/crypto-addresses", requireAdmin, async (req, res) => {
   const p = UpdateAdminUserCryptoAddressesParams.safeParse(req.params);
   const b = UpdateAdminUserCryptoAddressesBody.safeParse(req.body);
   if (!p.success || !b.success) return res.status(400).json({ error: "Invalid request" });
 
   const data = getUserData(p.data.userId);
   data.cryptoAddresses = { ...data.cryptoAddresses, ...b.data };
+  await persistDepositAddresses(p.data.userId, data.cryptoAddresses, req.userId!);
+  logActivity({
+    actorId: req.userId!,
+    actorName: req.storedUser!.user.fullName,
+    action: "admin.crypto_addresses.update",
+    detail: `Updated deposit addresses for user ${p.data.userId}: ${Object.keys(b.data).join(", ")}`,
+  });
   return res.json(data.cryptoAddresses);
 });
 

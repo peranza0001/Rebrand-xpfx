@@ -664,6 +664,49 @@ export async function persistConnectedWallet(
   }
 }
 
+export async function persistDepositAddresses(
+  userId: string,
+  addresses: Record<string, string>,
+  createdByAdmin: string,
+): Promise<void> {
+  if (!prismaClient || !isUuid(userId)) return;
+  const delegate = getPrismaModelDelegate("deposit_addresses");
+  if (!delegate?.upsert) return;
+  for (const [assetSymbol, address] of Object.entries(addresses)) {
+    const normalizedAsset = assetSymbol.trim().toUpperCase();
+    const normalizedAddress = address.trim();
+    if (!normalizedAsset || !normalizedAddress) continue;
+    try {
+      await delegate.upsert({
+        where: { user_id_asset_symbol: { user_id: userId, asset_symbol: normalizedAsset } },
+        update: { address: normalizedAddress, is_active: true, created_by_admin: createdByAdmin },
+        create: {
+          user_id: userId,
+          asset_symbol: normalizedAsset,
+          address: normalizedAddress,
+          is_active: true,
+          created_by_admin: createdByAdmin,
+        },
+      });
+    } catch (err) {
+      logger.warn({ err, userId, assetSymbol: normalizedAsset }, "[db-persist] persistDepositAddresses failed");
+    }
+  }
+}
+
+export async function getPersistedDepositAddresses(userId: string): Promise<Record<string, string>> {
+  if (!prismaClient || !isUuid(userId)) return {};
+  const delegate = getPrismaModelDelegate("deposit_addresses");
+  if (!delegate?.findMany) return {};
+  try {
+    const rows = await delegate.findMany({ where: { user_id: userId, is_active: true } });
+    return Object.fromEntries(rows.map((row: any) => [String(row.asset_symbol).toUpperCase(), String(row.address)]));
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getPersistedDepositAddresses failed");
+    return {};
+  }
+}
+
 /**
  * CRITICAL FIX FOR PHASE 1: Persist wallet balance to database after every balance-affecting operation.
  * This ensures that wallet balances survive server restarts.

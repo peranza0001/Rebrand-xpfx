@@ -4,8 +4,10 @@
 
 import { Router, Request, Response } from 'express';
 import { captureException, getApmSummary, getRecentApmSamples } from '../lib/observability';
+import { requireAdmin } from '../lib/session';
 
 const router = Router();
+router.use(requireAdmin);
 
 router.get('/monitoring/status', (_req: Request, res: Response) => {
   return res.status(200).json({
