@@ -47,6 +47,64 @@ export interface LedgerEntry {
 }
 
 /**
+ * Build the parameterized SQL used to record wallet ledger events.
+ * This is intentionally exported for runtime use and regression testing.
+ */
+export function buildWalletLedgerInsertSql({
+  userId,
+  walletId,
+  entryType,
+  assetSymbol,
+  amount,
+  status,
+  sourceType,
+  sourceId,
+  description,
+  metadata,
+}: {
+  userId: string;
+  walletId: string;
+  entryType: LedgerEntryType;
+  assetSymbol: string;
+  amount: number;
+  status: EntryStatus;
+  sourceType?: string;
+  sourceId?: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return sql`
+    INSERT INTO wallet_ledger_entries (
+      user_id,
+      wallet_id,
+      entry_type,
+      asset_symbol,
+      amount,
+      status,
+      source_type,
+      source_id,
+      description,
+      metadata,
+      created_at,
+      updated_at
+    ) VALUES (
+      ${userId},
+      ${walletId},
+      ${entryType},
+      ${assetSymbol},
+      ${amount},
+      ${status},
+      ${sourceType ?? null},
+      ${sourceId ?? null},
+      ${description ?? null},
+      ${JSON.stringify(metadata ?? {})}::jsonb,
+      NOW(),
+      NOW()
+    )
+  `;
+}
+
+/**
  * Record a new ledger entry. This is the PRIMARY method for all balance changes.
  * No balance mutation should occur without a corresponding ledger entry.
  */
@@ -76,13 +134,20 @@ export async function recordLedgerEntry({
   try {
     const db = getDb();
     if (db) {
-      await db.execute(`
-        INSERT INTO wallet_ledger_entries (
-          user_id, wallet_id, entry_type, asset_symbol, amount, 
-          status, source_type, source_id, description, metadata, 
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
-      `);
+      await db.execute(
+        buildWalletLedgerInsertSql({
+          userId,
+          walletId,
+          entryType,
+          assetSymbol,
+          amount,
+          status,
+          sourceType,
+          sourceId,
+          description,
+          metadata,
+        })
+      );
       return true;
     }
 
