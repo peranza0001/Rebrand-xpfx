@@ -38,6 +38,7 @@ This audit was completed before the next code change. It compares the repository
 
 - `https://xpressprofx.com`: HTTP 200.
 - `https://www.xpressprofx.com`: DNS resolution failure during the audit.
+- Upstream PR `#13` was merged into `trevionjamielynn800/Rebrand-xpfx:main` before this audit fix was published.
 - Repository CI/deployment manifests: Railway, Vercel, Procfile, PM2 ecosystem configuration, and GitHub Actions are present.
 
 ## Audit Decision
