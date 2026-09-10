@@ -86,6 +86,7 @@
     }
   },
   "dependencies": {
+    "@phosphor-icons/webcomponents": "^2.1.5",
     "axios": "1.19.0",
     "redis": "^6.2.1"
   }
