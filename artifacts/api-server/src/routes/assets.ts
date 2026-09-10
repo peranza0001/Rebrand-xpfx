@@ -52,6 +52,14 @@ router.post("/assets/purchase", requireAuth, async (req, res) => {
       message: "Purchase amount must be greater than zero.",
     });
   }
+  return res.status(503).json({
+    success: false,
+    transactionId: "",
+    assetSymbol: asset.symbol,
+    amountPurchased: 0,
+    totalCost: 0,
+    message: "Asset purchases are temporarily unavailable until durable asset settlement is enabled.",
+  });
   const data = getUserData(req.userId!);
   if (!enforceGasFee(req, res, "asset_purchase")) return;
   const totalCost = Math.round(asset.price * parsed.data.amount * 100) / 100;
