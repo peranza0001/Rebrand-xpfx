@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
 import { getPrismaClient } from "../lib/db-persist";
 import { getIntegrationStatus } from "../lib/integration-config";
 import { getEmailProviderStatus } from "../lib/email";
+import { requireAdmin } from "../lib/session";
 
 const router: IRouter = Router();
 
@@ -58,7 +59,7 @@ router.get("/healthz/db", async (_req, res) => {
 // Public — lets the admin portal show a "no admin provisioned" banner
 // instead of failing silently when ADMIN_EMAIL/ADMIN_PASSWORD secrets
 // haven't been set yet. Does not leak the actual email.
-router.get("/admin/provisioning-status", (_req, res) => {
+router.get("/admin/provisioning-status", requireAdmin, (_req, res) => {
   res.json({
     provisioned: adminSeedStatus.provisioned,
     integrations: getIntegrationStatus(),
