@@ -88,7 +88,9 @@ function validateProductionEnvironment(env = process.env) {
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
-    if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
+    if (!databaseUrl) {
+      warnings.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL is not configured; the app will continue in degraded mode without persistence until a real PostgreSQL connection is attached.');
+    } else if (isPlaceholderDatabaseUrl(databaseUrl)) {
       errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
     }
 

@@ -64,11 +64,7 @@ async function retryAsync<T>(fn: () => Promise<T>, attempts = 5, delayMs = 3000)
 async function initDatabase() {
   const rawDatabaseUrl = getRawDatabaseUrl();
   if (!rawDatabaseUrl) {
-    if (process.env.NODE_ENV === 'production') {
-      logger.error('[DB] DATABASE_URL is not configured — aborting startup');
-      throw new Error('DATABASE_URL is not configured');
-    }
-    logger.warn('[DB] DATABASE_URL is not configured — running without DB persistence');
+    logger.warn('[DB] DATABASE_URL is not configured — running in degraded mode without DB persistence');
     return null;
   }
 
@@ -98,15 +94,15 @@ async function initDatabase() {
     const msg = (error && (error as any).message) || '';
     const code = (error && (error as any).code) || '';
     const isPrismaNotGenerated = typeof msg === 'string' && msg.includes('did not initialize yet');
-    const isDevConnectionFailure = process.env.NODE_ENV !== 'production' && (code === 'P1001' || code === 'P1008' || (typeof msg === 'string' && msg.includes("Can't reach database server")));
+    const isConnectionFailure = code === 'P1001' || code === 'P1008' || (typeof msg === 'string' && msg.includes("Can't reach database server"));
 
     if (process.env.NODE_ENV === 'production') {
-      logger.error({ err: error }, '[DB] Prisma failed to connect in production — aborting startup so auth data is never silently lost');
-      throw error;
+      logger.warn({ err: error }, '[DB] Prisma failed to connect in production — continuing in degraded mode without persistence');
+      return null;
     }
 
-    if (isPrismaNotGenerated || isDevConnectionFailure) {
-      logger.warn({ err: error }, '[DB] Starting without DB persistence due to DB initialization issue (development mode only)');
+    if (isPrismaNotGenerated || isConnectionFailure) {
+      logger.warn({ err: error }, '[DB] Starting without DB persistence due to DB initialization issue');
       return null;
     }
 

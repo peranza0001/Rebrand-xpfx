@@ -6,11 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-09-10 12:06:38 UTC
-- Previous sync: 2026-09-10 11:45:20 UTC
+- Last sync: 2026-09-10 12:14:40 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/admin-portal/src/pages/platform-settings.tsx | M  artifacts/api-server/src/lib/store.ts | M  artifacts/api-server/src/routes/admin-platform.ts | M  artifacts/api-server/src/lib/email.ts | M  artifacts/api-server/src/lib/kyc-provider.ts | M  artifacts/api-server/src/lib/otp.ts | M  tests/production-env.test.mjs
+- Current working tree: M  artifacts/api-server/src/index.ts | M  scripts/ensure-db-ready.mjs | M  scripts/validate-production-env.mjs
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
