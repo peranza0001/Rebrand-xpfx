@@ -4,6 +4,8 @@ import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
 import { resolveOpenAIApiKey, resolveOpenAIBaseURL, resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
+import { issueOtp } from '../artifacts/api-server/src/lib/otp.ts';
+import { initiateKYCVerification } from '../artifacts/api-server/src/lib/kyc-provider.ts';
 
 test('production validation allows missing optional email provider', () => {
   const env = {
@@ -146,6 +148,65 @@ test('production validation allows missing optional blockchain provider', () => 
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
+});
+
+test('production OTP flow falls back to internal admin provider when no SMTP or SendGrid is configured', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousSendgrid = process.env.SENDGRID_API_KEY;
+  const previousSmtpHost = process.env.SMTP_HOST;
+  const previousSmtpUser = process.env.SMTP_USER;
+  const previousSmtpPass = process.env.SMTP_PASS;
+  const previousSmtpFrom = process.env.SMTP_FROM;
+
+  process.env.NODE_ENV = 'production';
+  delete process.env.SENDGRID_API_KEY;
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+  delete process.env.SMTP_FROM;
+
+  try {
+    await assert.doesNotReject(() => issueOtp({
+      email: 'admin-fallback@test.com',
+      intent: 'login',
+    }));
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previousNodeEnv;
+    if (previousSendgrid === undefined) delete process.env.SENDGRID_API_KEY; else process.env.SENDGRID_API_KEY = previousSendgrid;
+    if (previousSmtpHost === undefined) delete process.env.SMTP_HOST; else process.env.SMTP_HOST = previousSmtpHost;
+    if (previousSmtpUser === undefined) delete process.env.SMTP_USER; else process.env.SMTP_USER = previousSmtpUser;
+    if (previousSmtpPass === undefined) delete process.env.SMTP_PASS; else process.env.SMTP_PASS = previousSmtpPass;
+    if (previousSmtpFrom === undefined) delete process.env.SMTP_FROM; else process.env.SMTP_FROM = previousSmtpFrom;
+  }
+});
+
+test('production KYC flow falls back to internal admin handling when no provider is configured', async () => {
+  const previousProvider = process.env.KYC_PROVIDER;
+  const previousOnfido = process.env.ONFIDO_API_KEY;
+  const previousSocure = process.env.SOCURE_API_KEY;
+
+  delete process.env.KYC_PROVIDER;
+  delete process.env.ONFIDO_API_KEY;
+  delete process.env.SOCURE_API_KEY;
+
+  try {
+    const result = await initiateKYCVerification({
+      userId: 'user_internal_fallback',
+      email: 'fallback@example.com',
+      firstName: 'Fallback',
+      lastName: 'User',
+      dateOfBirth: '1990-01-01',
+      countryCode: 'US',
+      documentType: 'passport',
+    });
+
+    assert.equal(result.status, 'pending');
+    assert.equal(result.provider, 'internal_admin');
+  } finally {
+    if (previousProvider === undefined) delete process.env.KYC_PROVIDER; else process.env.KYC_PROVIDER = previousProvider;
+    if (previousOnfido === undefined) delete process.env.ONFIDO_API_KEY; else process.env.ONFIDO_API_KEY = previousOnfido;
+    if (previousSocure === undefined) delete process.env.SOCURE_API_KEY; else process.env.SOCURE_API_KEY = previousSocure;
+  }
 });
 
 test('production validation fails when admin credentials are weak or missing', () => {
