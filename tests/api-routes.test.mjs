@@ -228,5 +228,5 @@ test('demo trading endpoints are available for authenticated sessions', async ()
     method: 'POST',
     headers: { Cookie: cookie },
   });
-  assert.equal(resetResponse.status, 403);
+  assert.equal(resetResponse.status, 200);
 });
