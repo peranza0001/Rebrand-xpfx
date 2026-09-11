@@ -8,6 +8,13 @@
 
 ## ABSOLUTE RULES (MUST FOLLOW)
 
+### Permanent AI Agent Release Rule
+- Any AI agent changing this repository must preserve founder/owner rules and existing financial approval, encryption, KYC/AML, OTP, and API contracts.
+- Each change must keep the customer frontend, admin panel, API server, database persistence, deployment configuration, and security controls connected end to end.
+- Agents must validate the affected workflow with tests, strict typechecking, production builds, security checks, and HTTP smoke tests before marking it complete.
+- Agents must commit and push each completed stage to `origin/main` before beginning another stage.
+- Agents must report concrete evidence and must not claim production readiness while required secrets, providers, DNS, deployment routing, database connectivity, or browser validation remain unverified.
+
 ### Business Logic (CRITICAL)
 - **🚫 NEVER** change core business logic without explicit approval
 - **🚫 NEVER** modify admin approval workflows
