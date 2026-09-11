@@ -514,7 +514,6 @@ const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artif
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
 const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
 const hasFrontendBuild = fs.existsSync(frontendIndexPath);
-const hasAdminBuild = Boolean(adminPortalIndexPath && fs.existsSync(adminPortalIndexPath));
 
 if (adminPortalStaticPath) {
   app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
