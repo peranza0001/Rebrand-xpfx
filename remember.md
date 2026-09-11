@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-09-11 22:37:40 UTC
+- Last sync: 2026-09-11 22:59:47 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  COPILOT-INSTRUCTIONS.md | M  docs/RULES.md
+- Current working tree: M  artifacts/nextrade/index.html | M  artifacts/nextrade/src/components/layout/PublicLayout.tsx | M  artifacts/nextrade/src/index.css
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

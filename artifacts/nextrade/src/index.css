@@ -162,6 +162,8 @@
 }
 
 .public-site { --public-ink: #0b0d0c; --public-panel: #121614; --public-line: rgba(255,255,255,.1); --public-lime: #c8f169; font-family: 'Manrope', sans-serif; background: var(--public-ink); color: #f4f6ef; }
+.app-boot-fallback { display: grid; min-height: 100vh; place-items: center; background: #0b0d0c; color: #c8f169; font: 600 14px 'Manrope', sans-serif; }
+.app-runtime-error { display: grid; min-height: 100vh; place-content: center; gap: 14px; padding: 28px; background: #0b0d0c; color: #f4f6ef; font-family: 'Manrope', sans-serif; text-align: center; }.app-runtime-error h1 { font-size: 28px; font-weight: 800; }.app-runtime-error p { color: rgba(255,255,255,.58); }.app-runtime-error button { justify-self: center; border: 0; border-radius: 999px; padding: 12px 18px; background: #c8f169; color: #0b0d0c; font-weight: 700; }
 .public-container { width: min(1180px, calc(100% - 40px)); margin-inline: auto; }
 .public-header { background: rgba(11,13,12,.82); border-bottom: 1px solid var(--public-line); backdrop-filter: blur(18px); }
 .public-brand { display: inline-flex; align-items: center; gap: 10px; color: #f4f6ef; font-size: 17px; font-weight: 800; letter-spacing: -.04em; white-space: nowrap; }.public-brand em { color: var(--public-lime); font-style: normal; }.public-brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--public-lime); color: #0b0d0c; font-size: 11px; font-weight: 800; letter-spacing: -.08em; }

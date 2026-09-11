@@ -27,7 +27,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="public-site min-h-dvh flex flex-col bg-background text-foreground">
       <header className="public-header sticky top-0 z-40">
-        <div className="public-container flex h-[76px] items-center justify-between gap-6">
+        <div className="public-container flex h-19 items-center justify-between gap-6">
           <Link href="/" className="public-brand" data-testid="link-home-brand">
             <span className="public-brand-mark">xp</span><span>XpressPro <em>FX</em></span>
           </Link>
