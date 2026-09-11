@@ -8,6 +8,26 @@ import { resolveOpenAIApiKey, resolveOpenAIBaseURL, resolveOpenAIModel } from '.
 import { issueOtp } from '../artifacts/api-server/src/lib/otp.ts';
 import { initiateKYCVerification } from '../artifacts/api-server/src/lib/kyc-provider.ts';
 
+test('resolveEnvValue strips wrapping quotes and escaped trailing quotes from production env values', () => {
+  const env = {
+    PUBLIC_APP_URL: '"https://xpressprofx.com\\"',
+    ALLOWED_ORIGINS: '"https://web-production-94f970.up.railway.app,https://xpressprofx.com"',
+  };
+
+  assert.equal(resolveEnvValue(env, 'PUBLIC_APP_URL', ['FRONTEND_URL']), 'https://xpressprofx.com');
+  assert.equal(resolveEnvValue(env, 'ALLOWED_ORIGINS'), 'https://web-production-94f970.up.railway.app,https://xpressprofx.com');
+});
+
+test('resolveEnvValue handles values ending in a backslash-escaped quote without leaving a trailing slash', () => {
+  const env = {
+    PUBLIC_APP_URL: '"https://xpressprofx.com\\"',
+    FRONTEND_URL: '"https://web-production-94f970.up.railway.app\\"',
+  };
+
+  assert.equal(resolveEnvValue(env, 'PUBLIC_APP_URL', ['FRONTEND_URL']), 'https://xpressprofx.com');
+  assert.equal(resolveEnvValue(env, 'FRONTEND_URL', ['PUBLIC_APP_URL']), 'https://web-production-94f970.up.railway.app');
+});
+
 test('startup validation allows degraded production startup when DATABASE_URL is not attached yet', () => {
   const env = {
     NODE_ENV: 'production',

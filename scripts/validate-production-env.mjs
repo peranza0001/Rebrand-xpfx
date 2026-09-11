@@ -18,13 +18,35 @@ function isRealAlchemyKey(value) {
   return trimmed.length >= 16;
 }
 
+function normalizeEnvValue(value) {
+  if (typeof value !== 'string') return undefined;
+
+  let trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+
+  const wrappedInQuotes =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+
+  if (wrappedInQuotes) {
+    trimmed = trimmed.slice(1, -1);
+  }
+
+  if (trimmed.endsWith('\\') && (value.trim().startsWith('"') || value.trim().startsWith("'"))) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed
+    .replace(/\\(["'])/g, '$1')
+    .replace(/\\\\/g, '\\')
+    .trim();
+}
+
 function resolveEnvValue(env, key, aliases = []) {
   const candidates = [key, ...aliases];
   for (const candidate of candidates) {
-    const raw = env[candidate];
-    if (typeof raw !== 'string') continue;
-    const trimmed = raw.trim();
-    if (trimmed.length > 0) return trimmed;
+    const raw = normalizeEnvValue(env[candidate]);
+    if (typeof raw === 'string' && raw.length > 0) return raw;
   }
   return undefined;
 }
