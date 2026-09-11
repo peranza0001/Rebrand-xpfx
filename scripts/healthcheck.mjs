@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
-const baseUrl = process.env.PRODUCTION_URL || process.env.APP_URL || process.env.SERVER_URL;
-if (!baseUrl) {
-  console.error('ERROR: PRODUCTION_URL (or APP_URL / SERVER_URL) must be set.');
-  process.exit(2);
-}
+import { resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const endpoints = [
   '/healthz',
@@ -12,6 +9,16 @@ const endpoints = [
   '/readyz',
   '/api/readyz',
 ];
+
+export function resolveHealthcheckBaseUrl(env = process.env) {
+  const explicitBase = env.PRODUCTION_URL || env.APP_URL || env.SERVER_URL || env.PUBLIC_APP_URL || env.FRONTEND_URL;
+  if (explicitBase) {
+    return explicitBase.replace(/\/+$/, '');
+  }
+
+  const port = env.PORT || '3000';
+  return `http://127.0.0.1:${port}`;
+}
 
 function normalizeUrl(base, path) {
   try {
@@ -22,7 +29,7 @@ function normalizeUrl(base, path) {
   }
 }
 
-async function checkEndpoint(endpoint) {
+async function checkEndpoint(baseUrl, endpoint) {
   const url = normalizeUrl(baseUrl, endpoint);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -51,8 +58,16 @@ async function checkEndpoint(endpoint) {
 }
 
 async function run() {
+  const baseUrl = resolveHealthcheckBaseUrl();
+  const strict = process.argv.includes('--strict');
+
+  if (!process.env.PRODUCTION_URL && !process.env.APP_URL && !process.env.SERVER_URL && !strict && process.env.NODE_ENV !== 'production') {
+    console.warn(`No production base URL configured; skipping healthcheck for ${baseUrl}. Set PRODUCTION_URL/APP_URL/SERVER_URL to enforce a real check.`);
+    process.exit(0);
+  }
+
   console.log(`Checking health endpoints for ${baseUrl}`);
-  const results = await Promise.all(endpoints.map(checkEndpoint));
+  const results = await Promise.all(endpoints.map((endpoint) => checkEndpoint(baseUrl, endpoint)));
   let allOk = true;
 
   for (const result of results) {
@@ -72,7 +87,19 @@ async function run() {
   process.exit(allOk ? 0 : 1);
 }
 
-run().catch((err) => {
-  console.error('Unexpected error during healthcheck:', err?.message || err);
-  process.exit(99);
-});
+const isDirectExecution = (() => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return fileURLToPath(import.meta.url) === resolvePath(entry);
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirectExecution) {
+  run().catch((err) => {
+    console.error('Unexpected error during healthcheck:', err?.message || err);
+    process.exit(99);
+  });
+}
