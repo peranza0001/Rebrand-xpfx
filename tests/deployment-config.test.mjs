@@ -31,12 +31,14 @@ test('railpack install/build keeps dev dependencies available without deprecated
   assert.match(railpack.install, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack install must remove deprecated npm aliases before npm starts');
   assert.match(railpack.build, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack build must remove deprecated npm aliases before npm starts');
   assert.match(railpack.start, /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'railpack start must remove deprecated npm aliases before npm starts');
+  assert.match(railpack.build, /node_modules\/\.vite|\.vite.*rm -rf|find .*\.vite/, 'railpack build must clear stale Vite caches before building');
 
   const railway = readJson(path.join(repoRoot, 'railway.json'));
   assert.match(railway.build?.buildCommand ?? '', /NPM_CONFIG_PRODUCTION=false/, 'Railway build must override production config');
   assert.match(railway.deploy?.startCommand ?? '', /NPM_CONFIG_PRODUCTION=false/, 'Railway start must override production config');
   assert.match(railway.build?.buildCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway build must remove deprecated npm aliases before npm starts');
   assert.match(railway.deploy?.startCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway start must remove deprecated npm aliases before npm starts');
+  assert.match(railway.build?.buildCommand ?? '', /node_modules\/\.vite|\.vite.*rm -rf|find .*\.vite/, 'Railway build must clear stale Vite caches before building');
 });
 
 test('Railway frontend origin with a trailing slash is accepted as a credentialed CORS origin', async () => {

@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-09-10 18:19:56 UTC
+- Last sync: 2026-09-11 00:07:12 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/api-server/src/lib/wallet-ledger.ts | A  tests/wallet-ledger.test.mjs
+- Current working tree: M  railpack.json | M  railway.json | M  tests/deployment-config.test.mjs
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
