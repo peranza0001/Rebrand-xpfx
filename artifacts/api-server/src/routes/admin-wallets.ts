@@ -20,7 +20,7 @@ const router: IRouter = Router();
 /**
  * GET /api/admin/wallets/pending-deposits - List all pending deposits
  */
-router.get("/admin/wallets/pending-deposits", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/admin/wallets/pending-deposits", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const prisma = require("../lib/db-persist").getPrismaClient();
     if (!prisma?.deposit_requests) {
@@ -47,7 +47,7 @@ router.get("/admin/wallets/pending-deposits", requireAdminRole, async (req: Auth
 /**
  * GET /api/admin/wallets/pending-withdrawals - List all pending withdrawals
  */
-router.get("/admin/wallets/pending-withdrawals", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/admin/wallets/pending-withdrawals", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const prisma = require("../lib/db-persist").getPrismaClient();
     if (!prisma?.withdrawal_requests) {
@@ -74,7 +74,7 @@ router.get("/admin/wallets/pending-withdrawals", requireAdminRole, async (req: A
 /**
  * POST /api/admin/wallets/approve-deposit - Approve a deposit and credit user
  */
-router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/wallets/approve-deposit", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { depositId, transactionHash } = req.body;
 
@@ -162,7 +162,7 @@ router.post("/admin/wallets/approve-deposit", requireAdminRole, async (req: Auth
 /**
  * POST /api/admin/wallets/reject-deposit - Reject a deposit with reason
  */
-router.post("/admin/wallets/reject-deposit", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/wallets/reject-deposit", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { depositId, reason } = req.body;
 
@@ -224,7 +224,7 @@ router.post("/admin/wallets/reject-deposit", requireAdminRole, async (req: Authe
 /**
  * POST /api/admin/wallets/approve-withdrawal - Approve a withdrawal and debit user
  */
-router.post("/admin/wallets/approve-withdrawal", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/wallets/approve-withdrawal", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { withdrawalId, transactionHash } = req.body;
 
@@ -257,7 +257,7 @@ router.post("/admin/wallets/approve-withdrawal", requireAdminRole, async (req: A
 /**
  * POST /api/admin/wallets/reject-withdrawal - Reject a withdrawal
  */
-router.post("/admin/wallets/reject-withdrawal", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/admin/wallets/reject-withdrawal", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { withdrawalId, reason } = req.body;
 
@@ -289,7 +289,7 @@ router.post("/admin/wallets/reject-withdrawal", requireAdminRole, async (req: Au
 /**
  * GET /api/admin/wallets/user/:userId/balance - Get user's full wallet balance
  */
-router.get("/admin/wallets/user/:userId/balance", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/admin/wallets/user/:userId/balance", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -316,7 +316,7 @@ router.get("/admin/wallets/user/:userId/balance", requireAdminRole, async (req: 
 /**
  * GET /api/admin/wallets/user/:userId/ledger - Get user's transaction ledger
  */
-router.get("/admin/wallets/user/:userId/ledger", requireAdminRole, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/admin/wallets/user/:userId/ledger", requireAdminRole(), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);

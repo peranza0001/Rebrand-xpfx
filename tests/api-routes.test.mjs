@@ -72,6 +72,13 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(payload[0].key);
 });
 
+test('admin wallet endpoints enforce role authorization without hanging', async () => {
+  const response = await fetch(`${baseUrl}/api/admin/wallets/pending-deposits`, {
+    signal: AbortSignal.timeout(2000),
+  });
+  assert.equal(response.status, 401);
+});
+
 test('public visitors can start chat and receive a bot reply', async () => {
   const demoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
     method: 'POST',
