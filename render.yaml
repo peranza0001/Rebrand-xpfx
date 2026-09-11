@@ -3,16 +3,8 @@
 # =============================================================================
 # This file is read exclusively by Render.com.
 #
-# TWO DEPLOYMENT MODES:
-#
-# MODE A — Single-service (API + static frontend in one Render web service):
-#   Set BUILD_ALL=true in the Render dashboard env vars.
-#   The API server will serve the built frontend static files at / and /xpadmin.
-#   buildCommand below already handles this when BUILD_ALL=true is set.
-#
-# MODE B — Multi-service (API on Render, frontends on Vercel/Netlify/CDN):
-#   Leave BUILD_ALL unset. Only the API server runs here.
-#   Deploy artifacts/nextrade and artifacts/admin-portal as separate static sites.
+# This service includes the API and both static frontends. The API serves the
+# built website at / and the admin portal at /xpadmin.
 #
 # Required env vars (set in the Render dashboard — do not commit real values):
 #   NODE_ENV         = production
@@ -30,7 +22,7 @@
 #   MOONPAY_API_KEY, MOONPAY_SECRET_KEY, MOONPAY_WEBHOOK_SECRET
 #   COINBASE_API_KEY, COINBASE_API_SECRET, COINBASE_WEBHOOK_SECRET
 #   AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL
-#   LOG_LEVEL (default: info), BUILD_ALL (set to "true" for single-service mode)
+#   LOG_LEVEL (default: info)
 # =============================================================================
 
 services:
@@ -44,11 +36,7 @@ services:
       npm ci --include=dev --legacy-peer-deps --no-audit --no-fund &&
       npm run prepare:runtime-secrets &&
       npm run predeploy &&
-      npm run build --workspace=artifacts/api-server &&
-      if [ "${BUILD_ALL:-false}" = "true" ]; then
-        npm run build --workspace=artifacts/nextrade &&
-        npm run build --workspace=artifacts/admin-portal;
-      fi
+      npm run build
 
     startCommand: npm run prepare:runtime-secrets && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs
 

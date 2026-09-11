@@ -97,6 +97,28 @@ test('production health endpoints remain reachable over http for platform probes
   });
 });
 
+test('homepage serves the bundled frontend entrypoint and assets', async () => {
+  await withTestServer(async (baseUrl) => {
+    const homepage = await fetch(`${baseUrl}/`, {
+      redirect: 'manual',
+      headers: { 'x-forwarded-proto': 'https' },
+    });
+    assert.equal(homepage.status, 200, 'homepage should be served after the frontend build');
+
+    const html = await homepage.text();
+    assert.match(html, /<script[^>]+src="\/assets\/[^"]+\.js"/i, 'homepage should reference a bundled JavaScript asset');
+    assert.doesNotMatch(html, /src="\/src\/main\.tsx"/i, 'production homepage must not serve the source Vite entrypoint');
+
+    const assetPath = html.match(/src="(\/assets\/[^"]+\.js)"/i)?.[1];
+    assert.ok(assetPath, 'homepage should include a JavaScript asset path');
+    const asset = await fetch(`${baseUrl}${assetPath}`, {
+      redirect: 'manual',
+      headers: { 'x-forwarded-proto': 'https' },
+    });
+    assert.equal(asset.status, 200, 'bundled JavaScript asset should be served');
+  });
+});
+
 test('same-origin POST requests are not blocked by CSRF middleware before auth checks', async () => {
   await withTestServer(async (baseUrl) => {
     process.env.ALLOWED_ORIGINS = `${baseUrl},https://example.com`;

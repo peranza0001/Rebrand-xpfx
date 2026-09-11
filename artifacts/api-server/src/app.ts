@@ -512,16 +512,9 @@ const adminPortalStaticPath = candidateRoots
 
 const frontendStaticPath = nextradeStaticPath || path.join(process.cwd(), 'artifacts', 'nextrade', 'dist', 'public');
 const frontendIndexPath = path.join(frontendStaticPath, 'index.html');
-const fallbackFrontendIndexPath = candidateRoots
-  .map((root) => path.join(root, 'artifacts', 'nextrade', 'index.html'))
-  .find((candidate) => fs.existsSync(candidate));
 const adminPortalIndexPath = adminPortalStaticPath && path.join(adminPortalStaticPath, 'index.html');
-const fallbackAdminIndexPath = adminPortalStaticPath
-  ? undefined
-  : candidateRoots
-      .map((root) => path.join(root, 'artifacts', 'admin-portal', 'index.html'))
-      .find((candidate) => fs.existsSync(candidate));
-const hasFrontendBuild = fs.existsSync(frontendIndexPath) || Boolean(fallbackFrontendIndexPath);
+const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+const hasAdminBuild = Boolean(adminPortalIndexPath && fs.existsSync(adminPortalIndexPath));
 
 if (adminPortalStaticPath) {
   app.use('/xpadmin', express.static(adminPortalStaticPath, { index: false }));
@@ -614,12 +607,8 @@ app.use('/api', (_req, res) => {
 
 // ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
 app.get('/xpadmin*', (_req: Request, res: Response) => {
-  const adminIndex = adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)
-    ? adminPortalIndexPath
-    : fallbackAdminIndexPath;
-
-  if (adminIndex) {
-    return res.sendFile(adminIndex);
+  if (adminPortalIndexPath && fs.existsSync(adminPortalIndexPath)) {
+    return res.sendFile(adminPortalIndexPath);
   }
 
   return res.status(404).send('Admin portal build not found. Build the admin portal first.');
@@ -630,12 +619,8 @@ app.get('*', (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'Route not found.' });
   }
 
-  const frontendIndex = fs.existsSync(frontendIndexPath)
-    ? frontendIndexPath
-    : fallbackFrontendIndexPath;
-
-  if (frontendIndex) {
-    return res.sendFile(frontendIndex);
+  if (hasFrontendBuild && fs.existsSync(frontendIndexPath)) {
+    return res.sendFile(frontendIndexPath);
   }
 
   return res.status(404).send('Frontend build not found. Build the website app first.');
