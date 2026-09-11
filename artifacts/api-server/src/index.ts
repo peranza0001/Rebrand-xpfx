@@ -243,9 +243,6 @@ async function bootstrap() {
       if (!process.env.JWT_SECRET?.trim()) {
         process.env.JWT_SECRET = randomBytes(32).toString('hex');
       }
-      if (!process.env.WALLET_ENCRYPTION_KEY?.trim()) {
-        process.env.WALLET_ENCRYPTION_KEY = randomBytes(32).toString('hex');
-      }
       if (!process.env.ALLOWED_ORIGINS?.trim() && !process.env.REPLIT_DOMAINS?.trim()) {
         process.env.ALLOWED_ORIGINS = 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173';
       }

@@ -88,10 +88,11 @@ function validateStartupEnvironment(env: Record<string, string | undefined> = pr
   resolved.COINBASE_WEBHOOK_SECRET = coinbaseWebhookSecret;
 
   const walletEncryptionKey = normalizeString(env.WALLET_ENCRYPTION_KEY);
-  if (!walletEncryptionKey) {
-    warnings.push('WALLET_ENCRYPTION_KEY');
+  if (walletEncryptionKey) {
+    resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
+  } else {
+    resolved.WALLET_ENCRYPTION_KEY = '';
   }
-  resolved.WALLET_ENCRYPTION_KEY = walletEncryptionKey;
 
   const adminEmail = normalizeString(env.ADMIN_EMAIL);
   if (!adminEmail) {

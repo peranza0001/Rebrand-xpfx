@@ -150,8 +150,8 @@ export const env = {
   // Set automatically by Replit; ALLOWED_ORIGINS takes precedence when set.
   REPLIT_DOMAINS: get("REPLIT_DOMAINS"),
 
-  // Legacy wallet-encryption setting retained for deployment compatibility.
-  // Connected wallets are public-address-only and never contain credentials.
+  // Public wallets are address-only. Credential encryption is intentionally
+  // disabled because the product never stores seed phrases or private keys.
   WALLET_ENCRYPTION_KEY: get("WALLET_ENCRYPTION_KEY"),
 
   /**
