@@ -93,6 +93,9 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
   if (/(security|2fa|two.?factor|otp|code|phish|private key|seed|recovery phrase|hack|stolen)/.test(message)) {
     return { intent: "security", shouldEscalate: false, content: `${greeting}Keep passwords, one-time codes, recovery phrases, and private keys private. XpressPro FX support will never ask for them. If you suspect unauthorized access, secure your email, change your password, stop sharing information, and request a human review.` };
   }
+  if (/(demo|paper|practice|simulated funds?)/.test(message)) {
+    return { intent: "demo_trading", shouldEscalate: false, content: `${greeting}Demo Trading uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds move in demo mode.` };
+  }
   if (/(account|login|sign in|password recovery|forgot password|sign up|register|profile|email verification)/.test(message)) {
     return { intent: "account", shouldEscalate: false, content: `${greeting}I can help with account access, signup, email verification, password recovery, and profile settings. Tell me what is preventing access without sharing your password or verification code.` };
   }
@@ -123,7 +126,7 @@ export function getChatbotResponse(content: string, userName = "User"): ChatbotR
   if (/(error|bug|broken|not work|unable|can't|cannot|technical|crash|loading)/.test(message)) {
     return { intent: "technical_support", shouldEscalate: false, content: `${greeting}Tell me which page or action failed, the exact non-sensitive error text, and whether you are using the website or app. Do not include passwords, OTPs, recovery phrases, or private keys; I can send a persistent issue to a human representative.` };
   }
-  if (/(demo|paper|practice|trade|trading|order)/.test(message)) {
+  if (/(trade|trading|order)/.test(message)) {
     return { intent: "demo_trading", shouldEscalate: false, content: `${greeting}Demo Trading uses simulated funds and practice-market updates. Select an instrument, choose Buy or Sell, enter a position size, and submit the order. No real funds move in demo mode.` };
   }
   return faqMenu(greeting);

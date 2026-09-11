@@ -66,10 +66,7 @@ interface ProviderResult {
 export function getEmailProviderStatus(): { sendgridConfigured: boolean; smtpConfigured: boolean; productionDeliveryConfigured: boolean } {
   const smtpConfigured = Boolean(env.SMTP_HOST?.trim() && env.SMTP_USER?.trim() && env.SMTP_PASS?.trim());
   const sendgridConfigured = isSendGridConfigured(env.SENDGRID_API_KEY);
-  // Admin fallback is active whenever an external provider is not configured.
-  // This keeps the control plane operational even in live production without
-  // silently blocking OTP, emails, or support notifications.
-  return { sendgridConfigured, smtpConfigured, productionDeliveryConfigured: sendgridConfigured || smtpConfigured || true };
+  return { sendgridConfigured, smtpConfigured, productionDeliveryConfigured: sendgridConfigured || smtpConfigured };
 }
 
 async function deliverViaSendGrid(input: SendEmailInput, from: string): Promise<ProviderResult> {

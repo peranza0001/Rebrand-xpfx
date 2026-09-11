@@ -222,7 +222,7 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
         html,
         kind: `otp.${intent}`,
       },
-      { requireProvider: false },
+      { requireProvider: isProduction },
     );
   } catch (err) {
     logger.error({ err, email, intent }, "[otp] Failed to send OTP email");

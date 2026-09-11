@@ -158,10 +158,9 @@ test('public visitors can start chat and receive a bot reply', async () => {
 });
 
 test('demo trading endpoints are available for authenticated sessions', async () => {
-  const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+  const loginResponse = await fetch(`${baseUrl}/api/auth/demo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@example.com', password: 'admin-password' }),
   });
   assert.equal(loginResponse.status, 200);
   const cookie = parseCookie(loginResponse.headers.get('set-cookie'));
