@@ -24,7 +24,8 @@ test('railpack install/build keeps dev dependencies available without deprecated
   assert.equal(npmrc.trim(), 'legacy-peer-deps=true', 'root .npmrc must not define deprecated production or omit settings');
   assert.equal(railpack.env?.NODE_ENV, undefined, 'railpack env should not force NODE_ENV=production during install/build');
   assert.match(railpack.install, /--include=dev/, 'install step should explicitly include dev dependencies');
-  assert.match(railpack.build, /--include=dev|npm run predeploy/, 'build step should keep dev dependencies available during build');
+  assert.match(railpack.build, /npm run predeploy|npm run build:replit/, 'build step should keep dev dependencies available during build');
+  assert.doesNotMatch(railpack.build, /npm ci/, 'build step must not reinstall dependencies with npm ci because it triggers the Vite lock issue');
   assert.match(railpack.install, /NPM_CONFIG_PRODUCTION=false/, 'railpack install must override Railway production config');
   assert.match(railpack.build, /NPM_CONFIG_PRODUCTION=false/, 'railpack build must override Railway production config');
   assert.match(railpack.start, /NPM_CONFIG_PRODUCTION=false/, 'railpack start must override Railway production config');
@@ -38,6 +39,7 @@ test('railpack install/build keeps dev dependencies available without deprecated
   assert.match(railway.deploy?.startCommand ?? '', /NPM_CONFIG_PRODUCTION=false/, 'Railway start must override production config');
   assert.match(railway.build?.buildCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway build must remove deprecated npm aliases before npm starts');
   assert.match(railway.deploy?.startCommand ?? '', /env -u NPM_CONFIG_PRODUCTION -u npm_config_production/, 'Railway start must remove deprecated npm aliases before npm starts');
+  assert.doesNotMatch(railway.build?.buildCommand ?? '', /npm ci/, 'Railway build must avoid npm ci to prevent Vite lock errors');
   assert.match(railway.build?.buildCommand ?? '', /node_modules\/\.vite|\.vite.*rm -rf|find .*\.vite/, 'Railway build must clear stale Vite caches before building');
 });
 

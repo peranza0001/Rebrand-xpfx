@@ -1,7 +1,7 @@
 {
   "provider": "node",
-  "install": "find . -type d -path '*/node_modules/.vite' -prune -exec rm -rf {} + 2>/dev/null || true && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm ci --include=dev --no-audit --no-fund",
-  "build": "find . -type d -path '*/node_modules/.vite' -prune -exec rm -rf {} + 2>/dev/null || true && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm cache clean --force && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run predeploy --skip-env-check && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run build:replit",
+  "install": "find . -type d -path '*/node_modules/.vite' -prune -exec rm -rf {} + 2>/dev/null || true && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm install --include=dev --no-audit --no-fund",
+  "build": "find . -type d -path '*/node_modules/.vite' -prune -exec rm -rf {} + 2>/dev/null || true && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run predeploy --skip-env-check && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run build:replit",
   "start": "NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production npm run prepare:runtime-secrets && NPM_CONFIG_PRODUCTION=false env -u NPM_CONFIG_PRODUCTION -u npm_config_production NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
   "env": {
     "PORT": "3000"
