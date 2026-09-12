@@ -4,9 +4,11 @@ import * as Sentry from "@sentry/react";
 import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import { renderRuntimeFallback } from "./lib/app-bootstrap";
+import { resolveRuntimeApiUrl } from "./lib/api-url";
 import "./index.css";
 
-const sentryDsn = import.meta.env.VITE_SENTRY_DSN || import.meta.env.SENTRY_DSN;
+const viteEnv = typeof import.meta !== "undefined" && import.meta && typeof import.meta.env !== "undefined" ? import.meta.env : {};
+const sentryDsn = viteEnv.VITE_SENTRY_DSN || viteEnv.SENTRY_DSN;
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
@@ -17,7 +19,7 @@ if (sentryDsn) {
 }
 
 // Initialize API client with the correct base URL from environment
-const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
+const apiUrl = resolveRuntimeApiUrl(viteEnv.VITE_API_URL);
 if (apiUrl) {
   setBaseUrl(apiUrl);
 }
