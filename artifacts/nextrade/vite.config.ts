@@ -44,7 +44,13 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
-            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            if (
+              id.includes('/react/') ||
+              id.includes('/react-dom/') ||
+              id.includes('/scheduler/') ||
+              id.includes('react/jsx-runtime') ||
+              id.includes('react/jsx-dev-runtime')
+            ) return 'vendor-react';
             return 'vendor';
           }
         },
