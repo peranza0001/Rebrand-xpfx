@@ -99,9 +99,9 @@ export function PlatformSettingsPage() {
         />
       </div>
 
-      <SettingsSection title="Provider fallback" description="Keep core workflows available when an external provider is unavailable.">
+      <SettingsSection title="Provider fallback" description="Keep administrative and sandbox workflows available when an external provider is unavailable. These fallbacks never execute or settle real-money trades.">
         {(["kyc", "aml", "otp", "email", "payments"] as const).map((key) => (
-          <Toggle key={key} label={`Admin fallback: ${key.toUpperCase()}`} description="Allow the internal control plane to complete this workflow." value={providerFallback[key]} onChange={(value) => setProviderFallback((current) => ({ ...current, [key]: value }))} />
+          <Toggle key={key} label={`Admin fallback: ${key.toUpperCase()}`} description="Allow the internal control plane to handle this workflow when the vendor is unavailable; no live-money settlement is performed." value={providerFallback[key]} onChange={(value) => setProviderFallback((current) => ({ ...current, [key]: value }))} />
         ))}
       </SettingsSection>
 
