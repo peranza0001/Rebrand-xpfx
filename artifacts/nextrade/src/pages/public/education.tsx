@@ -15,30 +15,30 @@ export function PublicEducation() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-12">
       <header className="max-w-2xl">
-        <Badge variant="outline" className="mb-3">Academy</Badge>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Learn to trade with confidence</h1>
-        <p className="mt-2 text-muted-foreground">
+        <Badge variant="outline" className="mb-3 border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Academy</Badge>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Learn to trade with confidence</h1>
+        <p className="mt-2 text-slate-300">
           Free courses, weekly market insights and a complete glossary — built by professional traders for traders at every level.
         </p>
       </header>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Course tracks</h2>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white"><GraduationCap className="h-5 w-5 text-emerald-300" /> Course tracks</h2>
         <div className="grid md:grid-cols-3 gap-4">
           {COURSES.map((c) => (
-            <Card key={c.title} className="hover-elevate">
+            <Card key={c.title} className="border-white/10 bg-slate-950/40 hover:border-emerald-400/30 transition-colors">
               <CardHeader>
                 <div className="flex items-center justify-between mb-1">
-                  <Badge variant="secondary">{c.level}</Badge>
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <Badge variant="secondary" className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">{c.level}</Badge>
+                  <span className="text-xs text-slate-400 inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" /> {c.duration}
                   </span>
                 </div>
-                <CardTitle className="text-lg">{c.title}</CardTitle>
+                <CardTitle className="text-lg text-white">{c.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">{c.desc}</p>
-                <Button asChild variant="outline" className="w-full">
+                <p className="text-sm text-slate-300 mb-4">{c.desc}</p>
+                <Button asChild variant="outline" className="w-full border-white/20 text-white hover:bg-white/5">
                   <Link href="/signup"><PlayCircle className="h-4 w-4 mr-2" /> Start course</Link>
                 </Button>
               </CardContent>
@@ -48,16 +48,16 @@ export function PublicEducation() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" /> Latest market insights</h2>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white"><BookOpen className="h-5 w-5 text-emerald-300" /> Latest market insights</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {ARTICLES.map((a) => (
-            <Card key={a.title} className="hover-elevate">
+            <Card key={a.title} className="border-white/10 bg-slate-950/40 hover:border-emerald-400/30 transition-colors">
               <CardContent className="p-5">
-                <div className="text-xs text-muted-foreground mb-2 inline-flex items-center gap-1">
+                <div className="text-xs text-slate-400 mb-2 inline-flex items-center gap-1">
                   <TrendingUp className="h-3 w-3" /> {a.category} · {a.date}
                 </div>
-                <div className="font-semibold mb-2">{a.title}</div>
-                <p className="text-sm text-muted-foreground">{a.excerpt}</p>
+                <div className="font-semibold mb-2 text-white">{a.title}</div>
+                <p className="text-sm text-slate-300">{a.excerpt}</p>
               </CardContent>
             </Card>
           ))}
@@ -65,14 +65,14 @@ export function PublicEducation() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold mb-4">Glossary</h2>
-        <Card>
+        <h2 className="text-xl font-semibold mb-4 text-white">Glossary</h2>
+        <Card className="border-white/10 bg-slate-950/40">
           <CardContent className="p-2">
             <Accordion type="single" collapsible>
               {GLOSSARY.map((g) => (
                 <AccordionItem key={g.term} value={g.term}>
-                  <AccordionTrigger className="px-3">{g.term}</AccordionTrigger>
-                  <AccordionContent className="px-3 text-sm text-muted-foreground">{g.def}</AccordionContent>
+                  <AccordionTrigger className="px-3 hover:text-white text-slate-300">{g.term}</AccordionTrigger>
+                  <AccordionContent className="px-3 text-sm text-slate-400">{g.def}</AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>

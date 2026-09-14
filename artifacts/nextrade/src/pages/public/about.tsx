@@ -12,9 +12,9 @@ export function PublicAbout() {
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-14">
       <header className="max-w-3xl">
-        <Badge variant="outline" className="mb-3">About us</Badge>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Building a better trading experience</h1>
-        <p className="mt-3 text-muted-foreground text-lg">
+        <Badge variant="outline" className="mb-3 border-emerald-400/30 bg-emerald-500/10 text-emerald-300">About us</Badge>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Building a better trading experience</h1>
+        <p className="mt-3 text-slate-300 text-lg">
           XpressPro FX was founded in 2014 by a team of ex-institutional traders and engineers with a simple mission: bring the speed, transparency and tooling of professional trading desks to every retail trader.
         </p>
       </header>
@@ -26,11 +26,11 @@ export function PublicAbout() {
           { icon: Building2, value: "12", label: "Global offices" },
           { icon: ShieldCheck, value: "5", label: "Tier-1 licenses" },
         ].map(({ icon: Icon, value, label }) => (
-          <Card key={label}>
+          <Card key={label} className="border-white/10 bg-slate-950/40">
             <CardContent className="p-6 text-center">
-              <Icon className="h-7 w-7 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold">{value}</div>
-              <div className="text-xs text-muted-foreground">{label}</div>
+              <Icon className="h-7 w-7 text-emerald-300 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-white">{value}</div>
+              <div className="text-xs text-slate-400">{label}</div>
             </CardContent>
           </Card>
         ))}
@@ -38,17 +38,17 @@ export function PublicAbout() {
 
       <section className="grid lg:grid-cols-2 gap-8 items-start">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight mb-4">Our mission</h2>
-          <p className="text-muted-foreground mb-4">
+          <h2 className="text-2xl font-bold tracking-tight mb-4 text-white">Our mission</h2>
+          <p className="text-slate-300 mb-4">
             We believe the global financial markets should be fair, fast and accessible. Whether you're placing your first trade or running a quantitative desk, you deserve the same quality of execution and transparency that institutional clients have enjoyed for decades.
           </p>
-          <p className="text-muted-foreground">
+          <p className="text-slate-300">
             That's why we obsess over latency, push for ever-tighter spreads, and invest heavily in education and tooling. Markets reward preparation — we make sure you have what you need to be prepared.
           </p>
         </div>
-        <Card>
+        <Card className="border-white/10 bg-slate-950/40">
           <CardContent className="p-6">
-            <h3 className="font-semibold mb-3">Regulatory footprint</h3>
+            <h3 className="font-semibold mb-3 text-white">Regulatory footprint</h3>
             <ul className="space-y-3 text-sm">
               {[
                 { region: "United Kingdom", body: "FCA — Financial Conduct Authority" },
@@ -58,10 +58,10 @@ export function PublicAbout() {
                 { region: "Seychelles", body: "FSA — Financial Services Authority" },
               ].map((r) => (
                 <li key={r.region} className="flex items-start gap-3">
-                  <ShieldCheck className="h-4 w-4 text-primary mt-0.5" />
+                  <ShieldCheck className="h-4 w-4 text-emerald-300 mt-0.5" />
                   <div>
-                    <div className="font-medium">{r.region}</div>
-                    <div className="text-xs text-muted-foreground">{r.body}</div>
+                    <div className="font-medium text-white">{r.region}</div>
+                    <div className="text-xs text-slate-400">{r.body}</div>
                   </div>
                 </li>
               ))}
@@ -71,16 +71,16 @@ export function PublicAbout() {
       </section>
 
       <section>
-        <h2 className="text-2xl font-bold tracking-tight mb-6">Leadership</h2>
+        <h2 className="text-2xl font-bold tracking-tight mb-6 text-white">Leadership</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {LEADERS.map((l) => (
-            <Card key={l.name}>
+            <Card key={l.name} className="border-white/10 bg-slate-950/40">
               <CardContent className="p-5 text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/15 text-primary mx-auto mb-3 flex items-center justify-center font-bold text-lg">
+                <div className="h-16 w-16 rounded-full bg-emerald-500/15 text-emerald-300 mx-auto mb-3 flex items-center justify-center font-bold text-lg">
                   {l.name.split(" ").map((n) => n[0]).join("")}
                 </div>
-                <div className="font-semibold">{l.name}</div>
-                <div className="text-xs text-muted-foreground">{l.role}</div>
+                <div className="font-semibold text-white">{l.name}</div>
+                <div className="text-xs text-slate-400">{l.role}</div>
               </CardContent>
             </Card>
           ))}
