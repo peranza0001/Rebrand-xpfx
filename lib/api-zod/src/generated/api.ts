@@ -43,6 +43,9 @@ export const GetCurrentUserResponse = zod.object({
     .describe(
       "True when the user has completed at least one crypto buy (the buy-to-verify milestone).",
     ),
+  role: zod
+    .string()
+    .describe("Authenticated account role used to enforce admin access."),
 });
 
 /**

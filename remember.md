@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-08-31 16:01:19 UTC
+- Last sync: 2026-09-14 13:08:47 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/nextrade/src/components/layout/PublicLayout.tsx | M  artifacts/nextrade/src/components/layout/Shell.tsx | M  artifacts/nextrade/src/pages/dashboard.tsx
+- Current working tree: M  artifacts/admin-portal/src/App.tsx | M  artifacts/api-server/src/routes/users.ts |  M artifacts/nextrade/src/pages/public/about.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)

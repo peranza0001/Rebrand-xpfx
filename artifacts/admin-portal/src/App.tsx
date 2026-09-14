@@ -54,14 +54,15 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, isError } = useGetCurrentUser();
   const [, navigate] = useLocation();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   useEffect(() => {
-    if (!isLoading && (isError || !user)) {
+    if (!isLoading && (isError || !user || !isAdmin)) {
       navigate("/login");
     }
-  }, [isLoading, isError, user, navigate]);
+  }, [isLoading, isError, user, isAdmin, navigate]);
 
-  if (isLoading || isError || !user) {
+  if (isLoading || isError || !user || !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-muted-foreground text-sm">Loading...</div>

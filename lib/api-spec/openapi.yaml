@@ -2635,7 +2635,10 @@ components:
         buyVerified:
           type: boolean
           description: True when the user has completed at least one crypto buy (the buy-to-verify milestone).
-      required: [id, username, email, fullName, country, kycVerified, createdAt, buyVerified]
+        role:
+          type: string
+          description: Authenticated account role used to enforce admin access.
+      required: [id, username, email, fullName, country, kycVerified, createdAt, buyVerified, role]
 
     Wallet:
       type: object

@@ -26,6 +26,8 @@ export interface User {
   moonpayEmail?: string | null;
   /** True when the user has completed at least one crypto buy (the buy-to-verify milestone). */
   buyVerified: boolean;
+  /** Authenticated account role used to enforce admin access. */
+  role: string;
 }
 
 export type WalletType = (typeof WalletType)[keyof typeof WalletType];
