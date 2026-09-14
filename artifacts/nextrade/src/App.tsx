@@ -1,4 +1,4 @@
-import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import React, { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,46 +9,46 @@ import { Shell } from "@/components/layout/Shell";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { AuthProvider, RequireAuth, RequireAdmin, useAuth } from "@/lib/auth";
 
-import { Dashboard } from "@/pages/dashboard";
-import { Wallets } from "@/pages/wallets";
-import { Trades } from "@/pages/trades";
-import { P2PMarket } from "@/pages/p2p";
-import { Managers } from "@/pages/managers";
-import { Messages } from "@/pages/messages";
-import { Assets } from "@/pages/assets";
-import { Support } from "@/pages/support";
-import { Settings } from "@/pages/settings";
-import { Login } from "@/pages/login";
-import { Signup } from "@/pages/signup";
-import { VerifyOtp } from "@/pages/verify-otp";
-import { ConnectWallet } from "@/pages/connect-wallet";
-import { Kyc } from "@/pages/kyc";
-import { Deposits } from "@/pages/deposits";
-import { Withdrawals } from "@/pages/withdrawals";
-import { Referrals } from "@/pages/referrals";
-import { Banks } from "@/pages/banks";
-import { Cards } from "@/pages/cards";
-import { Promotions } from "@/pages/promotions";
-import { Billing } from "@/pages/billing";
-import { Admin } from "@/pages/admin";
-import AdminLiveChat from "@/pages/admin-live-chat";
-import { Education } from "@/pages/education";
-import { SmartVest } from "@/pages/smartvest";
-import { Statements } from "@/pages/statements";
-import { DemoTradingPage } from "@/pages/demo-trading";
-import { Trading } from "@/pages/trading";
-import { InvestmentPlans } from "@/pages/investment-plans";
-import { CopyTrading } from "@/pages/copy-trading";
+const Dashboard = lazy(() => import("@/pages/dashboard").then((module) => ({ default: module.Dashboard })));
+const Wallets = lazy(() => import("@/pages/wallets").then((module) => ({ default: module.Wallets })));
+const Trades = lazy(() => import("@/pages/trades").then((module) => ({ default: module.Trades })));
+const P2PMarket = lazy(() => import("@/pages/p2p").then((module) => ({ default: module.P2PMarket })));
+const Managers = lazy(() => import("@/pages/managers").then((module) => ({ default: module.Managers })));
+const Messages = lazy(() => import("@/pages/messages").then((module) => ({ default: module.Messages })));
+const Assets = lazy(() => import("@/pages/assets").then((module) => ({ default: module.Assets })));
+const Support = lazy(() => import("@/pages/support").then((module) => ({ default: module.Support })));
+const Settings = lazy(() => import("@/pages/settings").then((module) => ({ default: module.Settings })));
+const Login = lazy(() => import("@/pages/login").then((module) => ({ default: module.Login })));
+const Signup = lazy(() => import("@/pages/signup").then((module) => ({ default: module.Signup })));
+const VerifyOtp = lazy(() => import("@/pages/verify-otp").then((module) => ({ default: module.VerifyOtp })));
+const ConnectWallet = lazy(() => import("@/pages/connect-wallet").then((module) => ({ default: module.ConnectWallet })));
+const Kyc = lazy(() => import("@/pages/kyc").then((module) => ({ default: module.Kyc })));
+const Deposits = lazy(() => import("@/pages/deposits").then((module) => ({ default: module.Deposits })));
+const Withdrawals = lazy(() => import("@/pages/withdrawals").then((module) => ({ default: module.Withdrawals })));
+const Referrals = lazy(() => import("@/pages/referrals").then((module) => ({ default: module.Referrals })));
+const Banks = lazy(() => import("@/pages/banks").then((module) => ({ default: module.Banks })));
+const Cards = lazy(() => import("@/pages/cards").then((module) => ({ default: module.Cards })));
+const Promotions = lazy(() => import("@/pages/promotions").then((module) => ({ default: module.Promotions })));
+const Billing = lazy(() => import("@/pages/billing").then((module) => ({ default: module.Billing })));
+const Admin = lazy(() => import("@/pages/admin").then((module) => ({ default: module.Admin })));
+const AdminLiveChat = lazy(() => import("@/pages/admin-live-chat"));
+const Education = lazy(() => import("@/pages/education").then((module) => ({ default: module.Education })));
+const SmartVest = lazy(() => import("@/pages/smartvest").then((module) => ({ default: module.SmartVest })));
+const Statements = lazy(() => import("@/pages/statements").then((module) => ({ default: module.Statements })));
+const DemoTradingPage = lazy(() => import("@/pages/demo-trading").then((module) => ({ default: module.DemoTradingPage })));
+const Trading = lazy(() => import("@/pages/trading").then((module) => ({ default: module.Trading })));
+const InvestmentPlans = lazy(() => import("@/pages/investment-plans").then((module) => ({ default: module.InvestmentPlans })));
+const CopyTrading = lazy(() => import("@/pages/copy-trading").then((module) => ({ default: module.CopyTrading })));
 
-import { PublicHome } from "@/pages/public/home";
-import { PublicMarkets } from "@/pages/public/markets";
-import { PublicEducation } from "@/pages/public/education";
-import { PublicCalendar } from "@/pages/public/calendar";
-import { PublicAbout } from "@/pages/public/about";
-import { PublicContact } from "@/pages/public/contact";
-import { PublicLegal } from "@/pages/public/legal";
-import { ForgotPassword } from "@/pages/forgot-password";
-import { ResetPassword } from "@/pages/reset-password";
+const PublicHome = lazy(() => import("@/pages/public/home").then((module) => ({ default: module.PublicHome })));
+const PublicMarkets = lazy(() => import("@/pages/public/markets").then((module) => ({ default: module.PublicMarkets })));
+const PublicEducation = lazy(() => import("@/pages/public/education").then((module) => ({ default: module.PublicEducation })));
+const PublicCalendar = lazy(() => import("@/pages/public/calendar").then((module) => ({ default: module.PublicCalendar })));
+const PublicAbout = lazy(() => import("@/pages/public/about").then((module) => ({ default: module.PublicAbout })));
+const PublicContact = lazy(() => import("@/pages/public/contact").then((module) => ({ default: module.PublicContact })));
+const PublicLegal = lazy(() => import("@/pages/public/legal").then((module) => ({ default: module.PublicLegal })));
+const ForgotPassword = lazy(() => import("@/pages/forgot-password").then((module) => ({ default: module.ForgotPassword })));
+const ResetPassword = lazy(() => import("@/pages/reset-password").then((module) => ({ default: module.ResetPassword })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -238,7 +238,15 @@ function App() {
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <AuthProvider>
-              <AppRoutes />
+              <Suspense
+                fallback={
+                  <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+                    Loading...
+                  </div>
+                }
+              >
+                <AppRoutes />
+              </Suspense>
               <LiveChatWidget />
             </AuthProvider>
           </WouterRouter>
