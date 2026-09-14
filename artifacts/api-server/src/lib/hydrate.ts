@@ -44,6 +44,7 @@ import type { WalletType } from "@workspace/api-zod";
 import type { TransactionType } from "@workspace/api-zod";
 import type { ConnectedWalletProvider } from "@workspace/api-zod";
 import { logger } from "./logger";
+import { hydratePlatformSettings } from "./platform-settings-persist";
 
 function getHydratedRowValue<T>(row: Record<string, unknown>, ...keys: string[]): T | undefined {
   for (const key of keys) {
@@ -148,6 +149,8 @@ export async function hydrateFromDb(): Promise<void> {
   const start = Date.now();
 
   try {
+    await hydratePlatformSettings();
+
     // 1. Load users from DB
     const dbUsers = await loadRowsFromDb<Record<string, unknown>>(
       "hydrate.users",

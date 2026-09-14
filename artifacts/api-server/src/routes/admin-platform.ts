@@ -21,6 +21,7 @@ import {
 } from "../lib/store";
 import { requireAdmin } from "../lib/session";
 import { recordAuditEvent } from "../lib/audit-log";
+import { persistPlatformSetting } from "../lib/platform-settings-persist";
 
 const router: IRouter = Router();
 
@@ -38,12 +39,15 @@ router.get("/admin/platform-settings", requireAdmin, (_req, res) => {
   return res.json(out);
 });
 
-router.patch("/admin/platform-settings", requireAdmin, (req, res) => {
+router.patch("/admin/platform-settings", requireAdmin, async (req, res) => {
   const parsed = UpdatePlatformSettingsBody.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid settings", details: parsed.error.issues });
   }
   Object.assign(platformSettings, parsed.data);
+  if (!await persistPlatformSetting("platform")) {
+    return res.status(503).json({ error: "Platform settings could not be persisted." });
+  }
   recordAuditEvent({
     actorId: req.userId,
     actorName: req.storedUser!.user.fullName,
@@ -161,13 +165,16 @@ router.get('/admin/demo-config', requireAdmin, (_req, res) => {
   return res.json(demoConfig);
 });
 
-router.patch('/admin/demo-config', requireAdmin, (req, res) => {
+router.patch('/admin/demo-config', requireAdmin, async (req, res) => {
   const body = req.body as Partial<typeof demoConfig>;
   if (body.defaultBalance !== undefined) demoConfig.defaultBalance = Number(body.defaultBalance);
   if (body.defaultLeverage !== undefined) demoConfig.defaultLeverage = Number(body.defaultLeverage);
   if (body.volatility !== undefined) demoConfig.volatility = Number(body.volatility);
   if (body.spread !== undefined) demoConfig.spread = Number(body.spread);
   if (body.enabled !== undefined) demoConfig.enabled = Boolean(body.enabled);
+  if (!await persistPlatformSetting("demo")) {
+    return res.status(503).json({ error: "Demo configuration could not be persisted." });
+  }
   logActivity({ actorId: req.userId!, actorName: req.storedUser!.user.fullName, action: 'admin.demo_config.update', detail: `Updated demo config: ${JSON.stringify(body)}` });
   return res.json(demoConfig);
 });
