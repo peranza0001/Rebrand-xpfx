@@ -132,11 +132,20 @@ function PublicPage({ children }: { children: React.ReactNode }) {
   return <PublicLayout>{children}</PublicLayout>;
 }
 
+function PublicMarketAlias({ tab }: { tab: string }) {
+  return (
+    <PublicPage>
+      <PublicMarkets defaultTab={tab as "forex" | "crypto" | "indices" | "commodities" | "stocks"} />
+    </PublicPage>
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/register" component={Signup} />
       <Route path="/verify-otp" component={VerifyOtp} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
@@ -144,6 +153,27 @@ function AppRoutes() {
         <RequireAuth>
           <ConnectWallet />
         </RequireAuth>
+      </Route>
+
+      <Route path="/stocks"><PublicMarketAlias tab="stocks" /></Route>
+      <Route path="/shares"><PublicMarketAlias tab="stocks" /></Route>
+      <Route path="/commodities"><PublicMarketAlias tab="commodities" /></Route>
+      <Route path="/signals"><PublicMarketAlias tab="indices" /></Route>
+      <Route path="/dashboard/markets"><PublicMarketAlias tab="forex" /></Route>
+      <Route path="/dashboard/support">
+        <RequireAuth><Support /></RequireAuth>
+      </Route>
+      <Route path="/trade">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/buy">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/sell">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/copy-trading">
+        <RequireAuth><CopyTrading /></RequireAuth>
       </Route>
 
       <Route path="/markets"><PublicPage><PublicMarkets /></PublicPage></Route>
