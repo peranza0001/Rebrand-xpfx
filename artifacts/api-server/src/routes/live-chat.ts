@@ -371,16 +371,18 @@ router.post("/admin/live-chats/:userId/reply", requireAdmin, async (req, res) =>
  * ChatWay-like: Allows admins to reply directly from their email client.
  */
 router.post("/live-chat/email-reply", async (req, res) => {
-  const webhookSecret = env.WEBHOOK_SECRET_GLOBAL?.trim();
-  const providedSecret = req.get("x-webhook-secret")?.trim()
-    || req.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (webhookSecret ? providedSecret !== webhookSecret : process.env.NODE_ENV === "production") {
-    return res.status(401).json({ error: "Unauthorized email reply webhook" });
+  if (process.env.NODE_ENV === "production") {
+    const webhookSecret = env.WEBHOOK_SECRET_GLOBAL?.trim();
+    const providedSecret = req.get("x-webhook-secret")?.trim()
+      || req.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+    if (!webhookSecret || providedSecret !== webhookSecret) {
+      return res.status(401).json({ error: "Unauthorized email reply webhook" });
+    }
   }
 
   const { ticketId, senderName, content, fromEmail } = req.body;
   
-  if (typeof ticketId !== "string" || !/^XPFX-[A-Z0-9-]+$/i.test(ticketId) || typeof content !== "string") {
+  if (typeof ticketId !== "string" || !/^XPFX-[A-Z0-9_-]+$/i.test(ticketId) || typeof content !== "string") {
     return res.status(400).json({ error: "ticketId and content are required" });
   }
   const safeContent = redactChatContent(content.trim().slice(0, 4000));
@@ -417,8 +419,7 @@ router.post("/live-chat/email-reply", async (req, res) => {
     data.liveChat.push(msg);
     const persisted = await persistChatMessage(resolvedUserId, 'admin', null, safeContent);
     if (!persisted) {
-      data.liveChat.pop();
-      return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
+      logger.warn({ resolvedUserId }, "live-chat email reply persistence unavailable; serving from active session");
     }
 
     // Broadcast in realtime
