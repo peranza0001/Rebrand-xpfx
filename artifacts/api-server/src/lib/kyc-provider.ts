@@ -36,7 +36,7 @@ import { logger } from './logger';
 import { getLatestPersistedAmlScreening, getLatestPersistedKycVerification, getPersistedAmlScreening, getPersistedKycVerification } from './db-persist';
 
 export type KYCVerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
-export type KYCProvider = 'onfido' | 'socure' | 'stripe_identity' | 'idology' | 'trulioo' | 'unconfigured';
+export type KYCProvider = 'onfido' | 'socure' | 'stripe_identity' | 'idology' | 'trulioo' | 'unconfigured' | 'internal_admin';
 
 export interface KYCVerificationRequest {
   userId: string;
@@ -120,6 +120,7 @@ const providerConfig: Record<KYCProvider, any> = {
     enabled: !!process.env.TRULIOO_API_KEY,
   },
   unconfigured: { enabled: true },
+  internal_admin: { enabled: true },
 };
 
 // In-memory verification store
@@ -132,17 +133,17 @@ const screenings = new Map<string, AMLScreeningResult>();
  */
 export function getConfiguredKYCProvider(): KYCProvider {
   const requested = process.env.KYC_PROVIDER?.trim().toLowerCase() as KYCProvider | undefined;
-  if (requested && requested !== 'unconfigured' && providerConfig[requested]?.enabled) return requested;
+  if (requested && requested !== 'unconfigured' && requested !== 'internal_admin' && providerConfig[requested]?.enabled) return requested;
   // Try providers in order of preference
   const preferredOrder: KYCProvider[] = ['onfido', 'socure', 'stripe_identity', 'idology', 'trulioo'];
-  
+
   for (const provider of preferredOrder) {
     if (providerConfig[provider]?.enabled) {
       return provider;
     }
   }
-  
-  return 'unconfigured';
+
+  return 'internal_admin';
 }
 
 /**
@@ -179,15 +180,16 @@ export async function initiateKYCVerification(
         result = await initiateTruliooVerification(request, verificationId);
         break;
       case 'unconfigured':
+      case 'internal_admin':
       default:
         result = {
           verificationId,
           status: 'pending',
           userId: request.userId,
-          provider: 'unconfigured',
+          provider: 'internal_admin',
           createdAt: new Date(),
           checks: { identity: false, documentValidity: false },
-          errorMessage: 'KYC provider not configured',
+          errorMessage: 'No external KYC provider configured; internal admin review is active.',
         };
     }
 
@@ -229,7 +231,7 @@ async function initiateOnfidoVerification(
 
   if (!apiKey) {
     logger.warn({ verificationId }, '[KYC_ONFIDO] No API key configured');
-    return { verificationId, status: 'pending', userId: request.userId, provider: 'unconfigured', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'KYC provider not configured' };
+    return { verificationId, status: 'pending', userId: request.userId, provider: 'internal_admin', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'No external KYC provider configured; internal admin review is active.' };
   }
 
   try {
@@ -287,7 +289,7 @@ async function initiateSocureVerification(
 
   if (!apiKey) {
     logger.warn({ verificationId }, '[KYC_SOCURE] No API key configured');
-    return { verificationId, status: 'pending', userId: request.userId, provider: 'unconfigured', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'KYC provider not configured' };
+    return { verificationId, status: 'pending', userId: request.userId, provider: 'internal_admin', createdAt: new Date(), checks: { identity: false, documentValidity: false }, errorMessage: 'No external KYC provider configured; internal admin review is active.' };
   }
 
   try {

@@ -5,7 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import { getDb } from "./db-client";
-import { demoOrdersTable, tradesTable, userSessionsTable, usersTable } from "@workspace/db/schema";
+import { userSessionsTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 import type { StoredUser } from "./store";
 
@@ -43,112 +43,6 @@ export function setPrismaClient(client: any): void {
 
 export function getPrismaClient(): any {
   return prismaClient;
-}
-
-export async function ensurePersistedDemoAccount(userId: string, startingBalance: number): Promise<boolean> {
-  if (!isUuid(userId) || !Number.isFinite(startingBalance) || startingBalance <= 0) return false;
-
-  const accountDelegate = getPrismaModelDelegate("TradingAccount");
-  if (!accountDelegate?.findFirst || !accountDelegate.create) return false;
-
-  try {
-    const existing = await accountDelegate.findFirst({
-      where: { userId, accountType: "DEMO", isActive: true },
-      select: { id: true },
-    });
-    if (existing) return true;
-
-    await accountDelegate.create({
-      data: {
-        userId,
-        accountType: "DEMO",
-        currency: "USD",
-        balance: startingBalance,
-        equity: startingBalance,
-        margin: 0,
-        freeMargin: startingBalance,
-        leverage: 50,
-        isActive: true,
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.error({ err, userId }, "[db-persist] demo account provisioning failed");
-    return false;
-  }
-}
-
-export type PersistedDemoOrder = {
-  id: string;
-  userId: string;
-  instrument: string;
-  type: "market" | "limit" | "stop";
-  side: "buy" | "sell";
-  price?: number;
-  amount: number;
-  leverage: number;
-  stopLoss?: number;
-  takeProfit?: number;
-  status: "open" | "filled" | "cancelled";
-  createdAt: string;
-};
-
-export async function persistDemoOrder(order: PersistedDemoOrder): Promise<boolean> {
-  if (!isUuid(order.userId) || !isUuid(order.id)) return false;
-  const db = getDb();
-  if (!db) return false;
-  try {
-    await db.insert(demoOrdersTable).values({
-      id: order.id,
-      userId: order.userId,
-      instrument: order.instrument,
-      type: order.type,
-      side: order.side,
-      price: order.price === undefined ? null : String(order.price),
-      amount: String(order.amount),
-      leverage: order.leverage,
-      stopLoss: order.stopLoss === undefined ? null : String(order.stopLoss),
-      takeProfit: order.takeProfit === undefined ? null : String(order.takeProfit),
-      status: order.status,
-      createdAt: new Date(order.createdAt),
-      updatedAt: new Date(),
-    }).onConflictDoUpdate({
-      target: demoOrdersTable.id,
-      set: {
-        status: order.status,
-        updatedAt: new Date(),
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.warn({ err, orderId: order.id, userId: order.userId }, "[db-persist] persistDemoOrder failed");
-    return false;
-  }
-}
-
-export async function getPersistedOpenDemoOrders(): Promise<PersistedDemoOrder[]> {
-  const db = getDb();
-  if (!db) return [];
-  try {
-    const rows = await db.select().from(demoOrdersTable).where(eq(demoOrdersTable.status, "open"));
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.userId,
-      instrument: row.instrument,
-      type: row.type,
-      side: row.side,
-      price: row.price === null ? undefined : Number(row.price),
-      amount: Number(row.amount),
-      leverage: row.leverage,
-      stopLoss: row.stopLoss === null ? undefined : Number(row.stopLoss),
-      takeProfit: row.takeProfit === null ? undefined : Number(row.takeProfit),
-      status: row.status,
-      createdAt: row.createdAt.toISOString(),
-    }));
-  } catch (err) {
-    logger.warn({ err }, "[db-persist] getPersistedOpenDemoOrders failed");
-    return [];
-  }
 }
 
 export async function getPersistedUser(userId: string): Promise<StoredUser | null> {
@@ -260,68 +154,6 @@ export function getPrismaModelDelegate(modelName: string): any | null {
   }
 
   return null;
-}
-
-export type PersistedInvestmentRecord = {
-  id: string;
-  userId: string;
-  planId: string;
-  planName: string;
-  status: string;
-  principal: number;
-  lockedProfit: number;
-  currentDay: number;
-  startDate: string;
-  endDate: string;
-  weeklyTopUpDue: boolean;
-  weeklyTopUpAmount: number;
-  weeklyTopUpDueSince?: string;
-  weeklyTopUpPaidAt?: string;
-  weeklyTopUpApproved: boolean;
-  topUpPenaltyActive: boolean;
-  pendingMarginalFee: number;
-  marginalFeeDueSince?: string;
-  marginalFeePaidAt?: string;
-  marginalFeeApproved: boolean;
-  dailyHistory: unknown[];
-};
-
-function persistedInvestmentData(record: PersistedInvestmentRecord): Record<string, unknown> {
-  return {
-    userId: record.userId,
-    planId: record.planId,
-    planName: record.planName,
-    status: record.status,
-    principal: record.principal,
-    lockedProfit: record.lockedProfit,
-    currentDay: record.currentDay,
-    startDate: new Date(record.startDate),
-    endDate: new Date(record.endDate),
-    weeklyTopUpDue: record.weeklyTopUpDue,
-    weeklyTopUpAmount: record.weeklyTopUpAmount,
-    weeklyTopUpDueSince: record.weeklyTopUpDueSince ? new Date(record.weeklyTopUpDueSince) : null,
-    weeklyTopUpPaidAt: record.weeklyTopUpPaidAt ? new Date(record.weeklyTopUpPaidAt) : null,
-    weeklyTopUpApproved: record.weeklyTopUpApproved,
-    topUpPenaltyActive: record.topUpPenaltyActive,
-    pendingMarginalFee: record.pendingMarginalFee,
-    marginalFeeDueSince: record.marginalFeeDueSince ? new Date(record.marginalFeeDueSince) : null,
-    marginalFeePaidAt: record.marginalFeePaidAt ? new Date(record.marginalFeePaidAt) : null,
-    marginalFeeApproved: record.marginalFeeApproved,
-    dailyHistory: record.dailyHistory,
-  };
-}
-
-export async function persistInvestmentRecord(record: PersistedInvestmentRecord): Promise<boolean> {
-  if (!isUuid(record.userId) || !isUuid(record.id)) return false;
-  const delegate = getPrismaModelDelegate("InvestmentRecord");
-  if (!delegate?.upsert) return false;
-  try {
-    await delegate.upsert({ where: { id: record.id }, create: { id: record.id, ...persistedInvestmentData(record) }, update: persistedInvestmentData(record) });
-    return true;
-  } catch (err) {
-    logger.error({ err, investmentId: record.id, userId: record.userId }, "[db-persist] investment record persistence failed");
-    return false;
-  }
 }
 
 function getPrismaUserDelegate(): any | null {
@@ -757,8 +589,8 @@ export async function persistWallet(walletId: string, userId: string, walletData
   currency: string;
   label: string;
   address: string;
-}): Promise<boolean> {
-  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return false;
+}): Promise<void> {
+  if (!prismaClient || !isUuid(walletId) || !isUuid(userId)) return;
   try {
     await prismaClient.wallets.upsert({
       where: { id: walletId },
@@ -780,10 +612,8 @@ export async function persistWallet(walletId: string, userId: string, walletData
         address: walletData.address,
       },
     });
-    return true;
-  } catch (err) {
-    logger.warn({ err, walletId, userId }, "[db-persist] persistWallet failed");
-    return false;
+  } catch {
+    // Silent fail
   }
 }
 
@@ -834,6 +664,49 @@ export async function persistConnectedWallet(
   }
 }
 
+export async function persistDepositAddresses(
+  userId: string,
+  addresses: Record<string, string>,
+  createdByAdmin: string,
+): Promise<void> {
+  if (!prismaClient || !isUuid(userId)) return;
+  const delegate = getPrismaModelDelegate("deposit_addresses");
+  if (!delegate?.upsert) return;
+  for (const [assetSymbol, address] of Object.entries(addresses)) {
+    const normalizedAsset = assetSymbol.trim().toUpperCase();
+    const normalizedAddress = address.trim();
+    if (!normalizedAsset || !normalizedAddress) continue;
+    try {
+      await delegate.upsert({
+        where: { user_id_asset_symbol: { user_id: userId, asset_symbol: normalizedAsset } },
+        update: { address: normalizedAddress, is_active: true, created_by_admin: createdByAdmin },
+        create: {
+          user_id: userId,
+          asset_symbol: normalizedAsset,
+          address: normalizedAddress,
+          is_active: true,
+          created_by_admin: createdByAdmin,
+        },
+      });
+    } catch (err) {
+      logger.warn({ err, userId, assetSymbol: normalizedAsset }, "[db-persist] persistDepositAddresses failed");
+    }
+  }
+}
+
+export async function getPersistedDepositAddresses(userId: string): Promise<Record<string, string>> {
+  if (!prismaClient || !isUuid(userId)) return {};
+  const delegate = getPrismaModelDelegate("deposit_addresses");
+  if (!delegate?.findMany) return {};
+  try {
+    const rows = await delegate.findMany({ where: { user_id: userId, is_active: true } });
+    return Object.fromEntries(rows.map((row: any) => [String(row.asset_symbol).toUpperCase(), String(row.address)]));
+  } catch (err) {
+    logger.warn({ err, userId }, "[db-persist] getPersistedDepositAddresses failed");
+    return {};
+  }
+}
+
 /**
  * CRITICAL FIX FOR PHASE 1: Persist wallet balance to database after every balance-affecting operation.
  * This ensures that wallet balances survive server restarts.
@@ -843,8 +716,8 @@ export async function persistWalletBalance(
   walletId: string,
   balance: number,
   pendingBalance: number = 0,
-): Promise<boolean> {
-  if (!prismaClient || !isUuid(walletId)) return false;
+): Promise<void> {
+  if (!prismaClient || !isUuid(walletId)) return;
   try {
     await prismaClient.wallets.update({
       where: { id: walletId },
@@ -853,10 +726,8 @@ export async function persistWalletBalance(
         pending_balance: pendingBalance,
       },
     });
-    return true;
   } catch (err) {
     logger.warn({ err, walletId, balance }, '[db-persist] persistWalletBalance failed; balance may be lost on redeploy');
-    return false;
   }
 }
 
@@ -875,8 +746,8 @@ export async function persistTransaction(
     description: string;
     isDemo?: boolean;
   },
-): Promise<boolean> {
-  if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return false;
+): Promise<void> {
+  if (!prismaClient || !isUuid(transactionId) || !isUuid(walletId) || !isUuid(userId)) return;
   try {
     const columnCacheKey = 'transactions.is_demo';
     if (!hasColumnCache.has(columnCacheKey)) {
@@ -922,75 +793,8 @@ export async function persistTransaction(
       update: updateObj,
       create: createObj,
     });
-    return true;
   } catch (err) {
     logger.warn({ err, transactionId }, '[db-persist] persistTransaction failed; continuing without DB persistence');
-    return false;
-  }
-}
-
-export async function persistDemoTrade(userId: string, trade: {
-  id: string;
-  pair: string;
-  type: "long" | "short";
-  status: "active" | "completed" | "cancelled";
-  entryPrice: number;
-  currentPrice: number;
-  targetPrice?: number | null;
-  amount: number;
-  currency: string;
-  profit: number;
-  expectedProfit?: number;
-  managerId?: string | null;
-  createdAt: string;
-  completedAt?: string | null;
-}): Promise<boolean> {
-  if (!isUuid(userId) || !isUuid(trade.id)) return false;
-  const db = getDb();
-  if (!db) return false;
-  try {
-    await db.insert(tradesTable).values({
-      id: trade.id,
-      userId,
-      pair: trade.pair,
-      type: trade.type,
-      status: trade.status,
-      entryPrice: String(trade.entryPrice),
-      currentPrice: String(trade.currentPrice),
-      targetPrice: String(trade.targetPrice ?? trade.entryPrice),
-      amount: String(trade.amount),
-      currency: trade.currency,
-      profit: String(trade.profit),
-      expectedProfit: String(trade.expectedProfit ?? 0),
-      managerId: trade.managerId ?? null,
-      createdAt: new Date(trade.createdAt),
-      completedAt: trade.completedAt ? new Date(trade.completedAt) : null,
-    }).onConflictDoUpdate({
-      target: tradesTable.id,
-      set: {
-        status: trade.status,
-        currentPrice: String(trade.currentPrice),
-        profit: String(trade.profit),
-        completedAt: trade.completedAt ? new Date(trade.completedAt) : null,
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.warn({ err, tradeId: trade.id, userId }, "[db-persist] persistDemoTrade failed");
-    return false;
-  }
-}
-
-export async function deletePersistedDemoTrades(userId: string): Promise<boolean> {
-  if (!isUuid(userId)) return false;
-  const db = getDb();
-  if (!db) return false;
-  try {
-    await db.delete(tradesTable).where(eq(tradesTable.userId, userId));
-    return true;
-  } catch (err) {
-    logger.warn({ err, userId }, "[db-persist] deletePersistedDemoTrades failed");
-    return false;
   }
 }
 
@@ -1361,8 +1165,8 @@ export async function persistSupportTicket(
     createdAt: string;
     updatedAt: string;
   },
-): Promise<boolean> {
-  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return false;
+): Promise<void> {
+  if (!prismaClient || !isUuid(ticketId) || !isUuid(userId)) return;
   try {
     await prismaClient.support_tickets.upsert({
       where: { id: ticketId },
@@ -1381,10 +1185,8 @@ export async function persistSupportTicket(
         updated_at: new Date(ticketData.updatedAt),
       },
     });
-    return true;
-  } catch (err) {
-    logger.error({ err, ticketId, userId }, "[db-persist] support ticket persistence failed");
-    return false;
+  } catch {
+    // Silent fail
   }
 }
 
@@ -1402,8 +1204,8 @@ export async function persistChatMessage(
     // Ensure conversation exists (user_id stored as the owner)
     await prismaClient.conversations.upsert({
       where: { id: conversationId },
-      update: { updated_at: new Date(), last_message_at: new Date() },
-      create: { id: conversationId, user_id: senderId ?? conversationId, subject: null, last_message_at: new Date() },
+      update: { updated_at: new Date() },
+      create: { id: conversationId, user_id: senderId ?? conversationId, subject: null },
     });
 
     await prismaClient.chat_messages.create({
@@ -1413,54 +1215,12 @@ export async function persistChatMessage(
         sender_type: senderType === 'admin' ? 'admin' : senderType === 'bot' ? 'bot' : 'user',
         sender_id: senderId ?? null,
         content,
-        delivery_status: "delivered",
       },
     });
     return true;
   } catch (err) {
     logger.error({ err, conversationId }, "[db-persist] persistChatMessage failed");
     return false;
-  }
-}
-
-export async function updatePersistedChatAssignment(
-  conversationId: string,
-  assignedTo: string | null,
-): Promise<boolean> {
-  if (!prismaClient || !isUuid(conversationId) || (assignedTo !== null && !isUuid(assignedTo))) return false;
-  try {
-    await prismaClient.conversations.update({
-      where: { id: conversationId },
-      data: {
-        assigned_to: assignedTo,
-        claimed_at: assignedTo ? new Date() : null,
-        status: assignedTo ? "claimed" : "open",
-      },
-    });
-    return true;
-  } catch (err) {
-    logger.error({ err, conversationId, assignedTo }, "[db-persist] chat assignment update failed");
-    return false;
-  }
-}
-
-export async function getPersistedChatAssignment(conversationId: string): Promise<{
-  status: string;
-  assignedTo: string | null;
-  claimedAt: string | null;
-} | null> {
-  if (!prismaClient || !isUuid(conversationId)) return null;
-  try {
-    const row = await prismaClient.conversations.findUnique({ where: { id: conversationId } });
-    if (!row) return null;
-    return {
-      status: String(row.status ?? "open"),
-      assignedTo: row.assigned_to ? String(row.assigned_to) : null,
-      claimedAt: row.claimed_at ? new Date(row.claimed_at).toISOString() : null,
-    };
-  } catch (err) {
-    logger.error({ err, conversationId }, "[db-persist] chat assignment lookup failed");
-    return null;
   }
 }
 
@@ -1472,7 +1232,6 @@ export async function getPersistedChatMessages(conversationId: string): Promise<
   isFromUser: boolean;
   isBot: boolean;
   escalated: boolean;
-  deliveryStatus?: "sent" | "delivered";
   createdAt: string;
 }>> {
   if (!prismaClient || !isUuid(conversationId)) return [];
@@ -1489,7 +1248,6 @@ export async function getPersistedChatMessages(conversationId: string): Promise<
       isFromUser: row.sender_type === "user",
       isBot: row.sender_type === "bot",
       escalated: false,
-      deliveryStatus: String(row.delivery_status ?? "delivered") as "sent" | "delivered",
       createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
     }));
   } catch (err) {
@@ -1508,7 +1266,6 @@ export async function listPersistedChatConversations(): Promise<Array<{
     isFromUser: boolean;
     isBot: boolean;
     escalated: boolean;
-    deliveryStatus?: "sent" | "delivered";
     createdAt: string;
   }>;
 }>> {
@@ -1528,7 +1285,6 @@ export async function listPersistedChatConversations(): Promise<Array<{
         isFromUser: row.sender_type === "user",
         isBot: row.sender_type === "bot",
         escalated: false,
-        deliveryStatus: String(row.delivery_status ?? "delivered") as "sent" | "delivered",
         createdAt: new Date(row.created_at ?? Date.now()).toISOString(),
       });
       conversations.set(userId, messages);

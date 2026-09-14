@@ -10,6 +10,7 @@ import {
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { determineAccountTier, canPerformAction } from "../lib/account-tiers";
+import { releaseWithinLimits, reserveWithinLimits } from "../lib/wallet-ledger";
 
 const router: IRouter = Router();
 
@@ -97,6 +98,10 @@ router.post("/deposits", requireAuth, async (req, res) => {
     }
   }
   const depositId = newId("dep");
+  const limit = await reserveWithinLimits(req.userId!, parsed.data.amount, "deposit");
+  if (!limit.allowed) {
+    return res.status(429).json({ success: false, message: limit.reason });
+  }
   if (parsed.data.externalWalletId && parsed.data.txHash) {
     const claim = claimTxHash(parsed.data.txHash, {
       userId: req.userId!,
@@ -104,6 +109,7 @@ router.post("/deposits", requireAuth, async (req, res) => {
       recordId: depositId,
     });
     if (!claim.ok) {
+      await releaseWithinLimits(req.userId!, parsed.data.amount, "deposit");
       return res.status(409).json({
         success: false,
         message: `On-chain payment ${parsed.data.txHash} has already been used to settle ${claim.existing.purpose} ${claim.existing.recordId}.`,

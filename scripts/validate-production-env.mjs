@@ -18,13 +18,35 @@ function isRealAlchemyKey(value) {
   return trimmed.length >= 16;
 }
 
+function normalizeEnvValue(value) {
+  if (typeof value !== 'string') return undefined;
+
+  let trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+
+  const wrappedInQuotes =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+
+  if (wrappedInQuotes) {
+    trimmed = trimmed.slice(1, -1);
+  }
+
+  if (trimmed.endsWith('\\') && (value.trim().startsWith('"') || value.trim().startsWith("'"))) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed
+    .replace(/\\(["'])/g, '$1')
+    .replace(/\\\\/g, '\\')
+    .trim();
+}
+
 function resolveEnvValue(env, key, aliases = []) {
   const candidates = [key, ...aliases];
   for (const candidate of candidates) {
-    const raw = env[candidate];
-    if (typeof raw !== 'string') continue;
-    const trimmed = raw.trim();
-    if (trimmed.length > 0) return trimmed;
+    const raw = normalizeEnvValue(env[candidate]);
+    if (typeof raw === 'string' && raw.length > 0) return raw;
   }
   return undefined;
 }
@@ -88,7 +110,9 @@ function validateProductionEnvironment(env = process.env) {
     }
 
     const databaseUrl = env.DATABASE_URL?.trim() || env.DATABASE_PUBLIC_URL?.trim() || env.DIRECT_DATABASE_URL?.trim();
-    if (!databaseUrl || isPlaceholderDatabaseUrl(databaseUrl)) {
+    if (!databaseUrl) {
+      warnings.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL is not configured; the app will continue in degraded mode without persistence until a real PostgreSQL connection is attached.');
+    } else if (isPlaceholderDatabaseUrl(databaseUrl)) {
       errors.push('DATABASE_URL, DATABASE_PUBLIC_URL, or DIRECT_DATABASE_URL must be configured with a real PostgreSQL connection string. Placeholder/example values are not valid for production persistence and will lose user accounts and sessions on redeploy.');
     }
 

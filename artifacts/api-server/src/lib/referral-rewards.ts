@@ -9,7 +9,6 @@
 import { getUserData, logActivity, newId, referrals, users } from "./store";
 import { notifyUser } from "./notify";
 import { logger } from "./logger";
-import { adjustMoney } from "./money";
 
 const REFERRAL_REWARD_USD = (() => {
   const raw = process.env.REFERRAL_REWARD_USD;
@@ -54,7 +53,7 @@ export function triggerReferralReward(referredUserId: string): void {
     return;
   }
 
-  mainWallet.balance = adjustMoney(mainWallet.balance, REFERRAL_REWARD_USD);
+  mainWallet.balance = Math.round((mainWallet.balance + REFERRAL_REWARD_USD) * 100) / 100;
 
   referrerData.transactions.unshift({
     id: newId("tx"),

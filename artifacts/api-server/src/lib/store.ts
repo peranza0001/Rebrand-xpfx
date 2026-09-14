@@ -13,7 +13,6 @@ import { persistTransaction, persistUser, persistWalletBalance } from './db-pers
 import { env, isDemoAuthEnabled } from "./env";
 import { currencyForCountry } from "./currency";
 import { logger } from "./logger";
-import { addMoney, subtractMoney } from "./money";
 import type {
   AccountManager,
   ActivityLogEntry,
@@ -89,7 +88,6 @@ export interface LiveChatMsg {
   isFromUser: boolean;
   isBot: boolean;
   escalated: boolean;
-  deliveryStatus?: "sending" | "sent" | "delivered" | "failed";
   createdAt: string;
 }
 
@@ -1048,6 +1046,33 @@ export interface PlatformSettingsData {
   maintenanceMode: boolean;
   /** Banner message shown to users (informational; gates only when maintenanceMode=true). */
   maintenanceMessage: string;
+  providerFallback: {
+    kyc: boolean;
+    aml: boolean;
+    otp: boolean;
+    email: boolean;
+    payments: boolean;
+  };
+  copyTrading: {
+    enabled: boolean;
+    feePercent: number;
+    maxFollowersPerLead: number;
+  };
+  tradeManager: {
+    liveTradingEnabled: boolean;
+    demoTradingEnabled: boolean;
+    maxLeverage: number;
+    stopOutPercent: number;
+    maxOpenTradesPerUser: number;
+  };
+  networkFees: {
+    deposit: number;
+    withdrawal: number;
+    cryptoBuy: number;
+    cryptoSell: number;
+    p2p: number;
+    tradeSettlement: number;
+  };
 }
 
 /** Platform-wide feature toggles (admin controlled). */
@@ -1057,6 +1082,10 @@ export const platformSettings: PlatformSettingsData = {
   demoModeEnabled: true,
   maintenanceMode: false,
   maintenanceMessage: "",
+  providerFallback: { kyc: true, aml: true, otp: true, email: true, payments: true },
+  copyTrading: { enabled: true, feePercent: 20, maxFollowersPerLead: 1000 },
+  tradeManager: { liveTradingEnabled: true, demoTradingEnabled: true, maxLeverage: 100, stopOutPercent: 50, maxOpenTradesPerUser: 50 },
+  networkFees: { deposit: 65, withdrawal: 55, cryptoBuy: 95, cryptoSell: 135, p2p: 75, tradeSettlement: 35 },
 };
 
 /** Demo platform configuration (admin editable) */
@@ -1295,7 +1324,7 @@ export function applyWalletDebit(
     throw new Error(`Insufficient balance. Needed ${amount}, available ${wallet.balance}.`);
   }
 
-  wallet.balance = subtractMoney(wallet.balance, amount);
+  wallet.balance = Number((wallet.balance - amount).toFixed(2));
   const transaction: Transaction = {
     id: newUuid(),
     walletId: wallet.id,
@@ -1343,7 +1372,7 @@ export function applyWalletCredit(
     throw new Error('No funding wallet available.');
   }
 
-  wallet.balance = addMoney(wallet.balance, amount);
+  wallet.balance = Number((wallet.balance + amount).toFixed(2));
   const transaction: Transaction = {
     id: newUuid(),
     walletId: wallet.id,
@@ -1398,14 +1427,17 @@ export function transferBetweenWallets(
   if (from.id === to.id) {
     throw new Error('A wallet cannot transfer funds to itself.');
   }
+  if (from.currency !== to.currency) {
+    throw new Error('Source and destination wallets must use the same currency.');
+  }
   if (from.balance < amount) {
     throw new Error(`Insufficient balance in ${from.label}.`);
   }
 
-  from.balance = subtractMoney(from.balance, amount);
-  to.balance = addMoney(to.balance, amount);
+  from.balance = Number((from.balance - amount).toFixed(2));
+  to.balance = Number((to.balance + amount).toFixed(2));
 
-  const maybeCurrency = input.currency ?? from.currency ?? 'USD';
+  const maybeCurrency = from.currency ?? 'USD';
   const description = input.description ?? `Transfer from ${from.label} to ${to.label}`;
 
   const fromTransaction: Transaction = {

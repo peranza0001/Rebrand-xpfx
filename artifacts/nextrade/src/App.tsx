@@ -1,3 +1,4 @@
+import React, { Component, type ErrorInfo, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -37,6 +38,7 @@ import { Statements } from "@/pages/statements";
 import { DemoTradingPage } from "@/pages/demo-trading";
 import { Trading } from "@/pages/trading";
 import { InvestmentPlans } from "@/pages/investment-plans";
+import { CopyTrading } from "@/pages/copy-trading";
 
 import { PublicHome } from "@/pages/public/home";
 import { PublicMarkets } from "@/pages/public/markets";
@@ -83,6 +85,8 @@ function ProtectedShell() {
           <Route path="/smartvest" component={SmartVest} />
           <Route path="/statements" component={Statements} />
           <Route path="/trading" component={Trading} />
+          <Route path="/trade" component={Trading} />
+          <Route path="/copy-trading" component={CopyTrading} />
           <Route path="/demo-trading" component={DemoTradingPage} />
           <Route path="/investment-plans" component={InvestmentPlans} />
           <Route path="/education/*" component={Education} />
@@ -128,11 +132,20 @@ function PublicPage({ children }: { children: React.ReactNode }) {
   return <PublicLayout>{children}</PublicLayout>;
 }
 
+function PublicMarketAlias({ tab }: { tab: string }) {
+  return (
+    <PublicPage>
+      <PublicMarkets defaultTab={tab as "forex" | "crypto" | "indices" | "commodities" | "stocks"} />
+    </PublicPage>
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
+      <Route path="/register" component={Signup} />
       <Route path="/verify-otp" component={VerifyOtp} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
@@ -140,6 +153,27 @@ function AppRoutes() {
         <RequireAuth>
           <ConnectWallet />
         </RequireAuth>
+      </Route>
+
+      <Route path="/stocks"><PublicMarketAlias tab="stocks" /></Route>
+      <Route path="/shares"><PublicMarketAlias tab="stocks" /></Route>
+      <Route path="/commodities"><PublicMarketAlias tab="commodities" /></Route>
+      <Route path="/signals"><PublicMarketAlias tab="indices" /></Route>
+      <Route path="/dashboard/markets"><PublicMarketAlias tab="forex" /></Route>
+      <Route path="/dashboard/support">
+        <RequireAuth><Support /></RequireAuth>
+      </Route>
+      <Route path="/trade">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/buy">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/sell">
+        <RequireAuth><Trading /></RequireAuth>
+      </Route>
+      <Route path="/copy-trading">
+        <RequireAuth><CopyTrading /></RequireAuth>
       </Route>
 
       <Route path="/markets"><PublicPage><PublicMarkets /></PublicPage></Route>
@@ -156,19 +190,62 @@ function AppRoutes() {
   );
 }
 
+type AppErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type AppErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class AppErrorBoundary extends Component<
+  AppErrorBoundaryProps,
+  AppErrorBoundaryState
+> {
+  state: AppErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): AppErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Application render error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+          <div className="max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+            <div className="mb-4 text-4xl">⚠️</div>
+            <h1 className="text-xl font-semibold">Something went wrong</h1>
+            <p className="mt-3 text-sm text-muted-foreground">
+              The app failed to render. Please refresh the page and try again.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthProvider>
-            <AppRoutes />
-            <LiveChatWidget />
-          </AuthProvider>
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AuthProvider>
+              <AppRoutes />
+              <LiveChatWidget />
+            </AuthProvider>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   );
 }
 

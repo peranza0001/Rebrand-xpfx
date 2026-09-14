@@ -20,6 +20,7 @@ import {
   users,
 } from "../lib/store";
 import { requireAdmin } from "../lib/session";
+import { recordAuditEvent } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -43,6 +44,14 @@ router.patch("/admin/platform-settings", requireAdmin, (req, res) => {
     return res.status(400).json({ error: "Invalid settings", details: parsed.error.issues });
   }
   Object.assign(platformSettings, parsed.data);
+  recordAuditEvent({
+    actorId: req.userId,
+    actorName: req.storedUser!.user.fullName,
+    action: "admin.platform_settings.update",
+    category: "admin",
+    detail: "Updated platform control-plane settings",
+    metadata: { changes: parsed.data },
+  });
   logActivity({
     actorId: req.userId!,
     actorName: req.storedUser!.user.fullName,

@@ -12,4 +12,31 @@ export interface PlatformSettings {
   demoModeEnabled: boolean;
   maintenanceMode: boolean;
   maintenanceMessage: string;
+  providerFallback: {
+    kyc: boolean;
+    aml: boolean;
+    otp: boolean;
+    email: boolean;
+    payments: boolean;
+  };
+  copyTrading: {
+    enabled: boolean;
+    feePercent: number;
+    maxFollowersPerLead: number;
+  };
+  tradeManager: {
+    liveTradingEnabled: boolean;
+    demoTradingEnabled: boolean;
+    maxLeverage: number;
+    stopOutPercent: number;
+    maxOpenTradesPerUser: number;
+  };
+  networkFees: {
+    deposit: number;
+    withdrawal: number;
+    cryptoBuy: number;
+    cryptoSell: number;
+    p2p: number;
+    tradeSettlement: number;
+  };
 }

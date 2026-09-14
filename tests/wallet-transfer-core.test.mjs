@@ -29,4 +29,29 @@ test('transferBetweenWallets moves available balance between platform wallets', 
   assert.equal(result.to.balance, 550);
   assert.equal(data.transactions[0].description, 'Fund trading wallet');
   assert.equal(data.transactions[0].amount, -300);
+  assert.equal(data.transactions[0].currency, main.currency);
+});
+
+test('transferBetweenWallets rejects transfers between different currencies', () => {
+  const data = freshUserData('u_cross_currency_transfer_test');
+  const main = data.wallets.find((wallet) => wallet.type === 'main');
+  const trading = data.wallets.find((wallet) => wallet.type === 'trading');
+
+  assert.ok(main && trading, 'expected platform wallets to exist');
+  main.balance = 1500;
+  trading.balance = 250;
+  trading.currency = 'ETH';
+
+  assert.throws(() => transferBetweenWallets({
+    wallets: data.wallets,
+    transactions: data.transactions,
+  }, {
+    fromWalletId: main.id,
+    toWalletId: trading.id,
+    amount: 300,
+    currency: 'USD',
+  }), /same currency/);
+  assert.equal(main.balance, 1500);
+  assert.equal(trading.balance, 250);
+  assert.equal(data.transactions.length, 0);
 });

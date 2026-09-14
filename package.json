@@ -32,6 +32,7 @@
     "remember:update": "node scripts/update-remember.mjs",
     "remember:sync": "node scripts/update-remember.mjs",
     "build": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal && npm run build --workspace=lib/api-zod",
+    "build:replit": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-client-react && npm run build --workspace=artifacts/nextrade && BASE_PATH=/xpadmin npm run build --workspace=artifacts/admin-portal",
     "build:all": "npm run build",
     "build:api": "npm run build --workspace=artifacts/api-server && npm run build --workspace=lib/api-zod",
     "build:lib": "npm run build --workspace=lib/api-client-react",
@@ -41,6 +42,7 @@
     "test:enterprise": "npm run build:all && node --import tsx tests/auth-flow.test.mjs && node --import tsx tests/sessions.test.mjs && node --import tsx tests/auth-throttle.test.mjs",
     "healthcheck": "node scripts/healthcheck.mjs",
     "start": "npm run build && node artifacts/api-server/dist/index.mjs",
+    "replit:start": "npm run build:replit && NODE_ENV=production node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "start:prod": "NODE_ENV=production node scripts/ensure-db-ready.mjs && NODE_ENV=production npm run build && NODE_ENV=production node artifacts/api-server/dist/index.mjs",
     "dev": "npm run dev --workspaces --if-present",
     "preview": "npm run preview --workspaces --if-present",
@@ -51,7 +53,7 @@
     "dev:all": "npm run dev:admin & npm run dev:nextrade & npm run dev:mockup || true",
     "lint": "eslint . --config eslint.config.cjs --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build --workspace=artifacts/api-server && node --import tsx tests/app-readiness.test.mjs && node --import tsx tests/production-env.test.mjs && node --import tsx tests/demo-auth.test.mjs && node --import tsx tests/generate-secrets.test.mjs && node --import tsx tests/runtime-env-bootstrap.test.mjs",
+  "test": "npm run build --workspace=artifacts/api-server && npm run build --workspace=artifacts/nextrade && node --import tsx tests/app-readiness.test.mjs && node --import tsx tests/production-env.test.mjs && node --import tsx tests/demo-auth.test.mjs && node --import tsx tests/generate-secrets.test.mjs && node --import tsx tests/runtime-env-bootstrap.test.mjs && node --import tsx tests/healthcheck-defaults.test.mjs",
     "test:db-connection": "node scripts/test-db-connection.mjs",
     "pm2:install": "npm install -g pm2 || true",
     "pm2:start": "pm2 start ecosystem.config.cjs",
@@ -62,13 +64,18 @@
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "esbuild": "0.28.1",
-    "esbuild-plugin-pino": "^2.2.0",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.0.0",
     "prisma": "5.14.0",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.1"
+  },
+  "dependencies": {
+    "@phosphor-icons/webcomponents": "^2.1.5",
+    "axios": "1.19.0",
+    "esbuild": "0.28.1",
+    "esbuild-plugin-pino": "^2.2.0",
+    "redis": "^6.2.1",
     "typescript": "^5.4.5"
   },
   "overrides": {
@@ -77,12 +84,10 @@
     "minimatch": "7.4.9",
     "esbuild": "0.28.1",
     "prisma": "5.14.0",
+    "qs": "6.16.0",
+    "vite": "7.3.6",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.28.1"
     }
-  },
-  "dependencies": {
-    "axios": "1.19.0",
-    "redis": "^6.2.1"
   }
 }

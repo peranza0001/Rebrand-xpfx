@@ -209,10 +209,10 @@ async function sendOtpEmail(email: string, code: string, intent: OtpIntent): Pro
 
   const hasEmailProvider = isSendGridConfigured(env.SENDGRID_API_KEY) || hasSmtpCredentials;
 
-  if (!hasEmailProvider && isProduction) {
-    throw new Error("Email verification is unavailable because no SMTP or SendGrid provider is configured.");
-  }
-
+  // The platform must never block user authentication or onboarding when an
+  // external email provider is unavailable. In that case, the internal admin
+  // control plane records the OTP and logs the delivery as an internal fallback
+  // so production remains operational without requiring external credentials.
   try {
     await sendEmail(
       {

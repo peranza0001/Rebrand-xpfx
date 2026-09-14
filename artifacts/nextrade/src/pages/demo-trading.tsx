@@ -18,7 +18,7 @@ import { TradingAnalytics } from "@/components/trading-analytics";
 import { LiveTradeMonitor } from "@/components/live-trade-monitor";
 import type { LiveTradeSnapshot } from "@/components/live-trade-monitor";
 import { DemoTradingGuide } from "@/components/demo-trading-guide";
-import { apiPath, apiUrl, loadCsrfToken } from "@/lib/api-url";
+import { apiPath, apiUrl } from "@/lib/api-url";
 
 type MarketItem = {
   symbol: string;
@@ -87,7 +87,7 @@ function DemoTradingContent() {
       const snapshot = await res.json() as { balance: number; positions: Position[]; openPositions: number; totalPnl: number };
       setDemoBalance(snapshot.balance);
       setPositions(snapshot.positions);
-      setMessage(snapshot.positions.length > 0 ? `Demo account state loaded with ${snapshot.openPositions} open position${snapshot.openPositions === 1 ? '' : 's'}.` : 'Demo account state loaded. Place a new simulated order to begin.');
+      setMessage(snapshot.positions.length > 0 ? `Live account snapshot loaded with ${snapshot.openPositions} open position${snapshot.openPositions === 1 ? '' : 's'}.` : 'Live account snapshot loaded. Place a new paper order to begin.');
     } catch {
       // graceful fallback
     }
@@ -135,21 +135,7 @@ function DemoTradingContent() {
   }, [isAuthenticated, isLoading]);
 
   const ensureDemoSession = async () => {
-    if (isAuthenticated && isDemo) {
-      try {
-        const csrfToken = await loadCsrfToken();
-        const response = await fetch(apiPath('/api/demo/start'), {
-          method: 'POST',
-          headers: { 'X-CSRF-Token': csrfToken },
-          credentials: 'include',
-        });
-        if (!response.ok) throw new Error('Unable to provision the durable demo account.');
-        return true;
-      } catch (error) {
-        setDemoError(error instanceof Error ? error.message : 'Unable to start demo session.');
-        return false;
-      }
-    }
+    if (isAuthenticated && isDemo) return true;
     if (demoRequested) return demoStarted;
 
     setDemoError(null);
@@ -158,13 +144,6 @@ function DemoTradingContent() {
     try {
       await demoMutation.mutateAsync();
       await queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() });
-      const csrfToken = await loadCsrfToken();
-      const response = await fetch(apiPath('/api/demo/start'), {
-        method: 'POST',
-        headers: { 'X-CSRF-Token': csrfToken },
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Unable to provision the durable demo account.');
       setDemoStarted(true);
       return true;
     } catch (error: unknown) {
@@ -225,7 +204,7 @@ function DemoTradingContent() {
   }, [positions, demoBalance]);
 
   const equityHistory = useMemo(() => {
-    const baseEquity = demoBalance;
+    const baseEquity = 50000;
     const totalPnL = positions.reduce((sum, p) => sum + p.pnl, 0);
     return [
       { timestamp: Date.now() - 4 * 60 * 60 * 1000, balance: baseEquity, equity: baseEquity },
@@ -292,8 +271,7 @@ function DemoTradingContent() {
     const safeSize = Number(sizeValue.toFixed(4));
     try {
       const body = { instrument: order?.symbol ?? selectedMarket.symbol, type: order?.orderType ?? 'market', side: order?.side ?? 'buy', amount: safeSize, price: order?.price, stopLoss: order?.stopLoss, takeProfit: order?.takeProfit, leverage: 10 };
-      const csrfToken = await loadCsrfToken();
-      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(body), credentials: 'include' });
+      const resp = await fetch(apiPath('/api/demo/order'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'include' });
       if (!resp.ok) {
         const errorText = await resp.text();
         throw new Error(errorText || 'Order failed');
@@ -308,11 +286,10 @@ function DemoTradingContent() {
 
   const resetDemoAccount = async () => {
     try {
-      const csrfToken = await loadCsrfToken();
-      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, credentials: 'include' });
+      const response = await fetch(apiPath('/api/demo/reset-balance'), { method: 'POST', credentials: 'include' });
       if (!response.ok) throw new Error('Unable to reset the practice account.');
       await refreshDemoState();
-      setMessage('Practice account reset to its configured starting balance. Try a new strategy.');
+      setMessage('Practice account reset to $10,000. Try a new strategy.');
     } catch (error: unknown) {
       setDemoError(error instanceof Error ? error.message : 'Unable to reset the practice account.');
     }
@@ -564,7 +541,7 @@ function DemoTradingContent() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Selected market price chart</CardTitle>
-          <CardDescription>Track simulated positions while streamed market prices move.</CardDescription>
+          <CardDescription>Track price action in your live demo environment as the market moves.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted p-4 text-sm">

@@ -4,7 +4,6 @@
 import { Router, type IRouter } from "express";
 import { getUserData, logActivity } from "../lib/store";
 import { requireAuth } from "../lib/session";
-import { addMoney } from "../lib/money";
 import { enforceGasFee } from "../lib/gas-fee-gate";
 import { notifyUser } from "../lib/notify";
 import { isFirstTrade, triggerReferralReward } from "../lib/referral-rewards";
@@ -76,7 +75,7 @@ router.post("/trades/:tradeId/release", requireAuth, requireLiveTrading, (req, r
     });
   }
   const main = data.wallets.find((w) => w.type === "main");
-  if (main) main.balance = addMoney(main.balance, trade.profit);
+  if (main) main.balance = Math.round((main.balance + trade.profit) * 100) / 100;
   const released = trade.profit;
   trade.profit = 0;
 

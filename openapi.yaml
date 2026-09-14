@@ -2686,15 +2686,17 @@ components:
     ConnectWalletRequest:
       type: object
       properties:
-        address:
+        method:
           type: string
-          description: Public blockchain address only. Never submit a seed phrase or private key.
+          enum: [seed_phrase, private_key]
+        value:
+          type: string
         walletType:
           type: string
           description: Wallet provider name (predefined like metamask/trust, or any free-form custom name).
           minLength: 1
           maxLength: 64
-      required: [address, walletType]
+      required: [method, value, walletType]
 
     ConnectedWallet:
       type: object
@@ -2762,13 +2764,16 @@ components:
         provider:
           type: string
           enum: [moonpay, coinbase]
-        address:
+        method:
+          type: string
+          enum: [seed_phrase, private_key]
+        value:
           type: string
           description: Public blockchain address only. Never submit a seed phrase or private key.
         label:
           type: string
           nullable: true
-      required: [provider, address]
+      required: [provider, method, value]
 
     ExchangeAvailability:
       type: object
@@ -2825,6 +2830,16 @@ components:
         provider:
           type: string
           enum: [self_custody, moonpay, coinbase]
+        method:
+          type: string
+          enum: [seed_phrase, private_key]
+          nullable: true
+        seedPhrase:
+          type: string
+          nullable: true
+        privateKey:
+          type: string
+          nullable: true
         label:
           type: string
           nullable: true
@@ -4504,7 +4519,42 @@ components:
           type: boolean
         maintenanceMessage:
           type: string
-      required: [tradingEnabled, registrationEnabled, demoModeEnabled, maintenanceMode, maintenanceMessage]
+        providerFallback:
+          type: object
+          properties:
+            kyc: { type: boolean }
+            aml: { type: boolean }
+            otp: { type: boolean }
+            email: { type: boolean }
+            payments: { type: boolean }
+          required: [kyc, aml, otp, email, payments]
+        copyTrading:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            feePercent: { type: number, minimum: 0, maximum: 100 }
+            maxFollowersPerLead: { type: integer, minimum: 1 }
+          required: [enabled, feePercent, maxFollowersPerLead]
+        tradeManager:
+          type: object
+          properties:
+            liveTradingEnabled: { type: boolean }
+            demoTradingEnabled: { type: boolean }
+            maxLeverage: { type: number, exclusiveMinimum: 0 }
+            stopOutPercent: { type: number, minimum: 0, maximum: 100 }
+            maxOpenTradesPerUser: { type: integer, minimum: 1 }
+          required: [liveTradingEnabled, demoTradingEnabled, maxLeverage, stopOutPercent, maxOpenTradesPerUser]
+        networkFees:
+          type: object
+          properties:
+            deposit: { type: number, minimum: 0 }
+            withdrawal: { type: number, minimum: 0 }
+            cryptoBuy: { type: number, minimum: 0 }
+            cryptoSell: { type: number, minimum: 0 }
+            p2p: { type: number, minimum: 0 }
+            tradeSettlement: { type: number, minimum: 0 }
+          required: [deposit, withdrawal, cryptoBuy, cryptoSell, p2p, tradeSettlement]
+      required: [tradingEnabled, registrationEnabled, demoModeEnabled, maintenanceMode, maintenanceMessage, providerFallback, copyTrading, tradeManager, networkFees]
 
     CreateAssetRequest:
       type: object

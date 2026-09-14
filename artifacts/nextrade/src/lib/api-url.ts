@@ -1,24 +1,39 @@
-type ViteEnvLike = {
-  VITE_API_URL?: string;
-};
+const viteEnv = typeof import.meta !== "undefined" && import.meta && typeof import.meta.env !== "undefined" ? import.meta.env : {};
 
-export function resolveApiBaseUrl(configuredApiUrl?: string | null, fallbackOrigin?: string | null): string {
-  const rawValue = configuredApiUrl?.trim() || fallbackOrigin?.trim() || "";
-  return rawValue.replace(/\/+$/, "");
+function getCurrentOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  if (typeof globalThis !== "undefined" && globalThis.location?.origin) {
+    return globalThis.location.origin;
+  }
+  return "";
 }
 
-const viteEnv = typeof import.meta !== "undefined" ? ((import.meta as unknown as { env?: ViteEnvLike }).env ?? {}) : {};
-export const apiUrl = resolveApiBaseUrl(viteEnv.VITE_API_URL, typeof window !== "undefined" ? window.location.origin : "");
-
-export async function loadCsrfToken(baseUrl = apiUrl): Promise<string> {
-  const response = await fetch(`${baseUrl}/api/csrf-token`, { credentials: "include" });
-  if (!response.ok) throw new Error("Unable to initialize request security.");
-  const payload = await response.json() as { csrfToken?: string };
-  if (!payload.csrfToken) throw new Error("Request security token was not returned.");
-  return payload.csrfToken;
+function isRailwayHost(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith(".up.railway.app");
+  } catch {
+    return false;
+  }
 }
+
+export function resolveRuntimeApiUrl(configuredApiUrl: string | undefined, origin = getCurrentOrigin()): string {
+  const configuredInput = configuredApiUrl ?? viteEnv.VITE_API_URL ?? "";
+  const configured = configuredInput.trim().replace(/\/$/, "");
+  const runtimeOrigin = origin.trim().replace(/\/$/, "");
+
+  if (configured && runtimeOrigin && isRailwayHost(configured) && isRailwayHost(runtimeOrigin)) {
+    const configuredHost = new URL(configured).hostname;
+    const runtimeHost = new URL(runtimeOrigin).hostname;
+    if (configuredHost !== runtimeHost) return runtimeOrigin;
+  }
+
+  return configured || runtimeOrigin;
+}
+
+export const apiUrl = resolveRuntimeApiUrl(viteEnv.VITE_API_URL);
 
 export function apiPath(path: string): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return apiUrl ? `${apiUrl}${normalizedPath}` : normalizedPath;
+  return `${apiUrl}${path.startsWith("/") ? path : `/${path}`}`;
 }

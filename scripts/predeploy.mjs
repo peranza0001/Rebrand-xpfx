@@ -43,10 +43,34 @@ function hasMeaningfulValue(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function normalizeEnvValue(value) {
+  if (typeof value !== "string") return undefined;
+
+  let trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const wrappedInQuotes =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+
+  if (wrappedInQuotes) {
+    trimmed = trimmed.slice(1, -1);
+  }
+
+  if (trimmed.endsWith("\\") && (value.trim().startsWith('"') || value.trim().startsWith("'"))) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed
+    .replace(/\\(["'])/g, "$1")
+    .replace(/\\\\/g, "\\")
+    .trim();
+}
+
 function resolveEnvValue(env, key, aliases = []) {
   const candidates = [key, ...aliases];
   for (const candidate of candidates) {
-    const value = env[candidate];
+    const value = normalizeEnvValue(env[candidate]);
     if (hasMeaningfulValue(value)) {
       return value.trim();
     }

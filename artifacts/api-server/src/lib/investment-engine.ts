@@ -130,7 +130,7 @@ export function processDailyTick(inv: ActiveInvestment, now = new Date().toISOSt
   inv.lockedProfit = Math.max(0, lockedAfter);
   inv.currentDay += 1;
 
-  if (inv.currentDay >= plan.durationDays) {
+  if (inv.currentDay >= plan.recommendedHoldDays) {
     inv.status = "completed";
     inv.topUpPenaltyActive = false;
   }

@@ -3,8 +3,8 @@
 # Works on any Linux/macOS system, VPS, or container.
 #
 # Usage:
-#   bash start.sh                    # build API + start
-#   BUILD_ALL=true bash start.sh     # build API + frontends + start (single-service)
+#   bash start.sh                    # build API + frontends + start
+#   BUILD_ALL=false bash start.sh    # API-only mode (no website served)
 #
 set -euo pipefail
 
@@ -75,7 +75,7 @@ echo "[build] Building API server..."
 npm run build --workspace=artifacts/api-server
 
 # Optionally build frontend apps (single-service mode)
-if [ "${BUILD_ALL:-false}" = "true" ]; then
+if [ "${BUILD_ALL:-true}" = "true" ]; then
   echo ""
   echo "[build] Building NeXTrade frontend..."
   npm run build --workspace=artifacts/nextrade

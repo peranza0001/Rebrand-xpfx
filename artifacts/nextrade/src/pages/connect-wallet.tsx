@@ -36,7 +36,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ShieldCheck, Wallet, AlertTriangle, Building2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { EthereumProvider } from "@walletconnect/ethereum-provider";
 
 declare global {
   interface Window {
@@ -66,7 +65,6 @@ export function ConnectWallet() {
   const [customName, setCustomName] = useState("");
   const [address, setAddress] = useState("");
   const [walletError, setWalletError] = useState<string | null>(null);
-  const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim() || "";
 
   // Exchange-wallet connect form state (separate from the self-custody form
   // above). Tile-based provider picker per spec.
@@ -98,7 +96,7 @@ export function ConnectWallet() {
     (choice !== "other" || customName.trim().length > 0) &&
     !connect.isPending;
 
-  const completeSiwe = async (walletAddress: string, provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }) => {
+  const completeSiwe = async (walletAddress: string, provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> }, walletType: "metamask" | "walletconnect") => {
     const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
     const nonceResponse = await fetch(`${apiUrl}/api/auth/siwe/nonce`, {
       method: "POST",
@@ -113,7 +111,7 @@ export function ConnectWallet() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nonce: challenge.nonce, message: challenge.message, signature }),
+      body: JSON.stringify({ nonce: challenge.nonce, message: challenge.message, signature, walletType }),
     });
     const verified = await verifyResponse.json();
     if (!verifyResponse.ok) throw new Error(verified.error || "Wallet signature verification failed.");
@@ -139,32 +137,14 @@ export function ConnectWallet() {
       if (String(chainId).toLowerCase() !== "0x1") throw new Error("Switch your wallet to Ethereum mainnet and try again.");
       const walletAddress = accounts?.[0];
       if (!walletAddress) throw new Error("No wallet account was returned.");
-      await completeSiwe(walletAddress, window.ethereum);
+      await completeSiwe(walletAddress, window.ethereum, "metamask");
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "Wallet connection was rejected or unavailable.");
     }
   };
 
   const handleWalletConnect = async () => {
-    setWalletError(null);
-    if (!walletConnectProjectId) {
-      setWalletError("WalletConnect is not configured. Use MetaMask or enter a public address.");
-      return;
-    }
-    try {
-      const provider = await EthereumProvider.init({
-        projectId: walletConnectProjectId,
-        chains: [1],
-        showQrModal: true,
-        metadata: { name: "XpressPro FX", description: "Wallet connection", url: window.location.origin, icons: [] },
-      });
-      await provider.connect();
-      const walletAddress = provider.accounts?.[0];
-      if (!walletAddress) throw new Error("WalletConnect did not return an account.");
-      await completeSiwe(walletAddress, provider);
-    } catch (error) {
-      setWalletError(error instanceof Error ? error.message : "WalletConnect connection failed.");
-    }
+    setWalletError("WalletConnect is currently unavailable in this build. Use MetaMask or enter a public address.");
   };
 
   const handleConnect = async (e: React.FormEvent) => {
@@ -269,9 +249,9 @@ export function ConnectWallet() {
                 <Wallet className="h-4 w-4" />
                 Connect MetaMask
               </Button>
-              <Button type="button" onClick={handleWalletConnect} variant="outline" className="gap-2" disabled={!walletConnectProjectId}>
+              <Button type="button" onClick={handleWalletConnect} variant="outline" className="gap-2" disabled>
                 <Wallet className="h-4 w-4" />
-                {walletConnectProjectId ? "Connect WalletConnect" : "WalletConnect not configured"}
+                WalletConnect unavailable
               </Button>
             </div>
             {walletError && <p className="text-sm text-destructive mb-4" role="alert">{walletError}</p>}

@@ -1,8 +1,7 @@
 import { Router } from 'express';
-import Decimal from 'decimal.js-light';
 import { requireAuth } from '../lib/session';
 import { assetCatalog, demoConfig, getUserData, newUuid, NOW } from '../lib/store';
-import { deletePersistedDemoTrades, ensurePersistedDemoAccount, persistDemoTrade, persistTransaction, persistWalletBalance } from '../lib/db-persist';
+import { persistTransaction, persistWalletBalance } from '../lib/db-persist';
 import sim, { calculateMargin, getCurrentPrice } from '../lib/simulation-engine';
 
 const router = Router();
@@ -42,32 +41,12 @@ router.get('/demo/account', requireAuth, (req, res) => {
   return res.json(getDemoAccountSnapshot(req.userId!));
 });
 
-router.post('/demo/start', requireAuth, async (req, res) => {
-  if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
-    return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
-  }
-
-  const persisted = await ensurePersistedDemoAccount(req.userId!, demoConfig.defaultBalance);
-  if (!persisted) {
-    return res.status(503).json({
-      error: 'Demo trading is temporarily unavailable because the demo account could not be persisted.',
-      code: 'demo_persistence_unavailable',
-    });
-  }
-
-  return res.status(200).json({
-    success: true,
-    mode: 'demo',
-    account: getDemoAccountSnapshot(req.userId!),
-  });
-});
-
 router.get('/demo/instruments', requireAuth, (_req, res) => {
   const list = assetCatalog.slice(0, 12).map((a) => ({ symbol: a.symbol, name: a.name, price: a.price }));
   res.json(list);
 });
 
-router.post('/demo/order', requireAuth, async (req, res) => {
+router.post('/demo/order', requireAuth, (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
@@ -122,7 +101,7 @@ router.post('/demo/order', requireAuth, async (req, res) => {
     });
   }
 
-  const order = await sim.placeOrder({
+  const order = sim.placeOrder({
     userId: req.userId!,
     instrument: resolvedInstrument,
     type,
@@ -134,14 +113,10 @@ router.post('/demo/order', requireAuth, async (req, res) => {
     takeProfit: takeProfitValue,
   });
 
-  if (!order) {
-    return res.status(503).json({ error: 'Demo order could not be durably stored.' });
-  }
-
   return res.json({ success: true, order });
 });
 
-router.delete('/demo/position/:tradeId', requireAuth, async (req, res) => {
+router.delete('/demo/position/:tradeId', requireAuth, (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Demo trading requires an isolated demo session.' });
   }
@@ -160,43 +135,33 @@ router.delete('/demo/position/:tradeId', requireAuth, async (req, res) => {
   }
 
   const typedTrade = trade as any;
-  const margin = typedTrade.marginRequired !== undefined && typedTrade.marginRequired !== null
-    ? new Decimal(typedTrade.marginRequired).toDecimalPlaces(2)
-    : new Decimal(trade.entryPrice).times(trade.amount).div(typedTrade.leverage || 1).toDecimalPlaces(2);
-  const priceDelta = new Decimal(exitPrice).minus(trade.entryPrice);
-  const profitLoss = (trade.type === 'long' ? priceDelta : priceDelta.negated())
-    .times(trade.amount)
-    .toDecimalPlaces(2);
+  const margin = Number(typedTrade.marginRequired ?? (trade.entryPrice * trade.amount) / (typedTrade.leverage || 1));
+  const profitLoss = trade.type === 'long'
+    ? (exitPrice - trade.entryPrice) * trade.amount
+    : (trade.entryPrice - exitPrice) * trade.amount;
   typedTrade.status = 'completed';
   typedTrade.currentPrice = exitPrice;
-  typedTrade.profit = profitLoss.toNumber();
+  typedTrade.profit = Math.round(profitLoss * 100) / 100;
   typedTrade.completedAt = NOW();
 
   const tradingWallet = data.wallets.find((wallet) => wallet.type === 'trading');
   if (!tradingWallet) return res.status(500).json({ error: 'Demo wallet not found' });
-  const returnAmount = margin.plus(profitLoss).toDecimalPlaces(2);
-  if (!await persistDemoTrade(req.userId!, typedTrade)) {
-    return res.status(503).json({ error: 'Demo trade could not be durably settled.' });
-  }
-  tradingWallet.balance = new Decimal(tradingWallet.balance).plus(returnAmount).toDecimalPlaces(2).toNumber();
-  if (!await persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0)) {
-    return res.status(503).json({ error: 'Demo balance could not be durably settled.' });
-  }
-  if (!await persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
+  const returnAmount = Math.round((margin + typedTrade.profit) * 100) / 100;
+  tradingWallet.balance = Number((tradingWallet.balance + returnAmount).toFixed(2));
+  void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
+  void persistTransaction(newUuid(), tradingWallet.id, req.userId!, {
     type: 'demo_trade_close',
-    amount: returnAmount.toNumber(),
+    amount: returnAmount,
     currency: 'USD',
     status: 'completed',
     description: `Demo trade closed: ${trade.pair}`,
     isDemo: true,
-  })) {
-    return res.status(503).json({ error: 'Demo settlement ledger entry could not be persisted.' });
-  }
+  });
 
   return res.json({ success: true, trade, balance: tradingWallet.balance });
 });
 
-router.post('/demo/reset-balance', requireAuth, async (req, res) => {
+router.post('/demo/reset-balance', requireAuth, (req, res) => {
   if (req.storedUser?.role !== 'demo' && req.storedUser?.demoMode !== true) {
     return res.status(403).json({ error: 'Only isolated demo accounts can reset demo trading data.' });
   }
@@ -206,12 +171,6 @@ router.post('/demo/reset-balance', requireAuth, async (req, res) => {
   if (trading) trading.balance = defaultAmount;
   data.trades = [];
   data.transactions = [];
-  if (trading && !await persistWalletBalance(trading.id, defaultAmount, 0)) {
-    return res.status(503).json({ error: 'Demo balance could not be durably reset.' });
-  }
-  if (!await deletePersistedDemoTrades(req.userId!)) {
-    return res.status(503).json({ error: 'Demo trades could not be durably reset.' });
-  }
   return res.json({ success: true, message: 'Demo balance reset', balance: defaultAmount });
 });
 

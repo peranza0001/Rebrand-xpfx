@@ -22,12 +22,12 @@ const TABS: { value: MarketCategory; label: string }[] = [
   { value: "stocks", label: "Stocks" },
 ];
 
-export function PublicMarkets() {
+export function PublicMarkets({ defaultTab }: { defaultTab?: MarketCategory }) {
   const search = useSearch();
   const initial = useMemo(() => {
     const t = new URLSearchParams(search).get("tab") as MarketCategory | null;
-    return TABS.find((x) => x.value === t)?.value ?? "forex";
-  }, [search]);
+    return TABS.find((x) => x.value === t)?.value ?? defaultTab ?? "forex";
+  }, [defaultTab, search]);
 
   const [tab, setTab] = useState<MarketCategory>(initial);
   const [q, setQ] = useState("");

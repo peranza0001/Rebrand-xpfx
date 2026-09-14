@@ -7,8 +7,8 @@
 
 import assert from 'node:assert';
 
-const API_URL = 'https://web-production-45a7e.up.railway.app';
-const FRONTEND_URL = 'https://xpressprofxcom.vercel.app';
+const API_URL = process.env.PRODUCTION_API_URL || 'https://web-production-94f970.up.railway.app';
+const FRONTEND_URL = process.env.PRODUCTION_FRONTEND_URL || 'https://xpressprofx.com';
 
 // Test counter
 let testCount = 0;

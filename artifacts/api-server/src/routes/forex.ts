@@ -5,14 +5,13 @@
  */
 
 import { Router, type IRouter } from "express";
-import { requireAuth, requireVerifiedIdentity } from "../lib/session";
+import { requireAuth } from "../lib/session";
 import { getUserData, newId, NOW, newUuid } from "../lib/store";
 import { persistTransaction, persistWalletBalance } from "../lib/db-persist";
 import { FOREX_PAIRS, STOCKS_LIST, COMMODITIES_LIST, ALL_TRADABLE_INSTRUMENTS } from "../lib/instruments";
 import { logger } from "../lib/logger";
 import { isLiveTradingEnabled } from "../lib/env";
 import { submitBrokerOrder } from "../lib/broker-client";
-import { addMoney, money, moneyToNumber, subtractMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -55,7 +54,7 @@ router.get("/forex/instruments", (_req, res) => {
 });
 
 // Place forex/stock market order
-router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (req, res) => {
+router.post("/forex/order/market", requireAuth, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }
@@ -98,8 +97,8 @@ router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (
   }
 
   const entryPrice = Number(brokerResult.executionPrice ?? (Math.random() * 100 + 50));
-  const notionalValue = money(quantity).times(entryPrice);
-  const requiredMargin = moneyToNumber(notionalValue.times(instrument.marginRequirement).div(leverage));
+  const notionalValue = quantity * entryPrice;
+  const requiredMargin = (notionalValue * instrument.marginRequirement) / leverage;
 
   // Get trading wallet
   const tradingWallet = data.wallets.find(w => w.type === "trading");
@@ -132,7 +131,7 @@ router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (
   };
 
   // Deduct margin from wallet
-  tradingWallet.balance = subtractMoney(tradingWallet.balance, requiredMargin);
+  tradingWallet.balance -= requiredMargin;
   // PHASE 1 FIX: Persist balance change to survive server restarts
   void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
   data.trades.push(trade as any);
@@ -166,7 +165,7 @@ router.post("/forex/order/market", requireAuth, requireVerifiedIdentity, async (
 });
 
 // Place limit order (pending order to execute at specific price)
-router.post("/forex/order/limit", requireAuth, requireVerifiedIdentity, async (req, res) => {
+router.post("/forex/order/limit", requireAuth, async (req, res) => {
   if (req.storedUser?.tradingLocked || req.storedUser?.suspended) {
     return res.status(403).json({ error: "Trading is locked on your account." });
   }
@@ -397,9 +396,8 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
 
   // Calculate P&L
   const exitPrice = closePrice || Math.random() * 100 + 50;
-  const priceChange = money(exitPrice).minus(trade.entryPrice);
-  const profitLossDecimal = (trade.type === "long" ? priceChange : priceChange.negated()).times(trade.amount).toDecimalPlaces(2);
-  const profitLoss = profitLossDecimal.toNumber();
+  const priceChange = exitPrice - trade.entryPrice;
+  const profitLoss = trade.type === "long" ? priceChange * trade.amount : -priceChange * trade.amount;
 
   // Close trade
   const typedTrade = trade as any;
@@ -415,8 +413,8 @@ router.post("/forex/order/close", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Trading wallet not found" });
   }
 
-  const returnAmount = money(typedTrade.amount).times(typedTrade.entryPrice).times(0.02).plus(profitLossDecimal).toDecimalPlaces(2);
-  tradingWallet.balance = addMoney(tradingWallet.balance, returnAmount);
+  const returnAmount = (typedTrade.amount * typedTrade.entryPrice * 0.02) + profitLoss;
+  tradingWallet.balance += returnAmount;
   // PHASE 1 FIX: Persist balance change to survive server restarts
   void persistWalletBalance(tradingWallet.id, tradingWallet.balance, 0);
 

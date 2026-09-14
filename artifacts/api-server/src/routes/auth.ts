@@ -11,7 +11,6 @@ import {
 import { isDemoAuthEnabled, isDemoRouteAvailable, isProduction } from "../lib/env";
 import {
   createIsolatedDemoUser,
-  demoConfig,
   ensureDemoUser,
   freshUserData,
   getUserData,
@@ -42,7 +41,7 @@ import {
 import { getDb } from "../lib/db-client";
 import * as dbSchema from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
-import { ensurePersistedDemoAccount, persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
+import { persistSession, persistUser, getPrismaClient, deleteSession, listSessionsForUser, deleteSessionsForUser } from "../lib/db-persist";
 import { pushAdminAlert } from "../lib/notify";
 import { isLoginLocked, recordLoginFailure, resetLoginFailures, canSendOtp, recordOtpSent, canSendOtpFromIp, recordOtpSentFromIp } from "../lib/auth-throttle";
 import { passwordResetRouter } from "./password-reset";
@@ -332,19 +331,6 @@ router.post("/auth/login", async (req, res) => {
       error: "Invalid email or password.",
       code: "invalid_credentials",
     });
-  }
-
-  if (process.env.NODE_ENV === "production" && stored.role !== "demo") {
-    try {
-      await issueOtp({ email: stored.user.email, intent: "login", userId: stored.user.id });
-    } catch (err) {
-      logger.error({ err, userId: stored.user.id }, "[auth] login.otp_issue_failed");
-      return res.status(503).json({
-        error: "Login verification is temporarily unavailable. Please try again later.",
-        code: "otp_unavailable",
-      });
-    }
-    return res.json(otpChallenge(stored.user.email, "login"));
   }
 
   const sid = newSessionId();
@@ -729,20 +715,12 @@ router.post("/auth/demo", async (req, res) => {
   }
 
   if (req.storedUser?.role === "demo" || req.storedUser?.demoMode === true) {
-    const demoAccountPersisted = await ensurePersistedDemoAccount(req.storedUser.user.id, demoConfig.defaultBalance);
-    if (!demoAccountPersisted) {
-      return res.status(503).json({ error: "Demo trading is temporarily unavailable because the demo account could not be persisted." });
-    }
     return res.json(sessionFor(req.storedUser, true));
   }
 
   const stored = createIsolatedDemoUser();
   const userId = stored.user.id;
   getUserData(userId);
-  const demoAccountPersisted = await ensurePersistedDemoAccount(userId, demoConfig.defaultBalance);
-  if (!demoAccountPersisted) {
-    return res.status(503).json({ error: "Demo trading is temporarily unavailable because the demo account could not be persisted." });
-  }
   const sid = newSessionId();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const meta = { ip: req.ip || (req.headers['x-forwarded-for'] as string) || '', userAgent: req.headers['user-agent'] ?? '', createdAt: new Date().toISOString() };

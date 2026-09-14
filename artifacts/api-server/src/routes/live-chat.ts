@@ -20,7 +20,7 @@ import {
 } from "@workspace/api-zod";
 import { getChatNamespace } from "../lib/realtime";
 import { adminPresence, getUserData, newId, newUuid, NOW, userData, users, usersByEmail } from "../lib/store";
-import { findUserIdByLiveChatTicket, getPersistedChatAssignment, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket, updatePersistedChatAssignment } from "../lib/db-persist";
+import { findUserIdByLiveChatTicket, getPersistedChatMessages, listPersistedChatConversations, persistChatMessage, persistSupportTicket } from "../lib/db-persist";
 import { requireAdmin, requireAuth } from "../lib/session";
 import { generateAIReply, generateFaqReply, redactChatContent } from "../lib/openai-client";
 import { pushAdminAlert } from "../lib/notify";
@@ -32,22 +32,6 @@ import { getChatbotResponse, keywordEscalation } from "../lib/chatbot";
 
 const ADMIN_PRESENCE_WINDOW_MS = 60_000;
 const SUPPORT_EMAIL = env.SMTP_FROM || "support@xpressprofx.com";
-
-function isWithinBusinessHours(now = new Date()): boolean {
-  if (process.env.LIVE_CHAT_ALWAYS_OPEN === "true") return true;
-  if ([0, 6].includes(now.getUTCDay())) return false;
-  const start = process.env.LIVE_CHAT_BUSINESS_HOURS_START || "09:00";
-  const end = process.env.LIVE_CHAT_BUSINESS_HOURS_END || "17:00";
-  const parseMinutes = (value: string) => {
-    const match = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? value.split(":").map(Number) : null;
-    return match ? match[0] * 60 + match[1] : null;
-  };
-  const startMinutes = parseMinutes(start);
-  const endMinutes = parseMinutes(end);
-  if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) return false;
-  const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-}
 
 function touchAdminPresence(adminId: string): void {
   adminPresence.set(adminId, NOW());
@@ -100,6 +84,13 @@ router.post("/live-chat/identify", requireAuth, (req, res) => {
   return res.json({ name, email, country });
 });
 
+async function persistChatBestEffort(userId: string, senderType: 'user' | 'admin' | 'bot', senderId: string | null, content: string): Promise<void> {
+  const persisted = await persistChatMessage(userId, senderType, senderId, content);
+  if (!persisted) {
+    logger.warn({ userId, senderType }, "live-chat persistence unavailable; serving from active session");
+  }
+}
+
 // GET /live-chat — current user's messages
 router.get("/live-chat", requireAuth, async (req, res) => {
   const data = getUserData(req.userId!);
@@ -137,12 +128,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(userMsg);
-  const userPersisted = await persistChatMessage(req.userId!, 'user', req.userId!, userMsg.content);
-  if (!userPersisted) {
-    data.liveChat.pop();
-    logger.error({ userId: req.userId! }, "live-chat message could not be durably persisted");
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
-  }
+  await persistChatBestEffort(req.userId!, 'user', req.userId!, userMsg.content);
 
   try {
     const ns = getChatNamespace();
@@ -161,21 +147,17 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     }));
 
   const localReply = getChatbotResponse(parsed.data.content, userName);
-  const faqReply = generateFaqReply(safeContent);
   const ai = userMsg.escalated || localReply.intent !== "general"
     ? null
-    : faqReply ?? await generateAIReply({
+    : generateFaqReply(safeContent) ?? await generateAIReply({
       userMessage: safeContent,
       history,
       userName,
     });
-  const providerUnavailable = !userMsg.escalated && localReply.intent === "general" && !faqReply && !ai;
-  const replyText = providerUnavailable
-    ? "The AI assistant is temporarily unavailable, so I am connecting you to a human support representative. Your message has been saved to this conversation."
-    : userMsg.escalated
+  const replyText = userMsg.escalated
     ? localReply.content
     : ai?.content || localReply.content;
-  const aiEscalated = providerUnavailable || (ai?.escalated ?? false);
+  const aiEscalated = ai?.escalated ?? false;
   const escalated = userMsg.escalated || aiEscalated;
 
   const botReply: LiveChatMsg = {
@@ -189,17 +171,12 @@ router.post("/live-chat", requireAuth, async (req, res) => {
     createdAt: NOW(),
   };
   data.liveChat.push(botReply);
-  const botPersisted = await persistChatMessage(req.userId!, 'bot', null, botReply.content);
-  if (!botPersisted) {
-    data.liveChat.pop();
-    return res.status(503).json({ error: "Chat storage is temporarily unavailable. Please try again." });
-  }
+  await persistChatBestEffort(req.userId!, 'bot', null, botReply.content);
 
   if (escalated) {
     // Mark the most recent user msg as escalated and notify admins once.
     userMsg.escalated = true;
     const presence = presenceState();
-    const businessHours = isWithinBusinessHours();
     const ticketId = `XPFX-${newId("ticket").substring(0, 8).toUpperCase()}`;
     const ticketRecordId = newUuid();
     const ticketCreatedAt = NOW();
@@ -207,23 +184,20 @@ router.post("/live-chat", requireAuth, async (req, res) => {
       id: ticketRecordId,
       subject: `Live chat escalation ${ticketId}`,
       status: "open",
-      priority: presence.anyOnline && businessHours ? "medium" : "high",
+      priority: presence.anyOnline ? "medium" : "high",
       messages: [],
       createdAt: ticketCreatedAt,
       updatedAt: ticketCreatedAt,
     };
-    const ticketPersisted = await persistSupportTicket(ticket.id, req.userId!, {
+    data.supportTickets.unshift(ticket);
+    void persistSupportTicket(ticket.id, req.userId!, {
       subject: ticket.subject,
       status: ticket.status,
       priority: ticket.priority,
       createdAt: ticket.createdAt,
       updatedAt: ticket.updatedAt,
     });
-    if (!ticketPersisted) {
-      return res.status(503).json({ error: "Chat escalation is temporarily unavailable. Please try again." });
-    }
-    data.supportTickets.unshift(ticket);
-    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline && businessHours };
+    handoff = { ticketId, status: "queued", agentAvailable: presence.anyOnline };
     
     if (!presence.anyOnline) {
       const noAgentMsg: LiveChatMsg = {
@@ -231,9 +205,7 @@ router.post("/live-chat", requireAuth, async (req, res) => {
         userId: req.userId!,
         senderName: "XpressPro FX AI Support",
         content:
-          businessHours
-            ? "No agent is available right now. I've notified our support team and they will reply here as soon as they're back online — you'll also receive a mailbox notification when they respond."
-            : "Our human support team is currently outside business hours. I've created an offline ticket and emailed the reference so a representative can reply when support reopens.",
+          "No agent is available right now. I've notified our support team and they will reply here as soon as they're back online — you'll also receive a mailbox notification when they respond. In the meantime, you can keep typing and I'll keep helping.",
         isFromUser: false,
         isBot: true,
         escalated: true,
@@ -334,37 +306,9 @@ router.get("/admin/live-chats", requireAdmin, async (req, res) => {
       lastMessageAt: lastMsg?.createdAt ?? NOW(),
       escalated: messages.some((m) => m.escalated),
       unreadByAdmin: unread,
-      assignment: await getPersistedChatAssignment(userId),
     });
   }
   return res.json(sessions);
-});
-
-router.post("/admin/live-chats/:userId/claim", requireAdmin, async (req, res) => {
-  const userId = String(req.params.userId || "");
-  if (!users.has(userId)) return res.status(404).json({ error: "Conversation owner not found." });
-  const current = await getPersistedChatAssignment(userId);
-  if (current?.assignedTo && current.assignedTo !== req.userId) {
-    return res.status(409).json({ error: "Conversation is already assigned to another agent." });
-  }
-  if (!await updatePersistedChatAssignment(userId, req.userId!)) {
-    return res.status(503).json({ error: "Conversation assignment could not be persisted." });
-  }
-  touchAdminPresence(req.userId!);
-  return res.json({ status: "claimed", assignedTo: req.userId! });
-});
-
-router.post("/admin/live-chats/:userId/release", requireAdmin, async (req, res) => {
-  const userId = String(req.params.userId || "");
-  const current = await getPersistedChatAssignment(userId);
-  if (!current) return res.status(404).json({ error: "Conversation not found." });
-  if (current.assignedTo && current.assignedTo !== req.userId) {
-    return res.status(409).json({ error: "Conversation is assigned to another agent." });
-  }
-  if (!await updatePersistedChatAssignment(userId, null)) {
-    return res.status(503).json({ error: "Conversation release could not be persisted." });
-  }
-  return res.json({ status: "open", assignedTo: null });
 });
 
 // POST /admin/live-chats/:userId/reply — admin replies (via panel or email)

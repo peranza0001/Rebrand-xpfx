@@ -3454,6 +3454,18 @@ export const GetPlatformSettingsResponse = zod.object({
   demoModeEnabled: zod.boolean(),
   maintenanceMode: zod.boolean(),
   maintenanceMessage: zod.string(),
+  providerFallback: zod.object({
+    kyc: zod.boolean(), aml: zod.boolean(), otp: zod.boolean(), email: zod.boolean(), payments: zod.boolean(),
+  }),
+  copyTrading: zod.object({
+    enabled: zod.boolean(), feePercent: zod.number().min(0).max(100), maxFollowersPerLead: zod.number().int().positive(),
+  }),
+  tradeManager: zod.object({
+    liveTradingEnabled: zod.boolean(), demoTradingEnabled: zod.boolean(), maxLeverage: zod.number().positive(), stopOutPercent: zod.number().min(0).max(100), maxOpenTradesPerUser: zod.number().int().positive(),
+  }),
+  networkFees: zod.object({
+    deposit: zod.number().nonnegative(), withdrawal: zod.number().nonnegative(), cryptoBuy: zod.number().nonnegative(), cryptoSell: zod.number().nonnegative(), p2p: zod.number().nonnegative(), tradeSettlement: zod.number().nonnegative(),
+  }),
 });
 
 /**
@@ -3465,6 +3477,18 @@ export const UpdatePlatformSettingsBody = zod.object({
   demoModeEnabled: zod.boolean(),
   maintenanceMode: zod.boolean(),
   maintenanceMessage: zod.string(),
+  providerFallback: zod.object({
+    kyc: zod.boolean(), aml: zod.boolean(), otp: zod.boolean(), email: zod.boolean(), payments: zod.boolean(),
+  }),
+  copyTrading: zod.object({
+    enabled: zod.boolean(), feePercent: zod.number().min(0).max(100), maxFollowersPerLead: zod.number().int().positive(),
+  }),
+  tradeManager: zod.object({
+    liveTradingEnabled: zod.boolean(), demoTradingEnabled: zod.boolean(), maxLeverage: zod.number().positive(), stopOutPercent: zod.number().min(0).max(100), maxOpenTradesPerUser: zod.number().int().positive(),
+  }),
+  networkFees: zod.object({
+    deposit: zod.number().nonnegative(), withdrawal: zod.number().nonnegative(), cryptoBuy: zod.number().nonnegative(), cryptoSell: zod.number().nonnegative(), p2p: zod.number().nonnegative(), tradeSettlement: zod.number().nonnegative(),
+  }),
 });
 
 export const UpdatePlatformSettingsResponse = zod.object({
@@ -3473,6 +3497,18 @@ export const UpdatePlatformSettingsResponse = zod.object({
   demoModeEnabled: zod.boolean(),
   maintenanceMode: zod.boolean(),
   maintenanceMessage: zod.string(),
+  providerFallback: zod.object({
+    kyc: zod.boolean(), aml: zod.boolean(), otp: zod.boolean(), email: zod.boolean(), payments: zod.boolean(),
+  }),
+  copyTrading: zod.object({
+    enabled: zod.boolean(), feePercent: zod.number(), maxFollowersPerLead: zod.number(),
+  }),
+  tradeManager: zod.object({
+    liveTradingEnabled: zod.boolean(), demoTradingEnabled: zod.boolean(), maxLeverage: zod.number(), stopOutPercent: zod.number(), maxOpenTradesPerUser: zod.number(),
+  }),
+  networkFees: zod.object({
+    deposit: zod.number(), withdrawal: zod.number(), cryptoBuy: zod.number(), cryptoSell: zod.number(), p2p: zod.number(), tradeSettlement: zod.number(),
+  }),
 });
 
 /**

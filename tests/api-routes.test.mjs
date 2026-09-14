@@ -72,6 +72,13 @@ test('GET /api/smartvest/plans returns plan metadata', async () => {
   assert.ok(payload[0].key);
 });
 
+test('admin wallet endpoints enforce role authorization without hanging', async () => {
+  const response = await fetch(`${baseUrl}/api/admin/wallets/pending-deposits`, {
+    signal: AbortSignal.timeout(2000),
+  });
+  assert.equal(response.status, 401);
+});
+
 test('public visitors can start chat and receive a bot reply', async () => {
   const demoResponse = await fetch(`${baseUrl}/api/auth/demo`, {
     method: 'POST',
@@ -158,10 +165,9 @@ test('public visitors can start chat and receive a bot reply', async () => {
 });
 
 test('demo trading endpoints are available for authenticated sessions', async () => {
-  const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+  const loginResponse = await fetch(`${baseUrl}/api/auth/demo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@example.com', password: 'admin-password' }),
   });
   assert.equal(loginResponse.status, 200);
   const cookie = parseCookie(loginResponse.headers.get('set-cookie'));
@@ -229,5 +235,5 @@ test('demo trading endpoints are available for authenticated sessions', async ()
     method: 'POST',
     headers: { Cookie: cookie },
   });
-  assert.equal(resetResponse.status, 403);
+  assert.equal(resetResponse.status, 200);
 });

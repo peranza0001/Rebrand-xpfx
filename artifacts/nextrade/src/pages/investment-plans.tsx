@@ -100,17 +100,6 @@ export function InvestmentPlans() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [subscriptionAmount, setSubscriptionAmount] = useState("");
 
-  const getRiskTone = (riskLevel?: string) => {
-    const value = (riskLevel ?? "low").toLowerCase();
-    if (value.includes("extreme") || value.includes("very-high") || value.includes("high")) {
-      return "bg-rose-500/10 text-rose-300 border-rose-400/30";
-    }
-    if (value.includes("med") || value.includes("medium")) {
-      return "bg-amber-500/10 text-amber-300 border-amber-400/30";
-    }
-    return "bg-emerald-500/10 text-emerald-300 border-emerald-400/30";
-  };
-
   const handleSubscribe = async (planId: string) => {
     if (!subscriptionAmount || isNaN(Number(subscriptionAmount))) {
       toast({
@@ -160,33 +149,14 @@ export function InvestmentPlans() {
   const hasChecklist = plansData?.checklistRequired;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6 bg-transparent">
-      <section className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_25%),linear-gradient(135deg,#081315_0%,#0b1220_45%,#111827_100%)] p-6 md:p-8 shadow-2xl shadow-emerald-950/20">
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.04)_50%,transparent_100%)]" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">Capital allocation</Badge>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white">Investment Plans</h1>
-            <p className="max-w-2xl text-sm md:text-base text-slate-300">
-              Automated, managed investment strategies built for disciplined capital growth across twelve modern allocation tiers.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-3 min-w-65">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Plans</div>
-              <div className="mt-2 text-2xl font-bold text-white">{plans.length}</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Mode</div>
-              <div className="mt-2 text-lg font-bold text-emerald-300">Auto</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Risk</div>
-              <div className="mt-2 text-lg font-bold text-amber-300">Managed</div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
+      {/* Header */}
+      <div className="space-y-2">
+        <h1 className="text-4xl font-bold tracking-tight">Investment Plans</h1>
+        <p className="text-muted-foreground">
+          Automated investment strategies managed by professional account managers
+        </p>
+      </div>
 
       {/* Active Subscription Banner */}
       {activeSubscription && (
@@ -271,110 +241,105 @@ export function InvestmentPlans() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan: any) => (
-              <Card
-                key={plan.id}
-                className={`group flex flex-col overflow-hidden border transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl ${
-                  plan.id === "momentum_pulse"
-                    ? "border-emerald-500/40 bg-linear-to-b from-emerald-500/10 to-slate-950/60 shadow-emerald-900/20"
-                    : "border-white/10 bg-slate-950/40"
-                }`}
-              >
+              <Card key={plan.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Plan #{plans.findIndex((item: any) => item.id === plan.id) + 1}</div>
-                      <CardTitle className="mt-2 text-2xl text-white">{plan.name}</CardTitle>
-                    </div>
-                    <Badge className={getRiskTone(plan.riskLevel)}>{plan.riskLevel}</Badge>
+                  <div className="flex items-start justify-between mb-2">
+                    <CardTitle>{plan.name}</CardTitle>
+                    <Badge variant={plan.riskLevel === "low" ? "default" : plan.riskLevel === "medium" ? "secondary" : "destructive"}>
+                      {plan.riskLevel}
+                    </Badge>
                   </div>
-                  <CardDescription className="line-clamp-3 min-h-12 text-slate-300">{plan.description}</CardDescription>
+                  <CardDescription className="line-clamp-2">{plan.description}</CardDescription>
                 </CardHeader>
 
                 <CardContent className="flex-1 space-y-4">
+                  {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">
-                        <Target className="h-3 w-3" /> Min
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Target className="h-3 w-3" /> Min. Deposit
                       </p>
-                      <p className="mt-2 text-lg font-bold text-white">${plan.minDeposit}</p>
+                      <p className="font-semibold">${plan.minDeposit}</p>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">
-                        <Percent className="h-3 w-3" /> Return
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Percent className="h-3 w-3" /> Est. Return
                       </p>
-                      <p className="mt-2 text-lg font-bold text-emerald-300">{plan.estimatedReturn}%</p>
+                      <p className="font-semibold text-green-600">{plan.estimatedReturn}%</p>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Term
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Duration
                       </p>
-                      <p className="mt-2 text-lg font-bold text-white">{plan.tradingDuration}</p>
+                      <p className="font-semibold">{plan.tradingDuration} days</p>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 flex items-center gap-1">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Zap className="h-3 w-3" /> Leverage
                       </p>
-                      <p className="mt-2 text-lg font-bold text-amber-300">{plan.leverage}x</p>
+                      <p className="font-semibold">{plan.leverage}x</p>
                     </div>
                   </div>
 
+                  {/* Features */}
                   <div className="space-y-2 pt-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Core features</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Features</p>
+                    <div className="flex flex-wrap gap-1">
                       {plan.assets?.slice(0, 3)?.map((asset: string) => (
-                        <Badge key={asset} variant="outline" className="border-white/10 bg-white/5 text-slate-200">
+                        <Badge key={asset} variant="outline" className="text-xs">
                           {asset}
                         </Badge>
                       ))}
                       {plan.assets?.length > 3 && (
-                        <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-200">
+                        <Badge variant="outline" className="text-xs">
                           +{plan.assets.length - 3} more
                         </Badge>
                       )}
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-white/10">
-                    <ul className="space-y-2 text-sm text-slate-300">
+                  {/* Benefits */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <ul className="text-xs space-y-1">
                       <li className="flex items-center gap-2">
-                        <Shield className="h-3.5 w-3.5 text-emerald-300" />
-                        <span>Professional account manager</span>
+                        <Shield className="h-3 w-3 text-green-600" />
+                        <span>Professional Account Manager</span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <Shield className="h-3.5 w-3.5 text-emerald-300" />
-                        <span>Automated execution</span>
+                        <Shield className="h-3 w-3 text-green-600" />
+                        <span>Automated Execution</span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <Shield className="h-3.5 w-3.5 text-emerald-300" />
-                        <span>Daily performance monitoring</span>
+                        <Shield className="h-3 w-3 text-green-600" />
+                        <span>Daily Monitoring</span>
                       </li>
                     </ul>
                   </div>
                 </CardContent>
 
-                <div className="px-6 py-4 border-t border-white/10 bg-slate-900/60">
+                <div className="px-6 py-4 border-t bg-muted/50">
                   {activeSubscription?.planId === plan.id ? (
-                    <Button disabled className="w-full rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/20">
+                    <Button disabled className="w-full">
                       Currently Active
                     </Button>
                   ) : (
                     <Dialog open={selectedPlan === plan.id} onOpenChange={(open) => setSelectedPlan(open ? plan.id : null)}>
                       <DialogTrigger asChild>
-                        <Button className="w-full rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20" disabled={hasChecklist || activeSubscription}>
+                        <Button className="w-full" disabled={hasChecklist || activeSubscription}>
                           Subscribe Now
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="border-white/10 bg-slate-950 text-white">
+                      <DialogContent>
                         <DialogHeader>
-                          <DialogTitle className="text-white">Subscribe to {plan.name}</DialogTitle>
+                          <DialogTitle>Subscribe to {plan.name}</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
                           <div>
-                            <Label htmlFor="amount" className="text-slate-200">Investment Amount</Label>
+                            <Label htmlFor="amount">Investment Amount</Label>
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="text-lg font-semibold text-white">$</span>
+                              <span className="text-lg font-semibold">$</span>
                               <Input
                                 id="amount"
                                 type="number"
@@ -382,28 +347,28 @@ export function InvestmentPlans() {
                                 value={subscriptionAmount}
                                 onChange={(e) => setSubscriptionAmount(e.target.value)}
                                 min={plan.minDeposit}
-                                className="flex-1 border-white/10 bg-white/5 text-white placeholder:text-slate-400"
+                                className="flex-1"
                               />
                             </div>
-                            <p className="text-xs text-slate-400 mt-2">
+                            <p className="text-xs text-muted-foreground mt-2">
                               Minimum deposit: ${plan.minDeposit}
                             </p>
                           </div>
 
-                          <div className="bg-white/5 p-3 rounded-lg space-y-2 text-sm border border-white/10">
-                            <div className="flex justify-between text-slate-300">
+                          <div className="bg-muted/50 p-3 rounded-lg space-y-2 text-sm">
+                            <div className="flex justify-between">
                               <span>Initial Investment:</span>
-                              <span className="font-semibold text-white">${subscriptionAmount || 0}</span>
+                              <span className="font-semibold">${subscriptionAmount || 0}</span>
                             </div>
-                            <div className="flex justify-between text-emerald-300">
+                            <div className="flex justify-between text-green-600">
                               <span>Estimated Profit:</span>
                               <span className="font-semibold">
                                 ${((Number(subscriptionAmount) || 0) * (plan.estimatedReturn / 100)).toFixed(2)}
                               </span>
                             </div>
-                            <div className="flex justify-between border-t border-white/10 pt-2 font-bold text-white">
+                            <div className="flex justify-between border-t pt-2 font-bold">
                               <span>Projected Balance:</span>
-                              <span className="text-emerald-300">
+                              <span className="text-green-600">
                                 ${(Number(subscriptionAmount) || 0 + (Number(subscriptionAmount) || 0) * (plan.estimatedReturn / 100)).toFixed(2)}
                               </span>
                             </div>
@@ -414,14 +379,12 @@ export function InvestmentPlans() {
                           <Button
                             variant="outline"
                             onClick={() => setSelectedPlan(null)}
-                            className="border-white/10 text-white hover:bg-white/5"
                           >
                             Cancel
                           </Button>
                           <Button
                             onClick={() => handleSubscribe(plan.id)}
                             disabled={subscribeMutation.isPending}
-                            className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"
                           >
                             {subscribeMutation.isPending ? "Processing..." : "Confirm Subscription"}
                           </Button>

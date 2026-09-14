@@ -19,9 +19,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN node scripts/predeploy.mjs --skip-env-check \
     && ./node_modules/.bin/prisma generate \
-    && npm run build --workspace=artifacts/api-server \
-    && npm run build --workspace=artifacts/nextrade \
-    && npm run build --workspace=artifacts/admin-portal
+    && npm run build
 
 FROM base AS runtime
 ENV NODE_ENV=production

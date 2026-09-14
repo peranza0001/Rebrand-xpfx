@@ -10,6 +10,7 @@ import {
 import { getUserData, newId, NOW } from "../lib/store";
 import { persistSupportTicket } from "../lib/db-persist";
 import { requireAuth, requireFullAuth } from "../lib/session";
+import { sendEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -70,6 +71,12 @@ router.post("/support/tickets", requireFullAuth, (req, res) => {
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
   });
+  void sendEmail({
+    to: u.email,
+    subject: `We received your support request: ${ticket.subject}`,
+    body: `Hello ${u.fullName},\n\nWe received your support request and it is now under review. A support specialist will reply in your account.\n\nTicket: ${ticket.id}\n\nFor your security, XpressPro FX will never ask for your password, one-time code, private key, or seed phrase.\n\nXpressPro FX Support`,
+    kind: "support.ticket_received",
+  }).catch(() => {});
   return res.json(ticket);
 });
 

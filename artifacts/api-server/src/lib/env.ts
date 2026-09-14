@@ -13,13 +13,36 @@ import { loadRuntimeEnv } from './runtime-env';
 
 loadRuntimeEnv();
 
+function normalizeEnvString(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+
+  let trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+
+  const wrappedInQuotes =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+
+  if (wrappedInQuotes) {
+    trimmed = trimmed.slice(1, -1);
+  }
+
+  if (trimmed.endsWith('\\') && (value.trim().startsWith('"') || value.trim().startsWith("'"))) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed
+    .replace(/\\(["'])/g, '$1')
+    .replace(/\\\\/g, '\\')
+    .trim();
+}
+
 export function resolveEnvValue(rawEnv: Record<string, string | undefined>, key: string, aliases: string[] = []): string | undefined {
   const candidates = [key, ...aliases];
   for (const candidate of candidates) {
     const raw = rawEnv[candidate];
-    if (raw === undefined) continue;
-    const trimmed = raw.trim();
-    if (trimmed.length > 0) return trimmed;
+    const normalized = normalizeEnvString(raw);
+    if (normalized && normalized.length > 0) return normalized;
   }
   return undefined;
 }
@@ -150,8 +173,8 @@ export const env = {
   // Set automatically by Replit; ALLOWED_ORIGINS takes precedence when set.
   REPLIT_DOMAINS: get("REPLIT_DOMAINS"),
 
-  // Legacy wallet-encryption setting retained for deployment compatibility.
-  // Connected wallets are public-address-only and never contain credentials.
+  // Public wallets are address-only. Credential encryption is intentionally
+  // disabled because the product never stores seed phrases or private keys.
   WALLET_ENCRYPTION_KEY: get("WALLET_ENCRYPTION_KEY"),
 
   /**

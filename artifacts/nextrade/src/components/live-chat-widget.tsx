@@ -13,7 +13,6 @@ interface LiveChatMessage {
   isFromUser: boolean;
   isBot?: boolean;
   escalated?: boolean;
-  deliveryStatus?: "sending" | "sent" | "failed";
 }
 
 interface SessionResponse {
@@ -47,10 +46,8 @@ export function LiveChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [visitorProfile, setVisitorProfile] = useState<VisitorProfile | null>(null);
-  const [consentAccepted, setConsentAccepted] = useState(false);
   const [profileDraft, setProfileDraft] = useState<VisitorProfile>({ name: "", email: "", country: "" });
   const [handoff, setHandoff] = useState<HandoffResponse | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const csrfTokenRef = useRef<string | null>(null);
   const qc = useQueryClient();
@@ -86,10 +83,7 @@ export function LiveChatWidget() {
           const demoRes = await fetch(`${apiUrl}/api/auth/demo`, {
             method: 'POST',
             credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': csrfTokenRef.current ?? '',
-            },
+            headers: { 'Content-Type': 'application/json' },
           });
           if (!demoRes.ok) return;
           sessionRes = demoRes;
@@ -114,30 +108,19 @@ export function LiveChatWidget() {
   }, [open]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!open || !userId) return;
 
     const socketClient = io(`${apiUrl}/live-chat`, {
       path: '/socket.io',
       withCredentials: true,
     });
 
-    const refetchHistory = async () => {
-      const response = await fetch(apiPath("/api/live-chat"), { credentials: 'include' });
-      if (!response.ok) return;
-      const history = await response.json();
-      if (Array.isArray(history)) {
-        setMessages((previous) => appendUniqueMessages(history as LiveChatMessage[], previous));
-      }
-    };
-
     socketClient.on('connect', () => {
       socketClient.emit('join_conversation', userId);
-      void refetchHistory();
     });
 
     socketClient.on('message', (msg: LiveChatMessage) => {
       setMessages((prev) => appendUniqueMessages(prev, [msg]));
-      if (!open && !msg.isFromUser) setUnreadCount((count) => count + 1);
     });
 
     socketClient.on('agent_joined', (payload: { senderName?: string; ticketId?: string }) => {
@@ -161,33 +144,15 @@ export function LiveChatWidget() {
   }, [open, userId]);
 
   useEffect(() => {
-    if (open) setUnreadCount(0);
-  }, [open]);
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async (requestedMessage?: string, retryMessageId?: string) => {
+  const handleSend = async (requestedMessage?: string) => {
     const text = (requestedMessage ?? message).trim();
     if (!text || isSending) return;
     setMessage("");
     setError(null);
     setIsSending(true);
-    const pendingId = retryMessageId ?? `pending-${Date.now()}`;
-    if (retryMessageId) {
-      setMessages((previous) => previous.map((item) => item.id === retryMessageId ? { ...item, deliveryStatus: "sending" } : item));
-    } else {
-      setMessages((previous) => [...previous, {
-        id: pendingId,
-        userId: userId ?? "",
-        senderName: "You",
-        content: text,
-        createdAt: new Date().toISOString(),
-        isFromUser: true,
-        deliveryStatus: "sending",
-      }]);
-    }
     try {
       if (!csrfTokenRef.current) await loadCsrfToken();
   const res = await fetch(apiPath("/api/live-chat"), {
@@ -207,9 +172,6 @@ export function LiveChatWidget() {
         ...(Array.isArray(result?.userMessage) ? result.userMessage : [result?.userMessage]).filter(Boolean),
         ...(Array.isArray(result?.botReply) ? result.botReply : [result?.botReply]).filter(Boolean),
       ] as LiveChatMessage[];
-      const sentUserMessage = nextMessages.find((item) => item.isFromUser);
-      if (sentUserMessage) sentUserMessage.deliveryStatus = "sent";
-      setMessages((previous) => previous.filter((item) => item.id !== pendingId));
       const handoff = result?.handoff as HandoffResponse | null | undefined;
       if (handoff) {
         setHandoff(handoff);
@@ -230,7 +192,17 @@ export function LiveChatWidget() {
     } catch (err) {
       const fallbackMessage = err instanceof Error ? err.message : 'Unable to send message';
       setError(fallbackMessage);
-      setMessages((previous) => previous.map((item) => item.id === pendingId ? { ...item, deliveryStatus: "failed" } : item));
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          senderName: 'System',
+          content: 'Your message could not be sent right now. Please try again in a moment.',
+          createdAt: new Date().toISOString(),
+          isFromUser: false,
+          isBot: false,
+        },
+      ]);
     } finally {
       setIsSending(false);
     }
@@ -242,10 +214,6 @@ export function LiveChatWidget() {
     const email = profileDraft.email.trim();
     if (!name || !email || !email.includes("@")) {
       setError("Enter your name and a valid email so support can reply to you.");
-      return;
-    }
-    if (!consentAccepted) {
-      setError("Please agree to the support-chat data notice before starting.");
       return;
     }
     const profile = { name, email, country: profileDraft.country.trim() };
@@ -277,11 +245,6 @@ export function LiveChatWidget() {
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center hover:opacity-90 transition-all duration-200 hover:scale-105"
         aria-label="Open live chat"
       >
-        {unreadCount > 0 && !open && (
-          <span className="absolute -right-1 -top-1 min-w-5 h-5 rounded-full bg-rose-600 px-1 text-[11px] font-semibold leading-5 text-white" aria-label={`${unreadCount} unread chat messages`}>
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
         {open ? (
           <X className="w-6 h-6 text-primary-foreground" />
         ) : (
@@ -299,15 +262,12 @@ export function LiveChatWidget() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">XpressPro FX Support</p>
-              <p className="text-xs text-white/70">General support only · human handoff available</p>
+              <p className="text-xs text-white/70">AI-powered · usually instant</p>
             </div>
             <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="border-b border-border bg-muted px-3 py-2 text-[11px] leading-4 text-muted-foreground">
-            This assistant provides general support only and cannot give financial or investment advice. For account-specific issues, you&apos;ll be connected with a human agent.
-          </p>
 
           {!visitorProfile ? (
             <form onSubmit={handleIdentify} className="flex-1 p-4 space-y-3">
@@ -317,11 +277,7 @@ export function LiveChatWidget() {
               </div>
               <input required value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} placeholder="Your name" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
               <input required type="email" value={profileDraft.email} onChange={(event) => setProfileDraft({ ...profileDraft, email: event.target.value })} placeholder="Registered email" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
-              <input value={profileDraft.country} onChange={(event) => setProfileDraft({ ...profileDraft, country: event.target.value })} placeholder="Country (optional)" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
-              <label className="flex items-start gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" checked={consentAccepted} onChange={(event) => setConsentAccepted(event.target.checked)} className="mt-0.5" />
-                <span>I agree that support may process this conversation to respond to my request. Do not include passwords, codes, payment details, or wallet secrets.</span>
-              </label>
+                <input value={profileDraft.country} onChange={(event) => setProfileDraft({ ...profileDraft, country: event.target.value })} placeholder="Country (optional)" className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground" />
               <button type="submit" className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">Start chat</button>
               {error && <p className="text-xs text-rose-600">{error}</p>}
             </form>
@@ -356,13 +312,6 @@ export function LiveChatWidget() {
                   }`}
                 >
                   <div>{m.content}</div>
-                  {m.isFromUser && m.deliveryStatus && (
-                    <div className="mt-1 text-[10px] opacity-75">
-                      {m.deliveryStatus === "sending" ? "Sending..." : m.deliveryStatus === "failed" ? (
-                        <button type="button" className="underline" onClick={() => { void handleSend(m.content, m.id); }}>Retry</button>
-                      ) : "Sent"}
-                    </div>
-                  )}
                   {m.escalated && (
                     <div className="mt-2 text-[11px] font-medium uppercase tracking-wide text-amber-600">Escalated</div>
                   )}
@@ -414,7 +363,7 @@ export function LiveChatWidget() {
               className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button
-              onClick={handleSend}
+              onClick={() => { void handleSend(); }}
               disabled={!message.trim() || isSending}
               className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
             >

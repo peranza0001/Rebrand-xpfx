@@ -3,7 +3,67 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { validateProductionEnvironment } from '../scripts/validate-production-env.mjs';
 import { resolveEnvValue } from '../artifacts/api-server/src/lib/env.ts';
+import { validateStartupEnvironment } from '../artifacts/api-server/src/lib/startup-env.ts';
 import { resolveOpenAIApiKey, resolveOpenAIBaseURL, resolveOpenAIModel } from '../artifacts/api-server/src/lib/openai-client.ts';
+import { issueOtp } from '../artifacts/api-server/src/lib/otp.ts';
+import { initiateKYCVerification } from '../artifacts/api-server/src/lib/kyc-provider.ts';
+import { resolveRuntimeApiUrl } from '../artifacts/nextrade/src/lib/api-url.ts';
+
+test('resolveEnvValue strips wrapping quotes and escaped trailing quotes from production env values', () => {
+  const env = {
+    PUBLIC_APP_URL: '"https://xpressprofx.com\\"',
+    ALLOWED_ORIGINS: '"https://web-production-94f970.up.railway.app,https://xpressprofx.com"',
+  };
+
+  assert.equal(resolveEnvValue(env, 'PUBLIC_APP_URL', ['FRONTEND_URL']), 'https://xpressprofx.com');
+  assert.equal(resolveEnvValue(env, 'ALLOWED_ORIGINS'), 'https://web-production-94f970.up.railway.app,https://xpressprofx.com');
+});
+
+test('resolveEnvValue handles values ending in a backslash-escaped quote without leaving a trailing slash', () => {
+  const env = {
+    PUBLIC_APP_URL: '"https://xpressprofx.com\\"',
+    FRONTEND_URL: '"https://web-production-94f970.up.railway.app\\"',
+  };
+
+  assert.equal(resolveEnvValue(env, 'PUBLIC_APP_URL', ['FRONTEND_URL']), 'https://xpressprofx.com');
+  assert.equal(resolveEnvValue(env, 'FRONTEND_URL', ['PUBLIC_APP_URL']), 'https://web-production-94f970.up.railway.app');
+});
+
+test('resolveRuntimeApiUrl falls back to the current origin when a stale Railway URL is configured', () => {
+  const originalLocation = globalThis.location;
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: new URL('https://rebrand-xpfx-production-1988.up.railway.app/'),
+  });
+
+  try {
+    assert.equal(resolveRuntimeApiUrl('https://web-production-94f970.up.railway.app'), 'https://rebrand-xpfx-production-1988.up.railway.app');
+    assert.equal(resolveRuntimeApiUrl(''), 'https://rebrand-xpfx-production-1988.up.railway.app');
+    assert.equal(resolveRuntimeApiUrl('https://app.example.com'), 'https://app.example.com');
+  } finally {
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
+  }
+});
+
+test('startup validation allows degraded production startup when DATABASE_URL is not attached yet', () => {
+  const env = {
+    NODE_ENV: 'production',
+    PORT: '3000',
+    SESSION_SECRET: 'a-very-long-production-secret-value-1234567890',
+    JWT_SECRET: 'another-very-long-production-secret-value-1234567890',
+    WALLET_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    ALLOWED_ORIGINS: 'https://app.example.com',
+    ADMIN_EMAIL: 'ops@acme.com',
+    ADMIN_PASSWORD: 'StrongProdPassw0rd!2026',
+  };
+
+  const result = validateStartupEnvironment(env);
+  assert.equal(result.ok, true);
+  assert.equal(result.missing.includes('DATABASE_URL'), false);
+});
 
 test('production validation allows missing optional email provider', () => {
   const env = {
@@ -146,6 +206,65 @@ test('production validation allows missing optional blockchain provider', () => 
   };
 
   assert.doesNotThrow(() => validateProductionEnvironment(env));
+});
+
+test('production OTP flow falls back to internal admin provider when no SMTP or SendGrid is configured', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousSendgrid = process.env.SENDGRID_API_KEY;
+  const previousSmtpHost = process.env.SMTP_HOST;
+  const previousSmtpUser = process.env.SMTP_USER;
+  const previousSmtpPass = process.env.SMTP_PASS;
+  const previousSmtpFrom = process.env.SMTP_FROM;
+
+  process.env.NODE_ENV = 'production';
+  delete process.env.SENDGRID_API_KEY;
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+  delete process.env.SMTP_FROM;
+
+  try {
+    await assert.doesNotReject(() => issueOtp({
+      email: 'admin-fallback@test.com',
+      intent: 'login',
+    }));
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previousNodeEnv;
+    if (previousSendgrid === undefined) delete process.env.SENDGRID_API_KEY; else process.env.SENDGRID_API_KEY = previousSendgrid;
+    if (previousSmtpHost === undefined) delete process.env.SMTP_HOST; else process.env.SMTP_HOST = previousSmtpHost;
+    if (previousSmtpUser === undefined) delete process.env.SMTP_USER; else process.env.SMTP_USER = previousSmtpUser;
+    if (previousSmtpPass === undefined) delete process.env.SMTP_PASS; else process.env.SMTP_PASS = previousSmtpPass;
+    if (previousSmtpFrom === undefined) delete process.env.SMTP_FROM; else process.env.SMTP_FROM = previousSmtpFrom;
+  }
+});
+
+test('production KYC flow falls back to internal admin handling when no provider is configured', async () => {
+  const previousProvider = process.env.KYC_PROVIDER;
+  const previousOnfido = process.env.ONFIDO_API_KEY;
+  const previousSocure = process.env.SOCURE_API_KEY;
+
+  delete process.env.KYC_PROVIDER;
+  delete process.env.ONFIDO_API_KEY;
+  delete process.env.SOCURE_API_KEY;
+
+  try {
+    const result = await initiateKYCVerification({
+      userId: 'user_internal_fallback',
+      email: 'fallback@example.com',
+      firstName: 'Fallback',
+      lastName: 'User',
+      dateOfBirth: '1990-01-01',
+      countryCode: 'US',
+      documentType: 'passport',
+    });
+
+    assert.equal(result.status, 'pending');
+    assert.equal(result.provider, 'internal_admin');
+  } finally {
+    if (previousProvider === undefined) delete process.env.KYC_PROVIDER; else process.env.KYC_PROVIDER = previousProvider;
+    if (previousOnfido === undefined) delete process.env.ONFIDO_API_KEY; else process.env.ONFIDO_API_KEY = previousOnfido;
+    if (previousSocure === undefined) delete process.env.SOCURE_API_KEY; else process.env.SOCURE_API_KEY = previousSocure;
+  }
 });
 
 test('production validation fails when admin credentials are weak or missing', () => {

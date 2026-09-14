@@ -5,7 +5,6 @@ import { requireAuth } from "../lib/session";
 import { notifyUser, pushAdminAlert } from "../lib/notify";
 import { logger } from "../lib/logger";
 import { persistWalletBalance } from "../lib/db-persist";
-import { adjustMoney } from "../lib/money";
 
 const router: IRouter = Router();
 
@@ -423,7 +422,7 @@ router.post("/mentorship/sessions/book", requireAuth, (req, res) => {
     mentorshipSessions.get(req.userId!)!.push(session);
 
     // Deduct from wallet
-    wallet.balance = adjustMoney(wallet.balance, -cost);
+    wallet.balance = Number((wallet.balance - cost).toFixed(2));
     // PHASE 1 FIX: Persist balance change to survive server restarts
     void persistWalletBalance(wallet.id, wallet.balance, 0);
 
@@ -562,7 +561,7 @@ router.post("/mentors/bookings/:bookingId/cancel", requireAuth, (req, res) => {
     const data = getUserData(req.userId!);
     const mainWallet = data.wallets.find((w) => w.type === "main");
     if (mainWallet) {
-      mainWallet.balance = adjustMoney(mainWallet.balance, session.cost);
+      mainWallet.balance = Number((mainWallet.balance + session.cost).toFixed(2));
       data.transactions.unshift({
         id: newId("tx"),
         walletId: mainWallet.id,
@@ -636,7 +635,7 @@ router.post("/mentorship/sessions/:sessionId/cancel", requireAuth, (req, res) =>
     const mainWallet = data.wallets.find((w) => w.type === "main");
 
     if (mainWallet) {
-      mainWallet.balance = adjustMoney(mainWallet.balance, session.cost);
+      mainWallet.balance = Number((mainWallet.balance + session.cost).toFixed(2));
 
       // Record refund transaction
       data.transactions.unshift({

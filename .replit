@@ -1,12 +1,14 @@
 modules = ["nodejs-20", "web", "bash", "postgresql-16"]
+language = "nodejs"
+entrypoint = "artifacts/api-server/src/index.ts"
+packager = "npm"
+run = "npm run replit:start"
 
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["npm", "cache", "clean", "--force"]
-env = { "CI" = "true" }
+build = ["npm", "run", "build:replit"]
+run = ["npm", "run", "replit:start"]
 
 [workflows]
 runButton = "Project"
@@ -21,16 +23,3 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
-
-[userenv]
-
-[userenv.shared]
-ADMIN_EMAIL = "enwukwerigodspower7@gmail.com,enwukwerigodspower729@yahoo.com"
-ADMIN_NOTIFY_EMAIL = "enwukwerigodspower7@gmail.com"
-AI_INTEGRATIONS_OPENAI_API_KEY = "_DUMMY_API_KEY_"
-AI_INTEGRATIONS_OPENAI_BASE_URL = "http://localhost:1106/modelfarm/openai"
-ALLOWED_ORIGINS = "https://xpressprofx.com,https://www.xpressprofx.com"
-APP_NAME = "XpressProFx.com"
-COREPACK_ENABLE_STRICT = "0"
-ENABLE_DEMO_AUTH = "true"
-LOG_LEVEL = "info"
