@@ -13,7 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 
-const NAV = [{ href: "/markets", label: "Markets" }, { href: "/education", label: "Learn" }, { href: "/about", label: "Company" }, { href: "/contact", label: "Support" }];
+const NAV = [
+  { href: "/markets", label: "Markets" },
+  { href: "/about", label: "About" },
+  { href: "/trade", label: "Trade" },
+  { href: "/copy-trading", label: "Copy Trading" },
+  { href: "/contact", label: "Contact" },
+];
 
 export function PublicLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();

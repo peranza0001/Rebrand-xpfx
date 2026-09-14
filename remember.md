@@ -6,10 +6,10 @@
 
 <!-- AUTO-UPDATE:START -->
 ## 🤖 AUTO-SYNC MEMORY
-- Last sync: 2026-09-12 09:02:50 UTC
+- Last sync: 2026-09-14 12:15:24 UTC
 - Memory rule: Any AI change must refresh this file before finishing the task.
 - This project now auto-syncs the memory log via the `remember:update` script and git hooks.
-- Current working tree: M  artifacts/nextrade/vite.config.ts
+- Current working tree: M  artifacts/nextrade/src/App.tsx | M  artifacts/nextrade/src/components/layout/PublicLayout.tsx
 <!-- AUTO-UPDATE:END -->
 
 ## ✅ ACCEPTANCE CHECK (2026-08-17)
